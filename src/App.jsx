@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getBaseUrl, setBaseUrl as saveBaseUrl } from './lib/settings.js';
+import { getBaseUrl, setBaseUrl as saveBaseUrl, DEFAULT_BASE_URL } from './lib/settings.js';
 import { saveCredentials, getCredentialsStatus, clearCredentials } from './lib/authApi.js';
 import { SettingsForm } from './components/SettingsForm/SettingsForm.jsx';
 import { CredentialForm } from './components/CredentialForm/CredentialForm.jsx';
@@ -66,7 +66,11 @@ function App() {
 
       <section className={styles.section}>
         <h2>Service connection</h2>
-        <SettingsForm baseUrl={baseUrl} onSave={handleSaveBaseUrl} />
+        <SettingsForm
+          baseUrl={baseUrl}
+          isDefault={baseUrl === DEFAULT_BASE_URL}
+          onSave={handleSaveBaseUrl}
+        />
       </section>
 
       {baseUrl && credState.status === 'unsaved' && (
@@ -81,10 +85,6 @@ function App() {
           <h2>Create a rally</h2>
           <RallyBuilder baseUrl={baseUrl} />
         </section>
-      )}
-
-      {!baseUrl && (
-        <p className={styles.muted}>Set the service URL above to save your credentials.</p>
       )}
     </div>
   );

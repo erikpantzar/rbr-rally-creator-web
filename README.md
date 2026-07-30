@@ -16,11 +16,14 @@ npm install
 npm run dev
 ```
 
-On first run, enter the service's base URL (e.g. its tailnet HTTPS address) in the Settings
-section — this is stored in `localStorage` and isn't a secret, just a hostname. Your
-rallysimfans.hu credentials are **not** stored here: signing in sends them once to the service,
-which validates them via a real login and sets an httpOnly session cookie. This app never reads
-or stores the raw password.
+The app defaults to the public `rbr-rally-creator-service` instance (exposed via Tailscale
+Funnel, with CORS already configured for this GitHub Pages origin) — no setup needed, just open
+the app and go. The Settings section only needs to be touched to point at a different backend,
+e.g. `http://localhost:3000` for local development against a service running on your own
+machine; the override is stored in `localStorage` (not a secret, just a hostname) and clearing
+the field reverts to the public default. Your rallysimfans.hu credentials are **not** stored
+here: signing in sends them once to the service, which validates them via a real login and sets
+an httpOnly session cookie. This app never reads or stores the raw password.
 
 ## Architecture
 

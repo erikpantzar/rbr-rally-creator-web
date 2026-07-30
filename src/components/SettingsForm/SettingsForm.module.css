@@ -26,6 +26,15 @@
   font-size: 0.9rem;
 }
 
+.hint code {
+  font-family: ui-monospace, monospace;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .form button {
   align-self: flex-start;
   padding: 0.6rem 1.25rem;
@@ -39,4 +48,10 @@
 
 .form button:hover {
   filter: brightness(1.05);
+}
+
+.form button.secondary {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
 }

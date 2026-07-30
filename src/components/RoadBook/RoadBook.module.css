@@ -1,0 +1,138 @@
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.book {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.feedback {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius);
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  font-size: 0.85rem;
+}
+
+.legGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.legHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.legHeader h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.legStartStage {
+  font-weight: 400;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+.legInputs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.legFieldLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.legInputs input,
+.legInputs select {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.stagesList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 3rem;
+  border-radius: var(--radius);
+  transition: background-color 0.15s ease;
+}
+
+.legDropActive {
+  background: var(--accent-soft-bg);
+  outline: 2px dashed var(--accent);
+  outline-offset: 4px;
+}
+
+.legDropHint {
+  font-size: 0.8rem;
+  color: var(--accent-soft-fg);
+  text-align: center;
+  padding: 0.5rem;
+}
+
+.emptyLeg {
+  margin: 0;
+  padding: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.dragPreview {
+  padding: 0.6rem 0.85rem;
+  background: var(--card);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 28px oklch(0% 0 0 / 0.22);
+  min-width: 12rem;
+}
+
+.dragPreviewName {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.dragPreviewMeta {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-transform: capitalize;
+}

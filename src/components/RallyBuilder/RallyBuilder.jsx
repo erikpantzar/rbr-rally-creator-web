@@ -7,61 +7,18 @@ import {
   createRally,
   getJobStatus,
 } from '../../lib/rallyApi.js';
+import {
+  createDefaultStageConfig,
+  createDefaultLegConfig,
+  distributeStagesEvenly,
+  computeLegStageRanges,
+  normalizeLastStageService,
+} from '../../lib/rallyPlan.js';
 import { RallyBasicsForm } from '../RallyBasicsForm/RallyBasicsForm.jsx';
 import { CarGroupPicker } from '../CarGroupPicker/CarGroupPicker.jsx';
-import { StageSlot } from '../StageSlot/StageSlot.jsx';
+import { RoadBook } from '../RoadBook/RoadBook.jsx';
 import { JobProgress } from '../JobProgress/JobProgress.jsx';
 import styles from './RallyBuilder.module.css';
-
-function createDefaultStageConfig(stages) {
-  return {
-    stage_id: stages[0]?.id ?? null,
-    surface_age_id: '2',
-    wetness_id: 'dry',
-    tracksettings_id: 'Morning Clear Crisp',
-    def_tyre_id: 'Gravel Dry',
-    choose_tyre: false,
-    choose_setup: false,
-    service_time: '60 minutes',
-    nummechanics: '6 mechanic',
-    mechanicsSkill: 'Expert',
-  };
-}
-
-// stage_count is the manual (non-drag) leg-boundary control: how many of
-// the rally's stages fall in this leg. start_stage_no is derived from it
-// (see computeLegStageRanges) rather than stored directly, so it can never
-// drift out of sync with the counts a user has typed in.
-function createDefaultLegConfig(stageCount = 0) {
-  return {
-    open_time: '',
-    close_time: '',
-    super_rally: 'disabled',
-    stage_count: stageCount,
-  };
-}
-
-// Evenly split `totalStages` across `legCount` legs (remainder stages go to
-// the earliest legs) -- used only to seed/reseed defaults; a user's manual
-// per-leg counts otherwise take over.
-function distributeStagesEvenly(totalStages, legCount) {
-  if (legCount <= 0) return [];
-  const base = Math.floor(totalStages / legCount);
-  const remainder = totalStages % legCount;
-  return Array.from({ length: legCount }, (_, i) => base + (i < remainder ? 1 : 0));
-}
-
-// Turns each leg's stage_count into an absolute [startIndex, endIndex) slice
-// range over stagePlan, plus the 1-based start_stage_no the backend expects.
-function computeLegStageRanges(legSchedule) {
-  let cursor = 0;
-  return legSchedule.map((leg) => {
-    const startIndex = cursor;
-    const count = Math.max(0, leg.stage_count || 0);
-    cursor += count;
-    return { startIndex, endIndex: cursor, startStageNo: startIndex + 1 };
-  });
-}
 
 export function RallyBuilder({ baseUrl }) {
   const [loading, setLoading] = useState(true);
@@ -92,6 +49,17 @@ export function RallyBuilder({ baseUrl }) {
   const [job, setJob] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Every stagePlan mutation funnels through here so the "service disabled
+  // on the rally's final stage" business rule (confirmed live against the
+  // real site, see rbr-rally-creator-service's discovery) is always
+  // reflected in state -- whichever stage ends up last (after add/remove,
+  // or a drag that reorders/moves stages across a leg boundary) has its
+  // service fields forced back to "No Service" rather than silently
+  // retaining a full-service config the site would drop on save anyway.
+  function updateStagePlan(next) {
+    setStagePlan(normalizeLastStageService(next));
+  }
+
   // Initialize catalog data (stages, car groups, individual cars) and the
   // shared rally-options enum lists on mount.
   useEffect(() => {
@@ -112,10 +80,8 @@ export function RallyBuilder({ baseUrl }) {
           setRallyOptions(optionsRes);
 
           // Initialize stagePlan and legSchedule with defaults (2 stages, 1 leg)
-          const defaultStageConfigs = Array.from({ length: 2 }, () =>
-            createDefaultStageConfig(stagesRes.data || [])
-          );
-          setStagePlan(defaultStageConfigs);
+          const defaultStageConfigs = Array.from({ length: 2 }, () => createDefaultStageConfig());
+          updateStagePlan(defaultStageConfigs);
 
           const [legStageCount] = distributeStagesEvenly(2, 1);
           setLegSchedule([createDefaultLegConfig(legStageCount)]);
@@ -138,18 +104,14 @@ export function RallyBuilder({ baseUrl }) {
       const newLength = rallyBasics.stages;
       if (prev.length === newLength) return prev;
 
-      if (newLength > prev.length) {
-        // Add new stages
-        const newStages = Array.from({ length: newLength - prev.length }, () =>
-          createDefaultStageConfig(stages)
-        );
-        return [...prev, ...newStages];
-      } else {
-        // Remove excess stages
-        return prev.slice(0, newLength);
-      }
+      const next =
+        newLength > prev.length
+          ? [...prev, ...Array.from({ length: newLength - prev.length }, () => createDefaultStageConfig())]
+          : prev.slice(0, newLength);
+
+      return normalizeLastStageService(next);
     });
-  }, [rallyBasics.stages, stages]);
+  }, [rallyBasics.stages]);
 
   // Keep legSchedule in sync with rallyBasics.legs (added legs start with
   // stage_count: 0 -- the rebalance effect below fills them in)
@@ -229,6 +191,11 @@ export function RallyBuilder({ baseUrl }) {
       return;
     }
 
+    if (stagePlan.some((s) => !s.stage_id)) {
+      alert('Every stage slot needs a stage assigned -- drag one in from the catalog.');
+      return;
+    }
+
     const legRanges = computeLegStageRanges(legSchedule);
     const assignedStages = legRanges.length > 0 ? legRanges[legRanges.length - 1].endIndex : 0;
     if (assignedStages !== stagePlan.length) {
@@ -248,11 +215,16 @@ export function RallyBuilder({ baseUrl }) {
       start_stage_no: legRanges[i].startStageNo,
     }));
 
+    // _uid is a client-only drag-and-drop identity (see lib/rallyPlan.js) --
+    // strip it so the submitted payload shape is exactly what it was before
+    // Phase 3, unchanged from what the service validates against.
+    const stagePlanPayload = stagePlan.map(({ _uid, ...rest }) => rest);
+
     const config = {
       rallyBasics,
       carGroupIds,
       legSchedule: legSchedulePayload,
-      stagePlan,
+      stagePlan: stagePlanPayload,
     };
 
     setSubmitting(true);
@@ -289,13 +261,21 @@ export function RallyBuilder({ baseUrl }) {
   const legRanges = computeLegStageRanges(legSchedule);
   const assignedStages = legRanges.length > 0 ? legRanges[legRanges.length - 1].endIndex : 0;
   const legStagesBalanced = assignedStages === stagePlan.length;
+  const allStagesAssigned = stagePlan.every((s) => s.stage_id);
 
   const canSubmit =
     !submitting &&
     rallyBasics.rally_name.trim() &&
     carGroupIds.length > 0 &&
     stagePlan.length === rallyBasics.stages &&
-    legStagesBalanced;
+    legStagesBalanced &&
+    allStagesAssigned;
+
+  function handleLegFieldChange(legIndex, field, value) {
+    const newLegs = [...legSchedule];
+    newLegs[legIndex] = { ...newLegs[legIndex], [field]: value };
+    setLegSchedule(newLegs);
+  }
 
   return (
     <div className={styles.container}>
@@ -309,104 +289,30 @@ export function RallyBuilder({ baseUrl }) {
       />
 
       <div className={styles.stagesSection}>
-        <h3>Stages and legs</h3>
+        <h3>Road book</h3>
 
         {!legStagesBalanced && (
           <p className={styles.legWarning}>
             Leg stage counts add up to {assignedStages}, but the rally has {stagePlan.length}{' '}
-            stages. Adjust "Stages in this leg" below so they add up to the total.
+            stages. Adjust "Stages in this leg" below, or drag a stage across a leg divider, so
+            they add up to the total.
+          </p>
+        )}
+        {legStagesBalanced && !allStagesAssigned && (
+          <p className={styles.legWarning}>
+            Some stage slots are still empty -- drag a stage onto each one from the catalog panel.
           </p>
         )}
 
-        {legSchedule.map((leg, legIndex) => {
-          const { startIndex: legStartStageIndex, endIndex: legEndStageIndex, startStageNo } =
-            legRanges[legIndex];
-          const legStages = stagePlan.slice(legStartStageIndex, legEndStageIndex);
-
-          return (
-            <div key={legIndex} className={styles.legGroup}>
-              <div className={styles.legHeader}>
-                <h4>
-                  Leg {legIndex + 1}{' '}
-                  <span className={styles.legStartStage}>(starts at stage {startStageNo})</span>
-                </h4>
-                <div className={styles.legInputs}>
-                  <label className={styles.legFieldLabel}>
-                    Stages in this leg
-                    <input
-                      type="number"
-                      min="0"
-                      max={stagePlan.length}
-                      value={leg.stage_count}
-                      onChange={(e) => {
-                        const newLegs = [...legSchedule];
-                        newLegs[legIndex] = {
-                          ...leg,
-                          stage_count: parseInt(e.target.value, 10) || 0,
-                        };
-                        setLegSchedule(newLegs);
-                      }}
-                    />
-                  </label>
-                  <input
-                    type="datetime-local"
-                    placeholder="Open time"
-                    value={leg.open_time}
-                    onChange={(e) => {
-                      const newLegs = [...legSchedule];
-                      newLegs[legIndex] = { ...leg, open_time: e.target.value };
-                      setLegSchedule(newLegs);
-                    }}
-                  />
-                  <input
-                    type="datetime-local"
-                    placeholder="Close time"
-                    value={leg.close_time}
-                    onChange={(e) => {
-                      const newLegs = [...legSchedule];
-                      newLegs[legIndex] = { ...leg, close_time: e.target.value };
-                      setLegSchedule(newLegs);
-                    }}
-                  />
-                  <select
-                    value={leg.super_rally}
-                    onChange={(e) => {
-                      const newLegs = [...legSchedule];
-                      newLegs[legIndex] = { ...leg, super_rally: e.target.value };
-                      setLegSchedule(newLegs);
-                    }}
-                  >
-                    {rallyOptions.superRally.map((opt) => (
-                      <option key={opt} value={opt}>
-                        Super Rally: {opt}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className={styles.stagesList}>
-                {legStages.map((stageConfig, stageIndexInLeg) => {
-                  const absoluteStageIndex = legStartStageIndex + stageIndexInLeg;
-                  return (
-                    <StageSlot
-                      key={absoluteStageIndex}
-                      stages={stages}
-                      value={stageConfig}
-                      options={rallyOptions}
-                      onChange={(updatedStage) => {
-                        const newPlan = [...stagePlan];
-                        newPlan[absoluteStageIndex] = updatedStage;
-                        setStagePlan(newPlan);
-                      }}
-                      stageNumber={absoluteStageIndex + 1}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
+        <RoadBook
+          stages={stages}
+          options={rallyOptions}
+          stagePlan={stagePlan}
+          legSchedule={legSchedule}
+          onStagePlanChange={updateStagePlan}
+          onLegScheduleChange={setLegSchedule}
+          onLegFieldChange={handleLegFieldChange}
+        />
       </div>
 
       <div className={styles.actions}>

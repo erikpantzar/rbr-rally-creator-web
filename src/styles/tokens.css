@@ -1,0 +1,48 @@
+/* Design tokens -- the only global CSS in this app besides index.css's
+   reset. Every component references these via var(--x) from inside its own
+   .module.css file rather than declaring raw colors, so retheming is a
+   one-file change. Light/dark handled both via prefers-color-scheme (the
+   OS-level signal) and a :root[data-theme] override (an in-app toggle, if
+   one is added later) -- the explicit override always wins. */
+:root {
+  color-scheme: light dark;
+
+  --bg: oklch(97% 0.01 60);
+  --ink: oklch(24% 0.02 40);
+  --ink-soft: oklch(42% 0.02 40);
+  --muted: oklch(55% 0.015 40);
+  --border: oklch(88% 0.01 60);
+  --card: #ffffff;
+
+  --accent: oklch(55% 0.19 30);
+  --accent-ink: #ffffff;
+  --accent-soft-bg: oklch(93% 0.05 30);
+  --accent-soft-fg: oklch(45% 0.15 30);
+
+  --danger-bg: oklch(95% 0.03 25);
+  --danger-fg: oklch(48% 0.18 25);
+
+  --success-bg: oklch(94% 0.05 150);
+  --success-fg: oklch(45% 0.13 150);
+
+  --radius: 0.75rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: oklch(20% 0.015 40);
+    --ink: oklch(92% 0.015 60);
+    --ink-soft: oklch(80% 0.015 60);
+    --muted: oklch(65% 0.015 60);
+    --border: oklch(32% 0.015 40);
+    --card: oklch(25% 0.015 40);
+  }
+}
+:root[data-theme='dark'] {
+  --bg: oklch(20% 0.015 40); --ink: oklch(92% 0.015 60); --ink-soft: oklch(80% 0.015 60);
+  --muted: oklch(65% 0.015 60); --border: oklch(32% 0.015 40); --card: oklch(25% 0.015 40);
+}
+:root[data-theme='light'] {
+  --bg: oklch(97% 0.01 60); --ink: oklch(24% 0.02 40); --ink-soft: oklch(42% 0.02 40);
+  --muted: oklch(55% 0.015 40); --border: oklch(88% 0.01 60); --card: #ffffff;
+}

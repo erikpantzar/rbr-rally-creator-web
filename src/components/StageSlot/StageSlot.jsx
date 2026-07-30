@@ -1,15 +1,11 @@
 import { useState, useMemo } from 'react';
 import styles from './StageSlot.module.css';
 
-const TYRE_OPTIONS = ['Tarmac Dry', 'Tarmac Intermediate', 'Tarmac Wet', 'Gravel Dry', 'Gravel Intermediate', 'Gravel Wet', 'Snow'];
-
-const SERVICE_TIME_OPTIONS = ['No Service', '2 minutes', '3 minutes', '4 minutes', '5 minutes', '10 minutes', '15 minutes', '20 minutes', '30 minutes', '45 minutes', '60 minutes'];
-
-const MECHANICS_OPTIONS = ['No Service', '2 mechanic', '3 mechanic', '4 mechanic', '5 mechanic', '6 mechanic'];
-
-const MECHANICS_SKILL_OPTIONS = ['No Service', 'Inexperienced', 'Proficient', 'Competent', 'Skilled', 'Expert'];
-
-export function StageSlot({ stages, value, onChange, stageNumber }) {
+// Tyre/service-time/mechanics/surface-age option lists come from the
+// service's GET /catalog/rally-options (the `options` prop) -- it's the
+// single source of truth verified against the real site's wizard, not a
+// local copy.
+export function StageSlot({ stages, value, onChange, stageNumber, options }) {
   const [filterText, setFilterText] = useState('');
 
   function handleChange(field, fieldValue) {
@@ -67,36 +63,18 @@ export function StageSlot({ stages, value, onChange, stageNumber }) {
       <div className={styles.formGroup}>
         <label>Surface age</label>
         <div className={styles.radioGroup}>
-          <label className={styles.radioLabel}>
-            <input
-              type="radio"
-              name={`surface-${stageNumber}`}
-              value="1"
-              checked={value.surface_age_id === '1'}
-              onChange={(e) => handleChange('surface_age_id', e.target.value)}
-            />
-            New
-          </label>
-          <label className={styles.radioLabel}>
-            <input
-              type="radio"
-              name={`surface-${stageNumber}`}
-              value="2"
-              checked={value.surface_age_id === '2'}
-              onChange={(e) => handleChange('surface_age_id', e.target.value)}
-            />
-            Normal
-          </label>
-          <label className={styles.radioLabel}>
-            <input
-              type="radio"
-              name={`surface-${stageNumber}`}
-              value="3"
-              checked={value.surface_age_id === '3'}
-              onChange={(e) => handleChange('surface_age_id', e.target.value)}
-            />
-            Worn
-          </label>
+          {options.surfaceAge.map((age) => (
+            <label key={age.value} className={styles.radioLabel}>
+              <input
+                type="radio"
+                name={`surface-${stageNumber}`}
+                value={age.value}
+                checked={value.surface_age_id === age.value}
+                onChange={(e) => handleChange('surface_age_id', e.target.value)}
+              />
+              {age.label}
+            </label>
+          ))}
         </div>
       </div>
 
@@ -129,7 +107,7 @@ export function StageSlot({ stages, value, onChange, stageNumber }) {
           value={value.def_tyre_id}
           onChange={(e) => handleChange('def_tyre_id', e.target.value)}
         >
-          {TYRE_OPTIONS.map((opt) => (
+          {options.tyreOptions.map((opt) => (
             <option key={opt} value={opt}>
               {opt}
             </option>
@@ -163,7 +141,7 @@ export function StageSlot({ stages, value, onChange, stageNumber }) {
           value={value.service_time}
           onChange={(e) => handleChange('service_time', e.target.value)}
         >
-          {SERVICE_TIME_OPTIONS.map((opt) => (
+          {options.serviceTime.map((opt) => (
             <option key={opt} value={opt}>
               {opt}
             </option>
@@ -178,7 +156,7 @@ export function StageSlot({ stages, value, onChange, stageNumber }) {
           value={value.nummechanics}
           onChange={(e) => handleChange('nummechanics', e.target.value)}
         >
-          {MECHANICS_OPTIONS.map((opt) => (
+          {options.mechanicsCount.map((opt) => (
             <option key={opt} value={opt}>
               {opt}
             </option>
@@ -193,7 +171,7 @@ export function StageSlot({ stages, value, onChange, stageNumber }) {
           value={value.mechanicsSkill}
           onChange={(e) => handleChange('mechanicsSkill', e.target.value)}
         >
-          {MECHANICS_SKILL_OPTIONS.map((opt) => (
+          {options.mechanicsSkill.map((opt) => (
             <option key={opt} value={opt}>
               {opt}
             </option>

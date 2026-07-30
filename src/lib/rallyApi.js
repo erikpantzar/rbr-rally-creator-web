@@ -31,6 +31,14 @@ export const getStages = (baseUrl) => requestArray(baseUrl, '/catalog/stages');
 
 export const getCarGroups = (baseUrl) => requestArray(baseUrl, '/catalog/car-groups');
 
+export const getCars = (baseUrl) => requestArray(baseUrl, '/catalog/cars');
+
+// The service is the single source of truth for these enumerated option
+// lists (damage levels, pacenotes options, tyre compounds, etc.) -- it has
+// actually driven the real site's wizard to confirm them. Don't hardcode
+// separate copies here; fetch and use these instead.
+export const getRallyOptions = (baseUrl) => request(baseUrl, '/catalog/rally-options');
+
 export const createRally = (baseUrl, config) =>
   request(baseUrl, '/rallies', { method: 'POST', body: config });
 

@@ -1,6 +1,12 @@
 import styles from './RallyBasicsForm.module.css';
 
-export function RallyBasicsForm({ value, onChange }) {
+// road_side_service comes back from the service as plain value strings
+// (e.g. "no", "2 minutes") -- only "no" needs a friendlier label.
+function roadSideServiceLabel(value) {
+  return value === 'no' ? 'No service' : value;
+}
+
+export function RallyBasicsForm({ value, onChange, options }) {
   function handleChange(field, fieldValue) {
     onChange({ ...value, [field]: fieldValue });
   }
@@ -34,26 +40,18 @@ export function RallyBasicsForm({ value, onChange }) {
       <div className={styles.formGroup}>
         <label>Damage rules</label>
         <div className={styles.radioGroup}>
-          <label className={styles.radioLabel}>
-            <input
-              type="radio"
-              name="damage"
-              value="2"
-              checked={value.damage_id === '2'}
-              onChange={(e) => handleChange('damage_id', e.target.value)}
-            />
-            Reduced
-          </label>
-          <label className={styles.radioLabel}>
-            <input
-              type="radio"
-              name="damage"
-              value="3"
-              checked={value.damage_id === '3'}
-              onChange={(e) => handleChange('damage_id', e.target.value)}
-            />
-            Realistic
-          </label>
+          {options.damageLevels.map((level) => (
+            <label key={level.value} className={styles.radioLabel}>
+              <input
+                type="radio"
+                name="damage"
+                value={level.value}
+                checked={value.damage_id === level.value}
+                onChange={(e) => handleChange('damage_id', e.target.value)}
+              />
+              {level.label}
+            </label>
+          ))}
         </div>
       </div>
 
@@ -88,16 +86,11 @@ export function RallyBasicsForm({ value, onChange }) {
           value={value.pacenotes_options}
           onChange={(e) => handleChange('pacenotes_options', e.target.value)}
         >
-          <option value="Normal Pacenotes">Normal Pacenotes</option>
-          <option value="Don't show 3D pacenotes">Don't show 3D pacenotes</option>
-          <option value="Don't show the countdown of pacenote distance">
-            Don't show the countdown of pacenote distance
-          </option>
-          <option value="Don't show the 3D pacenote and countdown of pacenote distance">
-            Don't show the 3D pacenote and countdown of pacenote distance
-          </option>
-          <option value="Only pacenote audio">Only pacenote audio</option>
-          <option value="No pacenote symbols and audio">No pacenote symbols and audio</option>
+          {options.pacenotesOptions.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -108,10 +101,11 @@ export function RallyBasicsForm({ value, onChange }) {
           value={value.road_side_service}
           onChange={(e) => handleChange('road_side_service', e.target.value)}
         >
-          <option value="no">No service</option>
-          <option value="2 minutes">2 minutes</option>
-          <option value="3 minutes">3 minutes</option>
-          <option value="5 minutes">5 minutes</option>
+          {options.roadSideService.map((opt) => (
+            <option key={opt} value={opt}>
+              {roadSideServiceLabel(opt)}
+            </option>
+          ))}
         </select>
       </div>
 

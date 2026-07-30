@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
-import { getStages, getCarGroups, createRally, getJobStatus } from '../../lib/rallyApi.js';
+import {
+  getStages,
+  getCarGroups,
+  getCars,
+  getRallyOptions,
+  createRally,
+  getJobStatus,
+} from '../../lib/rallyApi.js';
 import { RallyBasicsForm } from '../RallyBasicsForm/RallyBasicsForm.jsx';
 import { CarGroupPicker } from '../CarGroupPicker/CarGroupPicker.jsx';
 import { StageSlot } from '../StageSlot/StageSlot.jsx';
@@ -35,6 +42,8 @@ export function RallyBuilder({ baseUrl }) {
   const [error, setError] = useState(null);
   const [stages, setStages] = useState([]);
   const [carGroups, setCarGroups] = useState([]);
+  const [cars, setCars] = useState([]);
+  const [rallyOptions, setRallyOptions] = useState(null);
 
   const [rallyBasics, setRallyBasics] = useState({
     rally_name: '',
@@ -57,19 +66,24 @@ export function RallyBuilder({ baseUrl }) {
   const [job, setJob] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Initialize stages and car groups on mount
+  // Initialize catalog data (stages, car groups, individual cars) and the
+  // shared rally-options enum lists on mount.
   useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true);
-        const [stagesRes, groupsRes] = await Promise.all([
+        const [stagesRes, groupsRes, carsRes, optionsRes] = await Promise.all([
           getStages(baseUrl),
           getCarGroups(baseUrl),
+          getCars(baseUrl),
+          getRallyOptions(baseUrl),
         ]);
 
-        if (stagesRes.ok && groupsRes.ok) {
+        if (stagesRes.ok && groupsRes.ok && carsRes.ok && optionsRes.ok) {
           setStages(stagesRes.data || []);
           setCarGroups(groupsRes.data || []);
+          setCars(carsRes.data || []);
+          setRallyOptions(optionsRes);
 
           // Initialize stagePlan and legSchedule with defaults (2 stages, 1 leg)
           const defaultStageConfigs = Array.from({ length: 2 }, () =>
@@ -229,10 +243,11 @@ export function RallyBuilder({ baseUrl }) {
 
   return (
     <div className={styles.container}>
-      <RallyBasicsForm value={rallyBasics} onChange={setRallyBasics} />
+      <RallyBasicsForm value={rallyBasics} onChange={setRallyBasics} options={rallyOptions} />
 
       <CarGroupPicker
         carGroups={carGroups}
+        cars={cars}
         selectedIds={carGroupIds}
         onChange={setCarGroupIds}
       />
@@ -281,8 +296,11 @@ export function RallyBuilder({ baseUrl }) {
                       setLegSchedule(newLegs);
                     }}
                   >
-                    <option value="disabled">Super Rally: disabled</option>
-                    <option value="150%">Super Rally: 150%</option>
+                    {rallyOptions.superRally.map((opt) => (
+                      <option key={opt} value={opt}>
+                        Super Rally: {opt}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -295,6 +313,7 @@ export function RallyBuilder({ baseUrl }) {
                       key={absoluteStageIndex}
                       stages={stages}
                       value={stageConfig}
+                      options={rallyOptions}
                       onChange={(updatedStage) => {
                         const newPlan = [...stagePlan];
                         newPlan[absoluteStageIndex] = updatedStage;

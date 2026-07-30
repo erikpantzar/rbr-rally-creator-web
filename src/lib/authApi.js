@@ -1,7 +1,9 @@
-// Thin fetch wrapper for rbr-rally-creator-service's /auth/* endpoints.
-// `credentials: 'include'` is required on every call -- the session lives
-// in a cross-site httpOnly cookie the service sets, this app never reads
-// or stores the raw username/password itself.
+// Thin fetch wrapper for rbr-rally-creator-service's /auth/credentials
+// endpoint. `credentials: 'include'` is required on every call -- the
+// session lives in a cross-site httpOnly cookie the service sets, this app
+// never reads or stores the raw username/password itself. Saving
+// credentials does NOT validate them against rallysimfans.hu -- that only
+// happens later, when a rally-creation job actually runs (not built yet).
 async function request(baseUrl, path, { method = 'GET', body } = {}) {
   const res = await fetch(`${baseUrl}${path}`, {
     method,
@@ -14,9 +16,10 @@ async function request(baseUrl, path, { method = 'GET', body } = {}) {
   return { ok: true, ...data };
 }
 
-export const login = (baseUrl, username, password) =>
-  request(baseUrl, '/auth/login', { method: 'POST', body: { username, password } });
+export const saveCredentials = (baseUrl, username, password) =>
+  request(baseUrl, '/auth/credentials', { method: 'POST', body: { username, password } });
 
-export const getSession = (baseUrl) => request(baseUrl, '/auth/session');
+export const getCredentialsStatus = (baseUrl) => request(baseUrl, '/auth/credentials');
 
-export const logout = (baseUrl) => request(baseUrl, '/auth/logout', { method: 'POST' });
+export const clearCredentials = (baseUrl) =>
+  request(baseUrl, '/auth/credentials', { method: 'DELETE' });

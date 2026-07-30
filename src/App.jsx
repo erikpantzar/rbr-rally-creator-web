@@ -1,49 +1,52 @@
 import { useEffect, useState } from 'react';
 import { getBaseUrl, setBaseUrl as saveBaseUrl } from './lib/settings.js';
-import { login, getSession, logout } from './lib/authApi.js';
+import { saveCredentials, getCredentialsStatus, clearCredentials } from './lib/authApi.js';
 import { SettingsForm } from './components/SettingsForm/SettingsForm.jsx';
 import { CredentialForm } from './components/CredentialForm/CredentialForm.jsx';
-import { AuthStatus } from './components/AuthStatus/AuthStatus.jsx';
+import { CredentialStatus } from './components/CredentialStatus/CredentialStatus.jsx';
 import styles from './App.module.css';
 
 // Only this top-level component touches fetch/localStorage -- everything
 // under components/ is presentational (props in, callback props out), per
 // the "simple in, simple out" convention from willys-web-prototype's
 // docs/COMPONENTS.md.
+//
+// Saving credentials here does NOT sign in to rallysimfans.hu -- it just
+// hands them to the service to hold (httpOnly cookie, never JS-readable
+// storage). The real Playwright login only happens later, when a rally is
+// actually submitted and the automation agent needs to act on the site.
 function App() {
   const [baseUrl, setBaseUrlState] = useState(() => getBaseUrl());
-  const [authState, setAuthState] = useState({ status: 'checking' }); // checking | authenticated | unauthenticated
-  const [loginError, setLoginError] = useState(null);
-  const [loggingIn, setLoggingIn] = useState(false);
+  const [credState, setCredState] = useState({ status: 'checking' }); // checking | saved | unsaved
+  const [saveError, setSaveError] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!baseUrl) {
-      setAuthState({ status: 'unauthenticated' });
+      setCredState({ status: 'unsaved' });
       return;
     }
-    setAuthState({ status: 'checking' });
-    getSession(baseUrl).then((res) => {
-      setAuthState(
-        res.ok ? { status: 'authenticated', username: res.username } : { status: 'unauthenticated' }
-      );
+    setCredState({ status: 'checking' });
+    getCredentialsStatus(baseUrl).then((res) => {
+      setCredState(res.ok ? { status: 'saved', username: res.username } : { status: 'unsaved' });
     });
   }, [baseUrl]);
 
-  async function handleLogin(username, password) {
-    setLoginError(null);
-    setLoggingIn(true);
-    const res = await login(baseUrl, username, password);
-    setLoggingIn(false);
+  async function handleSaveCredentials(username, password) {
+    setSaveError(null);
+    setSaving(true);
+    const res = await saveCredentials(baseUrl, username, password);
+    setSaving(false);
     if (res.ok) {
-      setAuthState({ status: 'authenticated', username: res.username });
+      setCredState({ status: 'saved', username: res.username });
     } else {
-      setLoginError(res.reason ?? 'login_failed');
+      setSaveError(res.reason ?? 'save_failed');
     }
   }
 
-  async function handleLogout() {
-    await logout(baseUrl);
-    setAuthState({ status: 'unauthenticated' });
+  async function handleClearCredentials() {
+    await clearCredentials(baseUrl);
+    setCredState({ status: 'unsaved' });
   }
 
   function handleSaveBaseUrl(url) {
@@ -55,8 +58,8 @@ function App() {
     <div className={styles.page}>
       <header className={styles.header}>
         <h1>RBR Rally Creator</h1>
-        {authState.status === 'authenticated' && (
-          <AuthStatus username={authState.username} onLogout={handleLogout} />
+        {credState.status === 'saved' && (
+          <CredentialStatus username={credState.username} onClear={handleClearCredentials} />
         )}
       </header>
 
@@ -65,23 +68,24 @@ function App() {
         <SettingsForm baseUrl={baseUrl} onSave={handleSaveBaseUrl} />
       </section>
 
-      {baseUrl && authState.status === 'unauthenticated' && (
+      {baseUrl && credState.status === 'unsaved' && (
         <section className={styles.section}>
-          <h2>Sign in to rallysimfans.hu</h2>
-          <CredentialForm onSubmit={handleLogin} submitting={loggingIn} error={loginError} />
+          <h2>rallysimfans.hu credentials</h2>
+          <CredentialForm onSubmit={handleSaveCredentials} submitting={saving} error={saveError} />
         </section>
       )}
 
-      {baseUrl && authState.status === 'authenticated' && (
+      {baseUrl && credState.status === 'saved' && (
         <section className={styles.section}>
           <p className={styles.muted}>
-            Signed in. Rally creation isn't built yet -- this is Phase 1 (auth only).
+            Credentials saved. Rally creation isn't built yet -- this is Phase 1. When it is, the
+            automation agent will use these to sign in for real at that point, not before.
           </p>
         </section>
       )}
 
       {!baseUrl && (
-        <p className={styles.muted}>Set the service URL above to sign in.</p>
+        <p className={styles.muted}>Set the service URL above to save your credentials.</p>
       )}
     </div>
   );

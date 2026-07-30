@@ -28,13 +28,39 @@ function createDefaultStageConfig(stages) {
   };
 }
 
-function createDefaultLegConfig() {
+// stage_count is the manual (non-drag) leg-boundary control: how many of
+// the rally's stages fall in this leg. start_stage_no is derived from it
+// (see computeLegStageRanges) rather than stored directly, so it can never
+// drift out of sync with the counts a user has typed in.
+function createDefaultLegConfig(stageCount = 0) {
   return {
     open_time: '',
     close_time: '',
-    start_stage_no: 1,
     super_rally: 'disabled',
+    stage_count: stageCount,
   };
+}
+
+// Evenly split `totalStages` across `legCount` legs (remainder stages go to
+// the earliest legs) -- used only to seed/reseed defaults; a user's manual
+// per-leg counts otherwise take over.
+function distributeStagesEvenly(totalStages, legCount) {
+  if (legCount <= 0) return [];
+  const base = Math.floor(totalStages / legCount);
+  const remainder = totalStages % legCount;
+  return Array.from({ length: legCount }, (_, i) => base + (i < remainder ? 1 : 0));
+}
+
+// Turns each leg's stage_count into an absolute [startIndex, endIndex) slice
+// range over stagePlan, plus the 1-based start_stage_no the backend expects.
+function computeLegStageRanges(legSchedule) {
+  let cursor = 0;
+  return legSchedule.map((leg) => {
+    const startIndex = cursor;
+    const count = Math.max(0, leg.stage_count || 0);
+    cursor += count;
+    return { startIndex, endIndex: cursor, startStageNo: startIndex + 1 };
+  });
 }
 
 export function RallyBuilder({ baseUrl }) {
@@ -91,10 +117,8 @@ export function RallyBuilder({ baseUrl }) {
           );
           setStagePlan(defaultStageConfigs);
 
-          const defaultLegConfigs = Array.from({ length: 1 }, () =>
-            createDefaultLegConfig()
-          );
-          setLegSchedule(defaultLegConfigs);
+          const [legStageCount] = distributeStagesEvenly(2, 1);
+          setLegSchedule([createDefaultLegConfig(legStageCount)]);
         } else {
           setError('Failed to fetch catalog data');
         }
@@ -127,7 +151,8 @@ export function RallyBuilder({ baseUrl }) {
     });
   }, [rallyBasics.stages, stages]);
 
-  // Keep legSchedule in sync with rallyBasics.legs
+  // Keep legSchedule in sync with rallyBasics.legs (added legs start with
+  // stage_count: 0 -- the rebalance effect below fills them in)
   useEffect(() => {
     setLegSchedule((prev) => {
       const newLength = rallyBasics.legs;
@@ -146,16 +171,25 @@ export function RallyBuilder({ baseUrl }) {
     });
   }, [rallyBasics.legs]);
 
-  // Auto-compute start_stage_no for each leg
+  // Manual (non-drag) leg-boundary control: each leg carries its own
+  // stage_count, editable by the user (see the "Stages in this leg" input
+  // below), and start_stage_no is derived from the cumulative counts at
+  // render/submit time (computeLegStageRanges) rather than stored here.
+  // This effect only auto-redistributes stages evenly across legs when the
+  // counts don't already add up to the total -- i.e. right after the leg
+  // count or total stage count changes -- so it never clobbers a manual
+  // per-leg edit that already sums correctly.
   useEffect(() => {
     setLegSchedule((prev) => {
-      const stagesPerLeg = Math.ceil(stagePlan.length / prev.length) || 1;
-      return prev.map((leg, legIndex) => ({
-        ...leg,
-        start_stage_no: legIndex * stagesPerLeg + 1,
-      }));
+      if (prev.length === 0) return prev;
+      const totalStages = stagePlan.length;
+      const currentSum = prev.reduce((sum, leg) => sum + (leg.stage_count || 0), 0);
+      if (currentSum === totalStages) return prev;
+
+      const counts = distributeStagesEvenly(totalStages, prev.length);
+      return prev.map((leg, i) => ({ ...leg, stage_count: counts[i] }));
     });
-  }, [stagePlan.length]);
+  }, [stagePlan.length, legSchedule.length]);
 
   // Poll job status when jobId is set
   useEffect(() => {
@@ -195,10 +229,29 @@ export function RallyBuilder({ baseUrl }) {
       return;
     }
 
+    const legRanges = computeLegStageRanges(legSchedule);
+    const assignedStages = legRanges.length > 0 ? legRanges[legRanges.length - 1].endIndex : 0;
+    if (assignedStages !== stagePlan.length) {
+      alert(
+        `Leg "stages in this leg" counts add up to ${assignedStages}, but the rally has ${stagePlan.length} stages. Adjust each leg's stage count so they add up to the total.`
+      );
+      return;
+    }
+
+    // Only open_time/close_time/super_rally/start_stage_no are part of the
+    // shared payload contract -- stage_count is a frontend-only control for
+    // deriving start_stage_no, not sent to the service.
+    const legSchedulePayload = legSchedule.map((leg, i) => ({
+      open_time: leg.open_time,
+      close_time: leg.close_time,
+      super_rally: leg.super_rally,
+      start_stage_no: legRanges[i].startStageNo,
+    }));
+
     const config = {
       rallyBasics,
       carGroupIds,
-      legSchedule,
+      legSchedule: legSchedulePayload,
       stagePlan,
     };
 
@@ -233,13 +286,16 @@ export function RallyBuilder({ baseUrl }) {
     return <div className={styles.container}>{error}</div>;
   }
 
-  const stagesPerLeg = Math.ceil(stagePlan.length / legSchedule.length) || 1;
+  const legRanges = computeLegStageRanges(legSchedule);
+  const assignedStages = legRanges.length > 0 ? legRanges[legRanges.length - 1].endIndex : 0;
+  const legStagesBalanced = assignedStages === stagePlan.length;
 
   const canSubmit =
     !submitting &&
     rallyBasics.rally_name.trim() &&
     carGroupIds.length > 0 &&
-    stagePlan.length === rallyBasics.stages;
+    stagePlan.length === rallyBasics.stages &&
+    legStagesBalanced;
 
   return (
     <div className={styles.container}>
@@ -255,19 +311,43 @@ export function RallyBuilder({ baseUrl }) {
       <div className={styles.stagesSection}>
         <h3>Stages and legs</h3>
 
+        {!legStagesBalanced && (
+          <p className={styles.legWarning}>
+            Leg stage counts add up to {assignedStages}, but the rally has {stagePlan.length}{' '}
+            stages. Adjust "Stages in this leg" below so they add up to the total.
+          </p>
+        )}
+
         {legSchedule.map((leg, legIndex) => {
-          const legStartStageIndex = legIndex * stagesPerLeg;
-          const legEndStageIndex = Math.min(
-            (legIndex + 1) * stagesPerLeg,
-            stagePlan.length
-          );
+          const { startIndex: legStartStageIndex, endIndex: legEndStageIndex, startStageNo } =
+            legRanges[legIndex];
           const legStages = stagePlan.slice(legStartStageIndex, legEndStageIndex);
 
           return (
             <div key={legIndex} className={styles.legGroup}>
               <div className={styles.legHeader}>
-                <h4>Leg {legIndex + 1}</h4>
+                <h4>
+                  Leg {legIndex + 1}{' '}
+                  <span className={styles.legStartStage}>(starts at stage {startStageNo})</span>
+                </h4>
                 <div className={styles.legInputs}>
+                  <label className={styles.legFieldLabel}>
+                    Stages in this leg
+                    <input
+                      type="number"
+                      min="0"
+                      max={stagePlan.length}
+                      value={leg.stage_count}
+                      onChange={(e) => {
+                        const newLegs = [...legSchedule];
+                        newLegs[legIndex] = {
+                          ...leg,
+                          stage_count: parseInt(e.target.value, 10) || 0,
+                        };
+                        setLegSchedule(newLegs);
+                      }}
+                    />
+                  </label>
                   <input
                     type="datetime-local"
                     placeholder="Open time"

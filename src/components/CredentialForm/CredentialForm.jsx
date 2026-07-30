@@ -13,6 +13,7 @@ const ERROR_MESSAGES = {
 export function CredentialForm({ onSubmit, submitting, error }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -32,18 +33,30 @@ export function CredentialForm({ onSubmit, submitting, error }) {
       />
 
       <label htmlFor="rsf-password">Password</label>
-      <input
-        id="rsf-password"
-        type="password"
-        autoComplete="current-password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        disabled={submitting}
-      />
+      <div className={styles.passwordRow}>
+        <input
+          id="rsf-password"
+          type={passwordVisible ? 'text' : 'password'}
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          disabled={submitting}
+        />
+        <button
+          type="button"
+          className={styles.toggleVisibility}
+          onClick={() => setPasswordVisible((v) => !v)}
+          disabled={submitting}
+          aria-label={passwordVisible ? 'Hide password' : 'Show password'}
+          aria-pressed={passwordVisible}
+        >
+          {passwordVisible ? '🙈' : '👁'}
+        </button>
+      </div>
 
       {error && <p className={styles.error}>{ERROR_MESSAGES[error] ?? 'Could not save credentials.'}</p>}
 
-      <button type="submit" disabled={submitting || !username || !password}>
+      <button type="submit" className={styles.submit} disabled={submitting || !username || !password}>
         {submitting ? 'Saving…' : 'Save credentials'}
       </button>
     </form>

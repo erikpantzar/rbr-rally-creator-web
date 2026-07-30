@@ -68,12 +68,12 @@ export function RallyBuilder({ baseUrl }) {
         ]);
 
         if (stagesRes.ok && groupsRes.ok) {
-          setStages(stagesRes.stages || []);
-          setCarGroups(groupsRes.carGroups || []);
+          setStages(stagesRes.data || []);
+          setCarGroups(groupsRes.data || []);
 
           // Initialize stagePlan and legSchedule with defaults (2 stages, 1 leg)
           const defaultStageConfigs = Array.from({ length: 2 }, () =>
-            createDefaultStageConfig(stagesRes.stages || [])
+            createDefaultStageConfig(stagesRes.data || [])
           );
           setStagePlan(defaultStageConfigs);
 
@@ -282,7 +282,7 @@ export function RallyBuilder({ baseUrl }) {
                     }}
                   >
                     <option value="disabled">Super Rally: disabled</option>
-                    <option value="enabled">Super Rally: enabled</option>
+                    <option value="150%">Super Rally: 150%</option>
                   </select>
                 </div>
               </div>

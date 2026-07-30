@@ -13,9 +13,23 @@ async function request(baseUrl, path, { method = 'GET', body } = {}) {
   return { ok: true, ...data };
 }
 
-export const getStages = (baseUrl) => request(baseUrl, '/catalog/stages');
+// The catalog endpoints return a raw JSON array, not an object -- spreading
+// an array into `{ ok: true, ...data }` produces numeric-keyed properties
+// (`{0: ..., 1: ...}`), not a `.stages`/`.carGroups` array. Kept as a
+// separate helper that wraps the array under `.data` instead.
+async function requestArray(baseUrl, path) {
+  const res = await fetch(`${baseUrl}${path}`, { credentials: 'include' });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    return { ok: false, status: res.status, ...data };
+  }
+  const data = await res.json().catch(() => []);
+  return { ok: true, data };
+}
 
-export const getCarGroups = (baseUrl) => request(baseUrl, '/catalog/car-groups');
+export const getStages = (baseUrl) => requestArray(baseUrl, '/catalog/stages');
+
+export const getCarGroups = (baseUrl) => requestArray(baseUrl, '/catalog/car-groups');
 
 export const createRally = (baseUrl, config) =>
   request(baseUrl, '/rallies', { method: 'POST', body: config });

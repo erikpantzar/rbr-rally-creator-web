@@ -1,0 +1,95 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.stagesSection {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.stagesSection h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.legGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.legHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.legHeader h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.legInputs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.legInputs input,
+.legInputs select {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.legInputs input:disabled,
+.legInputs select:disabled {
+  opacity: 0.6;
+}
+
+.stagesList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.submitButton {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.submitButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.submitButton:not(:disabled):hover {
+  filter: brightness(1.05);
+}

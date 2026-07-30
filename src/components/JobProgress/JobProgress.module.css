@@ -1,0 +1,135 @@
+.container {
+  margin-top: 1.5rem;
+}
+
+.progressBar {
+  width: 100%;
+  height: 8px;
+  background: var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.label {
+  margin: 0.5rem 0 0;
+  font-weight: 500;
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+.note {
+  margin: 0.25rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+.percentage {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.success,
+.warning,
+.error {
+  padding: 1rem;
+  border-radius: var(--radius);
+}
+
+.success {
+  background: var(--success-bg);
+  color: var(--success-fg);
+}
+
+.success h4 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.success p {
+  margin: 0.25rem 0;
+  font-size: 0.95rem;
+}
+
+.success a {
+  color: inherit;
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.warning {
+  background: var(--accent-soft-bg);
+  color: var(--accent-soft-fg);
+}
+
+.warning h4 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.warning p {
+  margin: 0.25rem 0;
+  font-size: 0.95rem;
+}
+
+.warning a {
+  color: var(--accent-soft-fg);
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.details {
+  margin-top: 0.75rem;
+  cursor: pointer;
+}
+
+.details summary {
+  font-size: 0.85rem;
+  text-decoration: underline;
+}
+
+.snippet {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius);
+  font-size: 0.75rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.error {
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+}
+
+.error h4 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.error p {
+  margin: 0.25rem 0;
+  font-size: 0.95rem;
+}
+
+.error a {
+  color: var(--danger-fg);
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.warning_text {
+  font-weight: 500;
+  margin-top: 0.5rem;
+}

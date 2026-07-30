@@ -4,6 +4,7 @@ import { saveCredentials, getCredentialsStatus, clearCredentials } from './lib/a
 import { SettingsForm } from './components/SettingsForm/SettingsForm.jsx';
 import { CredentialForm } from './components/CredentialForm/CredentialForm.jsx';
 import { CredentialStatus } from './components/CredentialStatus/CredentialStatus.jsx';
+import { RallyBuilder } from './components/RallyBuilder/RallyBuilder.jsx';
 import styles from './App.module.css';
 
 // Only this top-level component touches fetch/localStorage -- everything
@@ -77,10 +78,8 @@ function App() {
 
       {baseUrl && credState.status === 'saved' && (
         <section className={styles.section}>
-          <p className={styles.muted}>
-            Credentials saved. Rally creation isn't built yet -- this is Phase 1. When it is, the
-            automation agent will use these to sign in for real at that point, not before.
-          </p>
+          <h2>Create a rally</h2>
+          <RallyBuilder baseUrl={baseUrl} />
         </section>
       )}
 

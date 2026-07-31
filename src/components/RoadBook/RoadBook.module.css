@@ -51,12 +51,6 @@
   font-weight: 600;
 }
 
-.legStartStage {
-  font-weight: 400;
-  color: var(--ink-soft);
-  font-size: 0.85rem;
-}
-
 /* Stage-count badge, per DESIGN_SPEC.md's UX review note -- lets the row's
    contents be legible before scrolling it into view. Derived from the
    actual rendered bricks (legStages.length), not the stage_count input, so

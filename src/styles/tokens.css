@@ -7,17 +7,17 @@
 :root {
   color-scheme: light dark;
 
-  --bg: oklch(97% 0.01 60);
-  --ink: oklch(24% 0.02 40);
-  --ink-soft: oklch(42% 0.02 40);
-  --muted: oklch(55% 0.015 40);
-  --border: oklch(88% 0.01 60);
+  --bg: oklch(97% 0.008 250);
+  --ink: oklch(24% 0.015 250);
+  --ink-soft: oklch(42% 0.015 250);
+  --muted: oklch(55% 0.012 250);
+  --border: oklch(88% 0.008 250);
   --card: #ffffff;
 
-  --accent: oklch(55% 0.19 30);
+  --accent: oklch(58% 0.16 92);
   --accent-ink: #ffffff;
-  --accent-soft-bg: oklch(93% 0.05 30);
-  --accent-soft-fg: oklch(45% 0.15 30);
+  --accent-soft-bg: oklch(93% 0.06 92);
+  --accent-soft-fg: oklch(45% 0.13 92);
 
   --danger-bg: oklch(95% 0.03 25);
   --danger-fg: oklch(48% 0.18 25);
@@ -26,23 +26,31 @@
   --success-fg: oklch(45% 0.13 150);
 
   --radius: 0.75rem;
+
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: oklch(20% 0.015 40);
-    --ink: oklch(92% 0.015 60);
-    --ink-soft: oklch(80% 0.015 60);
-    --muted: oklch(65% 0.015 60);
-    --border: oklch(32% 0.015 40);
-    --card: oklch(25% 0.015 40);
+    --bg: oklch(20% 0.012 250);
+    --ink: oklch(92% 0.012 250);
+    --ink-soft: oklch(80% 0.012 250);
+    --muted: oklch(65% 0.012 250);
+    --border: oklch(32% 0.012 250);
+    --card: oklch(25% 0.012 250);
+
+    --accent: oklch(78% 0.16 92);
+    --accent-soft-bg: oklch(32% 0.06 92);
+    --accent-soft-fg: oklch(85% 0.13 92);
   }
 }
 :root[data-theme='dark'] {
-  --bg: oklch(20% 0.015 40); --ink: oklch(92% 0.015 60); --ink-soft: oklch(80% 0.015 60);
-  --muted: oklch(65% 0.015 60); --border: oklch(32% 0.015 40); --card: oklch(25% 0.015 40);
+  --bg: oklch(20% 0.012 250); --ink: oklch(92% 0.012 250); --ink-soft: oklch(80% 0.012 250);
+  --muted: oklch(65% 0.012 250); --border: oklch(32% 0.012 250); --card: oklch(25% 0.012 250);
+  --accent: oklch(78% 0.16 92); --accent-soft-bg: oklch(32% 0.06 92); --accent-soft-fg: oklch(85% 0.13 92);
 }
 :root[data-theme='light'] {
-  --bg: oklch(97% 0.01 60); --ink: oklch(24% 0.02 40); --ink-soft: oklch(42% 0.02 40);
-  --muted: oklch(55% 0.015 40); --border: oklch(88% 0.01 60); --card: #ffffff;
+  --bg: oklch(97% 0.008 250); --ink: oklch(24% 0.015 250); --ink-soft: oklch(42% 0.015 250);
+  --muted: oklch(55% 0.012 250); --border: oklch(88% 0.008 250); --card: #ffffff;
+  --accent: oklch(58% 0.16 92); --accent-soft-bg: oklch(93% 0.06 92); --accent-soft-fg: oklch(45% 0.13 92);
 }

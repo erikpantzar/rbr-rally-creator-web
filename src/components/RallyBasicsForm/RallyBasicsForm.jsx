@@ -57,14 +57,11 @@ export function RallyBasicsForm({ value, onChange, options }) {
 
       <div className={styles.formGroup}>
         <label htmlFor="stages">Stages</label>
-        <input
-          id="stages"
-          type="number"
-          min="2"
-          max="69"
-          value={value.stages}
-          onChange={(e) => handleChange('stages', parseInt(e.target.value, 10))}
-        />
+        {/* Derived, not editable: this count now comes from the number of
+            stage bricks actually placed in the road book (see RoadBook /
+            StageBrick / StageConfigModal's "+ Add stage" flow) rather than
+            driving how many placeholder slots get pre-seeded. */}
+        <input id="stages" type="number" value={value.stages} readOnly disabled />
       </div>
 
       <div className={styles.formGroup}>

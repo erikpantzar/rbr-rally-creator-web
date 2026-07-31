@@ -1,16 +1,3 @@
-.layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 20rem;
-  gap: 1.25rem;
-  align-items: start;
-}
-
-@media (max-width: 900px) {
-  .layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
 .book {
   display: flex;
   flex-direction: column;
@@ -18,34 +5,48 @@
   min-width: 0;
 }
 
-.feedback {
-  margin: 0;
-  padding: 0.6rem 0.8rem;
-  border-radius: var(--radius);
-  background: var(--danger-bg);
-  color: var(--danger-fg);
-  font-size: 0.85rem;
-}
-
 .legGroup {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  padding-top: 1.5rem;
+  border-top: 2px solid var(--ink);
 }
 
+.legGroup:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+/* Nested one level down from the document header block: same weight/family,
+   smaller size, no card chrome -- a heading in the document, not a boxed
+   widget. Leg-level fields (open/close time, super rally, stage count)
+   sit inline beside it rather than stacked inside a bordered card.
+
+   Sticky per DESIGN_SPEC.md's UX review note: a long rally means several
+   stacked, independently horizontally-scrolling rows, and scrolling the
+   *page* down past a wide row loses the leg heading above the fold. Pinning
+   the heading to the top of the viewport while that leg's content is still
+   in view keeps "which leg am I looking at" answered without relying on the
+   row's own horizontal scroll (that axis is unaffected -- this is about
+   vertical page scroll only). background/border-bottom so the row content
+   scrolling underneath it doesn't show through. */
 .legHeader {
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1.25rem;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg);
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .legHeader h4 {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 1.1rem;
   color: var(--ink);
   font-weight: 600;
 }
@@ -56,38 +57,72 @@
   font-size: 0.85rem;
 }
 
+/* Stage-count badge, per DESIGN_SPEC.md's UX review note -- lets the row's
+   contents be legible before scrolling it into view. Derived from the
+   actual rendered bricks (legStages.length), not the stage_count input, so
+   it never lies about what's really in the row. Text, not a pill -- matches
+   the timing-sheet visual language rather than a loud colorful badge. */
+.legStageCount {
+  font-weight: 500;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .legInputs {
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
 }
 
 .legFieldLabel {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.8rem;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: var(--ink);
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .legInputs input,
 .legInputs select {
-  padding: 0.5rem 0.7rem;
+  padding: 0.4rem 0.6rem;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--card);
+  border-radius: 0;
+  background: var(--bg);
   color: var(--ink);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-family: inherit;
 }
 
+/* Locked equivalent of .legInputs -- plain text, no field chrome, since
+   there's nothing left to edit once a job has succeeded (DESIGN_SPEC.md's
+   "Created / locked" state: "render as plain text instead" for leg
+   stage_count/open_time/close_time/super_rally inputs). */
+.legInputsLocked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+/* Stage row: DESIGN_SPEC.md calls for a horizontal row of bricks in stage
+   order, desktop-first, scrolling rather than wrapping/stacking. */
 .stagesList {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.6rem;
   min-height: 3rem;
-  border-radius: var(--radius);
+  padding-bottom: 0.4rem;
+  overflow-x: auto;
   transition: background-color 0.15s ease;
 }
 
@@ -97,21 +132,40 @@
   outline-offset: 4px;
 }
 
-.legDropHint {
-  font-size: 0.8rem;
-  color: var(--accent-soft-fg);
-  text-align: center;
-  padding: 0.5rem;
+.addStageBrick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 8rem;
+  flex-shrink: 0;
+  border: 1px dashed var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
 }
 
-.emptyLeg {
-  margin: 0;
-  padding: 0.75rem;
-  font-size: 0.85rem;
+.addStageBrick:hover {
+  border-color: var(--accent);
+  color: var(--accent-soft-fg);
+  background: var(--accent-soft-bg);
+}
+
+/* Empty-leg ghost hint, per DESIGN_SPEC.md's UX review note on first-time
+   discoverability. Purely conditional on legStages.length === 0 (see
+   RoadBook.jsx) -- no dismiss button or persisted state needed, since it
+   naturally disappears the moment the leg gets its first brick. That
+   disappearance *is* the "dismissible, self-removing" behavior the spec
+   asks for. */
+.emptyLegHint {
+  align-self: center;
+  margin: 0 0 0 0.5rem;
   color: var(--muted);
-  text-align: center;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
+  font-size: 0.8rem;
+  font-style: italic;
+  white-space: nowrap;
 }
 
 .dragPreview {

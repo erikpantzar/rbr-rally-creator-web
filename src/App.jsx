@@ -57,7 +57,21 @@ function App() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <h1>RBR Rally Creator</h1>
+        <div className={styles.titleGroup}>
+          <h1>RBR Rally Creator</h1>
+          {/* Build-time commit hash (see vite.config.js's __COMMIT_HASH__
+              define) -- links to the actual diff so "what's live right now"
+              is always one click away, no changelog to keep in sync. */}
+          <a
+            className={styles.commitHash}
+            href={`https://github.com/erikpantzar/rbr-rally-creator-web/commit/${__COMMIT_HASH__}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="View this build's commit on GitHub"
+          >
+            {__COMMIT_HASH__}
+          </a>
+        </div>
         {credState.status === 'saved' && (
           <CredentialStatus username={credState.username} onClear={handleClearCredentials} />
         )}

@@ -65,7 +65,7 @@ function writeRallies(rallies) {
   localStorage.setItem(RALLIES_KEY, JSON.stringify(rallies));
 }
 
-// Sorted newest-first so RallyHistory doesn't have to know the storage
+// Sorted newest-first so RallySidebar doesn't have to know the storage
 // order -- most-recently-touched rally is always what you'd want to see at
 // the top of the list.
 export function listRallies() {

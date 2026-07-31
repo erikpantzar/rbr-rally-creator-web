@@ -4,7 +4,7 @@ import { saveCredentials, getCredentialsStatus, clearCredentials } from './lib/a
 import { CredentialForm } from './components/CredentialForm/CredentialForm.jsx';
 import { CredentialStatus } from './components/CredentialStatus/CredentialStatus.jsx';
 import { RallyBuilder } from './components/RallyBuilder/RallyBuilder.jsx';
-import { RallyHistory } from './components/RallyHistory/RallyHistory.jsx';
+import { RallySidebar } from './components/RallySidebar/RallySidebar.jsx';
 import styles from './App.module.css';
 
 // Only this top-level component touches fetch/localStorage -- everything
@@ -28,18 +28,24 @@ function App() {
   const [saving, setSaving] = useState(false);
 
   // rbr-rally-creator-web#46: which saved rally (if any) RallyBuilder should
-  // open with, and whether the "My Rallies" list overlay is showing.
-  // activeRally lives here rather than inside RallyBuilder because opening a
-  // *different* rally needs to reset RallyBuilder's entire local state tree
-  // -- simplest way to guarantee that is to give RallyBuilder a fresh `key`
-  // (below) and let it remount clean, which only App.jsx can drive from
-  // outside.
+  // open with. activeRally lives here rather than inside RallyBuilder
+  // because opening a *different* rally needs to reset RallyBuilder's
+  // entire local state tree -- simplest way to guarantee that is to give
+  // RallyBuilder a fresh `key` (below) and let it remount clean, which only
+  // App.jsx can drive from outside.
   const [activeRally, setActiveRally] = useState(null);
-  const [showHistory, setShowHistory] = useState(false);
+
+  // rbr-rally-creator-web#62: "My Rallies" is a toggleable panel that
+  // overlays the main content (see RallySidebar) rather than a persistent
+  // column that resizes it -- toggleable on every viewport width, not just
+  // narrow ones. RallySidebar is only rendered while this is true, so it
+  // mounts fresh each time it's opened and its own lazy useState initializer
+  // re-reads rallyStorage for free -- no separate refresh plumbing needed.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   function handleOpenRally(rally) {
     setActiveRally(rally);
-    setShowHistory(false);
+    setSidebarOpen(false);
   }
 
   useEffect(() => {
@@ -89,7 +95,13 @@ function App() {
           </a>
         </div>
         <div className={styles.headerActions}>
-          <button type="button" className={styles.historyButton} onClick={() => setShowHistory(true)}>
+          <button
+            type="button"
+            className={styles.historyButton}
+            data-active={sidebarOpen}
+            aria-pressed={sidebarOpen}
+            onClick={() => setSidebarOpen(true)}
+          >
             My Rallies
           </button>
           {credState.status === 'saved' && (
@@ -127,7 +139,19 @@ function App() {
         </section>
       )}
 
-      {showHistory && <RallyHistory onOpen={handleOpenRally} onClose={() => setShowHistory(false)} />}
+      {/* rbr-rally-creator-web#62: fixed-position overlay panel, rendered
+          only while open -- position is order-independent (fixed takes it
+          out of normal flow), and only mounting it while open means its own
+          lazy useState(() => listRallies()) initializer re-reads storage
+          fresh every time it's reopened, so a rally saved elsewhere always
+          shows up without any extra refresh plumbing. */}
+      {sidebarOpen && (
+        <RallySidebar
+          activeRallyId={activeRally?.id ?? null}
+          onOpen={handleOpenRally}
+          onClose={() => setSidebarOpen(false)}
+        />
+      )}
     </div>
   );
 }

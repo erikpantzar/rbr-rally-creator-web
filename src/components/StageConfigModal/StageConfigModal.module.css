@@ -1,60 +1,142 @@
-.backdrop {
+/* Full-screen overlay (rbr-rally-creator-web#16) -- replaces the old
+   centered backdrop+dialog. z-index 200 beats every other stacking context
+   in the app (Toast and the old dialog both sat at 100, RoadBook's sticky
+   leg headers at 2) so this always sits on top as "a full layer on top of
+   the app". */
+.overlay {
   position: fixed;
   inset: 0;
-  background: oklch(0% 0 0 / 0.45);
+  z-index: 200;
+  background: var(--bg);
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 3rem 1rem;
+  flex-direction: column;
   overflow-y: auto;
-  z-index: 100;
-}
-
-.dialog {
-  width: 100%;
-  max-width: 32rem;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 0;
-  box-shadow: 0 20px 48px oklch(0% 0 0 / 0.28);
   outline: none;
 }
 
+/* Sticky top bar: Back (left) and Save (right) stay reachable regardless of
+   how far the form below is scrolled -- addresses the issue's "add a <-
+   back to rally and a save button accessible" ask directly, rather than
+   leaving them only at the bottom of a potentially long form. */
 .header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.25rem;
+  gap: 1rem;
+  padding: 0.85rem 1.5rem;
   border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-width: 0;
 }
 
 .header h3 {
   margin: 0;
   font-size: 1rem;
   color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.closeButton {
+.backButton {
   border: none;
   background: transparent;
   color: var(--muted);
-  font-size: 1.3rem;
+  font-size: 0.9rem;
+  font-family: inherit;
   line-height: 1;
   cursor: pointer;
-  padding: 0.2rem 0.4rem;
+  padding: 0.45rem 0.7rem;
   border-radius: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.closeButton:hover {
+.backButton:hover {
   color: var(--ink);
   background: var(--accent-soft-bg);
 }
 
+.headerSaveButton {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  padding: 0.5rem 1.1rem;
+  border-radius: 0;
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.headerSaveButton:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.headerSaveButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Shown when a matching abandoned in-progress draft was recovered from
+   localStorage on open -- makes the pre-filled state legible instead of
+   silently differing from the previous-stage-seeded default the user might
+   expect (rbr-rally-creator-web#5's createStageConfigFromPrevious). */
+.restoredNotice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.6rem 1.5rem;
+  background: var(--accent-soft-bg);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.restoredNotice button {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--ink);
+  padding: 0.3rem 0.6rem;
+  border-radius: 0;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.restoredNotice button:hover {
+  border-color: var(--accent);
+}
+
+/* Wider than the old 32rem dialog (rbr-rally-creator-web#16: "could use the
+   extra width for a better stage-picker layout") but still capped so
+   single-line inputs/radios don't stretch into unreadably long rows on a
+   wide viewport. */
 .form {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding: 1.25rem;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 46rem;
+  margin: 0 auto;
 }
 
 .formGroup {
@@ -164,10 +246,17 @@
   background: var(--bg);
 }
 
+/* Row on the wider full-page form instead of always stacking -- there's
+   room for it now that this isn't squeezed into a 32rem dialog. */
 .pickerFilters {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   gap: 0.4rem;
+}
+
+.pickerFilters > * {
+  flex: 1 1 10rem;
 }
 
 .pickerFilters select {
@@ -196,11 +285,14 @@
   color: var(--muted);
 }
 
+/* Grid instead of a single column -- the full-page overlay has enough
+   width for two-up (or more) cards, so the list needs less scrolling to
+   browse the same number of stages. */
 .pickerList {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
   gap: 0.4rem;
-  max-height: 14rem;
+  max-height: 20rem;
   overflow-y: auto;
   padding-right: 0.2rem;
 }

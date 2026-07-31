@@ -12,6 +12,8 @@ import {
   computeLegStageRanges,
   normalizeLastStageService,
   cloneStageConfigWithNewUid,
+  toDatetimeLocalValue,
+  MAX_LEG_SPAN_DAYS,
 } from '../../lib/rallyPlan.js';
 import { loadRallyDraft, saveRallyDraft, clearRallyDraft } from '../../lib/rallyDraft.js';
 import { RallyBasicsForm } from '../RallyBasicsForm/RallyBasicsForm.jsx';
@@ -21,7 +23,7 @@ import { JobProgress } from '../JobProgress/JobProgress.jsx';
 import { ReadinessBanner } from '../ReadinessBanner/ReadinessBanner.jsx';
 import styles from './RallyBuilder.module.css';
 
-export function RallyBuilder({ baseUrl }) {
+export function RallyBuilder({ baseUrl, credentialsSaved }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stages, setStages] = useState([]);
@@ -271,6 +273,7 @@ export function RallyBuilder({ baseUrl }) {
 
   const canSubmit =
     !submitting &&
+    credentialsSaved &&
     rallyBasics.rally_name.trim() &&
     carGroupIds.length > 0 &&
     stagePlan.length > 0 &&
@@ -284,6 +287,9 @@ export function RallyBuilder({ baseUrl }) {
   // StageConfigModal's `disabled={!draft.stage_id}`), so there's no path
   // to a brick without one.
   const readinessProblems = [];
+  if (!credentialsSaved) {
+    readinessProblems.push('Save your rallysimfans.hu credentials above before creating a rally.');
+  }
   if (!rallyBasics.rally_name.trim()) {
     readinessProblems.push('Rally name is required.');
   }
@@ -299,9 +305,26 @@ export function RallyBuilder({ baseUrl }) {
     );
   }
 
+  // The site itself caps a leg's open->close window at 7 days; this app
+  // enforces 6 to stay safely inside that limit. Whichever date field just
+  // changed, clamp close_time back down if it now exceeds open_time + 6
+  // days, rather than only warning after the fact.
   function handleLegFieldChange(legIndex, field, value) {
     const newLegs = [...legSchedule];
-    newLegs[legIndex] = { ...newLegs[legIndex], [field]: value };
+    let updatedLeg = { ...newLegs[legIndex], [field]: value };
+
+    if ((field === 'open_time' || field === 'close_time') && updatedLeg.open_time && updatedLeg.close_time) {
+      const openDate = new Date(updatedLeg.open_time);
+      const closeDate = new Date(updatedLeg.close_time);
+      const maxCloseDate = new Date(openDate);
+      maxCloseDate.setDate(maxCloseDate.getDate() + MAX_LEG_SPAN_DAYS);
+
+      if (closeDate > maxCloseDate) {
+        updatedLeg = { ...updatedLeg, close_time: toDatetimeLocalValue(maxCloseDate) };
+      }
+    }
+
+    newLegs[legIndex] = updatedLeg;
     setLegSchedule(newLegs);
   }
 

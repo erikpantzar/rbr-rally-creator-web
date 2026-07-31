@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, DragOverlay, PointerSensor, closestCenter, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
-import { computeLegStageRanges, createStageConfigFromPrevious, cloneStageConfigWithNewUid } from '../../lib/rallyPlan.js';
+import {
+  computeLegStageRanges,
+  createStageConfigFromPrevious,
+  cloneStageConfigWithNewUid,
+  toDatetimeLocalValue,
+  MAX_LEG_SPAN_DAYS,
+} from '../../lib/rallyPlan.js';
 import { StageBrick } from '../StageBrick/StageBrick.jsx';
 import { StageConfigModal } from '../StageConfigModal/StageConfigModal.jsx';
 import { Toast } from '../Toast/Toast.jsx';
@@ -20,6 +26,17 @@ const UNDO_TIMEOUT_MS = 5000;
 // under the pointer (the gap past the last brick), so a brick can still be
 // dragged to the end of a leg that has fewer bricks than the pointer's x
 // position would otherwise land on.
+// UI-level hint for the close-time <input>'s max attribute -- the real
+// enforcement (clamping close_time if it's pushed past this) lives in
+// RallyBuilder's handleLegFieldChange; this just keeps the native date
+// picker from suggesting out-of-range values in the first place.
+function maxCloseTimeFor(openTime) {
+  if (!openTime) return undefined;
+  const maxDate = new Date(openTime);
+  maxDate.setDate(maxDate.getDate() + MAX_LEG_SPAN_DAYS);
+  return toDatetimeLocalValue(maxDate);
+}
+
 function LegDropContainer({ legIndex, children }) {
   const { setNodeRef, isOver } = useDroppable({ id: `leg-container-${legIndex}`, data: { type: 'leg-container', legIndex } });
   return (
@@ -349,6 +366,7 @@ export function RoadBook({
                     type="datetime-local"
                     placeholder="Close time"
                     value={leg.close_time}
+                    max={maxCloseTimeFor(leg.open_time)}
                     onChange={(e) => onLegFieldChange(legIndex, 'close_time', e.target.value)}
                   />
                   <select value={leg.super_rally} onChange={(e) => onLegFieldChange(legIndex, 'super_rally', e.target.value)}>

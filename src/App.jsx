@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { getBaseUrl, setBaseUrl as saveBaseUrl, DEFAULT_BASE_URL } from './lib/settings.js';
+import { getBaseUrl } from './lib/settings.js';
 import { saveCredentials, getCredentialsStatus, clearCredentials } from './lib/authApi.js';
-import { SettingsForm } from './components/SettingsForm/SettingsForm.jsx';
 import { CredentialForm } from './components/CredentialForm/CredentialForm.jsx';
 import { CredentialStatus } from './components/CredentialStatus/CredentialStatus.jsx';
 import { RallyBuilder } from './components/RallyBuilder/RallyBuilder.jsx';
@@ -17,7 +16,12 @@ import styles from './App.module.css';
 // storage). The real Playwright login only happens later, when a rally is
 // actually submitted and the automation agent needs to act on the site.
 function App() {
-  const [baseUrl, setBaseUrlState] = useState(() => getBaseUrl());
+  // Fixed for the lifetime of the page -- the public Funnel URL is now the
+  // stable, permanent address (see rbr-rally-creator-web#14), so there's no
+  // "Service connection" UI to change it. getBaseUrl() still honors a
+  // manually-set `rbr.baseUrl` localStorage key as a devtools-only escape
+  // hatch for pointing at a local dev backend (see lib/settings.js).
+  const [baseUrl] = useState(() => getBaseUrl());
   const [credState, setCredState] = useState({ status: 'checking' }); // checking | saved | unsaved
   const [saveError, setSaveError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -50,11 +54,6 @@ function App() {
     setCredState({ status: 'unsaved' });
   }
 
-  function handleSaveBaseUrl(url) {
-    saveBaseUrl(url);
-    setBaseUrlState(url);
-  }
-
   return (
     <div className={styles.page}>
       <header className={styles.header}>
@@ -64,26 +63,21 @@ function App() {
         )}
       </header>
 
-      <section className={styles.section}>
-        <h2>Service connection</h2>
-        <SettingsForm
-          baseUrl={baseUrl}
-          isDefault={baseUrl === DEFAULT_BASE_URL}
-          onSave={handleSaveBaseUrl}
-        />
-      </section>
-
-      {baseUrl && credState.status === 'unsaved' && (
+      {baseUrl && (
         <section className={styles.section}>
           <h2>rallysimfans.hu credentials</h2>
-          <CredentialForm onSubmit={handleSaveCredentials} submitting={saving} error={saveError} />
+          {credState.status === 'unsaved' ? (
+            <CredentialForm onSubmit={handleSaveCredentials} submitting={saving} error={saveError} />
+          ) : (
+            <p className={styles.muted}>Signed in as {credState.username}.</p>
+          )}
         </section>
       )}
 
-      {baseUrl && credState.status === 'saved' && (
+      {baseUrl && (
         <section className={styles.section}>
           <h2>Create a rally</h2>
-          <RallyBuilder baseUrl={baseUrl} />
+          <RallyBuilder baseUrl={baseUrl} credentialsSaved={credState.status === 'saved'} />
         </section>
       )}
     </div>

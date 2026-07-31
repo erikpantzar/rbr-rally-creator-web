@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ServiceChip } from '../ServiceChip/ServiceChip.jsx';
 import { loadStageConfigDraft, saveStageConfigDraft, clearStageConfigDraft } from '../../lib/stageConfigDraft.js';
+import { getDefaultTyreForSurface, getWetTyreForSurface } from '../../lib/rallyPlan.js';
 import styles from './StageConfigModal.module.css';
 
 // In-modal stage picker. DESIGN_SPEC.md leaves open whether this reuses
@@ -127,6 +128,13 @@ export function StageConfigModal({ mode, initialValue, stages, options, isLastSt
   const [customWeather, setCustomWeather] = useState(
     () => !!initialValue?.tracksettings_id && !options.weatherOptions?.includes(initialValue.tracksettings_id)
   );
+  // Whether the wet-tyre suggestion banner (see below) has been explicitly
+  // dismissed for the current wetness/stage combo. Reset to false whenever
+  // either changes (effect further down) so a fresh trigger of the
+  // condition -- switching to a different surface, or leaving and
+  // returning to 'wet' -- surfaces the suggestion again rather than staying
+  // silenced forever after one dismissal.
+  const [dismissedWetSuggestion, setDismissedWetSuggestion] = useState(false);
   const dialogRef = useRef(null);
   const hasCheckedStorageRef = useRef(false);
 
@@ -188,6 +196,32 @@ export function StageConfigModal({ mode, initialValue, stages, options, isLastSt
     setDraft((prev) => ({ ...prev, ...fields }));
   }
 
+  // Re-arm the wet-tyre suggestion whenever its trigger conditions change --
+  // a newly-picked stage (different surface) or a fresh transition into
+  // 'wet' should both get their own chance to suggest, rather than staying
+  // silenced because an earlier, unrelated dismissal happened to still be in
+  // effect.
+  useEffect(() => {
+    setDismissedWetSuggestion(false);
+  }, [draft.stage_id, draft.wetness_id]);
+
+  const selectedStage = useMemo(
+    () => stages.find((s) => s.id === draft.stage_id) ?? null,
+    [stages, draft.stage_id]
+  );
+  // Suggestion only -- per the issue's own title ("dont enforce it"), this
+  // never auto-applies. It disappears (without needing an explicit dismiss)
+  // as soon as any part of the condition it was suggesting for stops
+  // holding: wetness moved off 'wet', the tyre already matches the wet
+  // variant (e.g. the user applied it, or picked it themselves from the
+  // dropdown), or the surface has no wet variant (snow).
+  const suggestedWetTyre = selectedStage ? getWetTyreForSurface(selectedStage.surface) : null;
+  const showWetTyreSuggestion =
+    draft.wetness_id === 'wet' &&
+    !!suggestedWetTyre &&
+    draft.def_tyre_id !== suggestedWetTyre &&
+    !dismissedWetSuggestion;
+
   // Lets the user explicitly bail out of a restored draft back to the
   // "normal" starting point (previous-stage seed / the brick's saved
   // values) if the recovered in-progress edit isn't what they wanted.
@@ -244,7 +278,20 @@ export function StageConfigModal({ mode, initialValue, stages, options, isLastSt
       <form id="stage-config-form" className={styles.form} onSubmit={handleSave}>
         <div className={styles.formGroup}>
           <label>Stage</label>
-          <StagePicker stages={stages} selectedStageId={draft.stage_id} onSelect={(id) => patch({ stage_id: id })} />
+          <StagePicker
+            stages={stages}
+            selectedStageId={draft.stage_id}
+            onSelect={(id) => {
+              // Default the tyre to match the newly-picked stage's surface
+              // (rbr-rally-creator-web#24) -- a convenience default the user
+              // can still freely change below, not an enforced pairing. No
+              // change if the surface isn't recognised (defensive; every
+              // catalog entry currently has one of tarmac/gravel/snow).
+              const stage = stages.find((s) => s.id === id);
+              const defaultTyre = stage ? getDefaultTyreForSurface(stage.surface) : null;
+              patch(defaultTyre ? { stage_id: id, def_tyre_id: defaultTyre } : { stage_id: id });
+            }}
+          />
         </div>
 
         <div className={styles.formGroup}>
@@ -341,6 +388,19 @@ export function StageConfigModal({ mode, initialValue, stages, options, isLastSt
               </option>
             ))}
           </select>
+          {showWetTyreSuggestion && (
+            <div className={styles.tyreSuggestion}>
+              <span>Wet conditions &mdash; switch to {suggestedWetTyre}?</span>
+              <div className={styles.tyreSuggestionActions}>
+                <button type="button" onClick={() => patch({ def_tyre_id: suggestedWetTyre })}>
+                  Apply
+                </button>
+                <button type="button" onClick={() => setDismissedWetSuggestion(true)}>
+                  Ignore
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className={styles.checkboxes}>

@@ -15,6 +15,7 @@ import {
   cloneStageConfigWithNewUid,
   toDatetimeLocalValue,
   MAX_LEG_SPAN_DAYS,
+  MAX_LEGS,
 } from '../../lib/rallyPlan.js';
 import { loadRallyDraft, saveRallyDraft, clearRallyDraft } from '../../lib/rallyDraft.js';
 import { RallyBasicsForm } from '../RallyBasicsForm/RallyBasicsForm.jsx';
@@ -374,6 +375,13 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
     .map(({ startIndex, endIndex }, i) => (endIndex - startIndex === 0 ? i + 1 : null))
     .filter((n) => n !== null);
 
+  // rbr-rally-creator-web#37: the "+ Add Leg" button in RoadBook already
+  // stops new legs at MAX_LEGS, but this is a defensive backstop in case
+  // legSchedule ever grows past that some other way (e.g. a restored draft
+  // saved before this cap existed) -- same "surface it, don't just silently
+  // let submit fail" reasoning as emptyLegNumbers below.
+  const tooManyLegs = legSchedule.length > MAX_LEGS;
+
   const canSubmit =
     !submitting &&
     credentialsSaved &&
@@ -381,7 +389,8 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
     carGroupIds.length > 0 &&
     stagePlan.length > 0 &&
     legStagesBalanced &&
-    emptyLegNumbers.length === 0;
+    emptyLegNumbers.length === 0 &&
+    !tooManyLegs;
 
   // Every pre-submit problem the old alert()s/.legWarning used to catch,
   // collected into one list for ReadinessBanner. Note: "some stage slots
@@ -413,6 +422,9 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
     readinessProblems.push(
       `${legWord} ${emptyLegNumbers.join(', ')} ${emptyLegNumbers.length === 1 ? 'has' : 'have'} no stages — add at least one stage to every leg (or remove the empty one).`
     );
+  }
+  if (tooManyLegs) {
+    readinessProblems.push(`Rallies can have at most ${MAX_LEGS} legs — remove ${legSchedule.length - MAX_LEGS} leg${legSchedule.length - MAX_LEGS === 1 ? '' : 's'}.`);
   }
 
   // The site itself caps a leg's open->close window at 7 days; this app

@@ -88,6 +88,14 @@ export function toDatetimeLocalValue(date) {
 // riding the edge of the site's own validation.
 export const MAX_LEG_SPAN_DAYS = 6;
 
+// rbr-rally-creator-web#37: the real site's wizard only ever offers 1-6 legs
+// (confirmed against rbr-rally-creator-service's discovery capture of the
+// live wizard, discovery/capabilities/rally-wizard-schema.json) -- the
+// backend enforces this server-side, and this constant lets the frontend
+// stop the user before they hit that 400, same "surface it before submit"
+// idea as MAX_LEG_SPAN_DAYS above.
+export const MAX_LEGS = 6;
+
 // Seeds a brand-new "+ Add stage" slot from the most recently added/edited
 // stage already in the plan (rbr-rally-creator-web#5), instead of the
 // generic hardcoded defaults -- carrying forward surface age/wetness/

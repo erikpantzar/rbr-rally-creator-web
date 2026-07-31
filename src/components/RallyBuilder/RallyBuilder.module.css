@@ -34,6 +34,12 @@
   letter-spacing: 0.05em;
 }
 
+/* A dry run never publishes anything -- don't label its progress screen
+   "Publishing" while it's running. */
+.dryRunScreen::before {
+  content: 'Test run';
+}
+
 /* Header block -- title/description (RallyBasicsForm) and car-group
    selection (CarGroupPicker) merged into one visually unified unit, per
    the spec: car groups are a rally-level property styled like the rest of
@@ -92,4 +98,17 @@
 
 .submitButton:not(:disabled):hover {
   filter: brightness(1.05);
+}
+
+.testRunLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.testRunLabel input {
+  cursor: pointer;
 }

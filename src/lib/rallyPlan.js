@@ -27,8 +27,8 @@ export function createDefaultStageConfig() {
     wetness_id: 'dry',
     tracksettings_id: 'Morning Clear Crisp',
     def_tyre_id: 'Gravel Dry',
-    choose_tyre: false,
-    choose_setup: false,
+    choose_tyre: true,
+    choose_setup: true,
     service_time: '60 minutes',
     nummechanics: '6 mechanic',
     mechanicsSkill: 'Expert',
@@ -53,6 +53,24 @@ export function toDatetimeLocalValue(date) {
 // this app caps legs at 6 to stay safely inside that limit rather than
 // riding the edge of the site's own validation.
 export const MAX_LEG_SPAN_DAYS = 6;
+
+// Seeds a brand-new "+ Add stage" slot from the most recently added/edited
+// stage already in the plan (rbr-rally-creator-web#5), instead of the
+// generic hardcoded defaults -- carrying forward surface age/wetness/
+// weather/tyre/service/mechanics settings makes it much faster to build a
+// rally with consistent config across stages, rather than re-entering the
+// same values on every stage. Like createDefaultStageConfig, the new slot
+// still starts unassigned (stage_id: null) -- only the config fields carry
+// over, not the previous stage's catalog assignment. Falls back to the
+// generic defaults when there is no previous stage yet (empty plan).
+export function createStageConfigFromPrevious(previousStageConfig) {
+  if (!previousStageConfig) return createDefaultStageConfig();
+  return {
+    ...previousStageConfig,
+    _uid: generateUid(),
+    stage_id: null,
+  };
+}
 
 // stage_count is the manual (non-drag) leg-boundary control: how many of
 // the rally's stages fall in this leg. start_stage_no is derived from it

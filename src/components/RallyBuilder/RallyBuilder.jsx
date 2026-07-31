@@ -14,8 +14,11 @@ import {
   normalizeLastStageService,
   cloneStageConfigWithNewUid,
   toDatetimeLocalValue,
+  isLegOpenTimeTooSoon,
   MAX_LEG_SPAN_DAYS,
   MAX_LEGS,
+  MIN_LEG_LEAD_MINUTES,
+  CLAMP_LEG_LEAD_MINUTES,
 } from '../../lib/rallyPlan.js';
 import { loadRallyDraft, saveRallyDraft, clearRallyDraft } from '../../lib/rallyDraft.js';
 import { RallyBasicsForm } from '../RallyBasicsForm/RallyBasicsForm.jsx';
@@ -284,6 +287,26 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
     if (job?.status === 'succeeded') clearRallyDraft();
   }, [job?.status]);
 
+  // rbr-rally-creator-web#40: "does any leg's open_time now fall inside the
+  // backend's minimum lead time" (see isLegOpenTimeTooSoon below) is unlike
+  // every other readinessProblems check -- it can flip from false to true
+  // purely from time passing, without the user touching that leg's fields
+  // again. Every *other* check only needs a re-render when the user edits
+  // something, which naturally happens via the state updates that trigger
+  // those edits; this one doesn't have that trigger, so without a periodic
+  // nudge it could stay stale (and canSubmit/the button's disabled state
+  // along with it) if the user finishes building early then walks away
+  // before hitting Create Rally. A plain tick forces readinessProblems to
+  // get recomputed with a fresh `now` every 30s -- coarse relative to the
+  // 5-minute threshold, but enough to catch it well before submit rather
+  // than only exactly when it happens to become true.
+  const [, forceLegTimeRecheck] = useState(0);
+  useEffect(() => {
+    if (loading || job?.status === 'succeeded') return undefined;
+    const interval = setInterval(() => forceLegTimeRecheck((n) => n + 1), 30 * 1000);
+    return () => clearInterval(interval);
+  }, [loading, job?.status]);
+
   async function handleCreateRally() {
     // Pre-submit validation (rally name, car groups, stage count, leg/stage
     // sync) is surfaced proactively by ReadinessBanner and gates canSubmit
@@ -382,6 +405,17 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
   // let submit fail" reasoning as emptyLegNumbers below.
   const tooManyLegs = legSchedule.length > MAX_LEGS;
 
+  // rbr-rally-creator-web#40 / rbr-rally-creator-service#11: a leg whose
+  // open_time is inside the backend's minimum lead time (or already in the
+  // past) doesn't fail submission -- the backend clamps it forward as a
+  // safety net -- but the user should find out here rather than only
+  // discovering their intended start time got silently pushed out. Computed
+  // fresh with `new Date()` on every render (see the periodic tick effect
+  // above for why), not just when the leg's fields change.
+  const legsOpeningTooSoon = legSchedule
+    .map((leg, i) => (isLegOpenTimeTooSoon(leg.open_time) ? i + 1 : null))
+    .filter((n) => n !== null);
+
   const canSubmit =
     !submitting &&
     credentialsSaved &&
@@ -390,7 +424,8 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
     stagePlan.length > 0 &&
     legStagesBalanced &&
     emptyLegNumbers.length === 0 &&
-    !tooManyLegs;
+    !tooManyLegs &&
+    legsOpeningTooSoon.length === 0;
 
   // Every pre-submit problem the old alert()s/.legWarning used to catch,
   // collected into one list for ReadinessBanner. Note: "some stage slots
@@ -425,6 +460,13 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
   }
   if (tooManyLegs) {
     readinessProblems.push(`Rallies can have at most ${MAX_LEGS} legs — remove ${legSchedule.length - MAX_LEGS} leg${legSchedule.length - MAX_LEGS === 1 ? '' : 's'}.`);
+  }
+  if (legsOpeningTooSoon.length > 0) {
+    const legWord = legsOpeningTooSoon.length === 1 ? 'Leg' : 'Legs';
+    const verbWord = legsOpeningTooSoon.length === 1 ? 'opens' : 'open';
+    readinessProblems.push(
+      `${legWord} ${legsOpeningTooSoon.join(', ')} ${verbWord} in less than ${MIN_LEG_LEAD_MINUTES} minutes (or already in the past) — rallysimfans.hu will automatically push it out to ${CLAMP_LEG_LEAD_MINUTES} minutes from now and shift the close time to match, so update the start time here if you want control over the exact time.`
+    );
   }
 
   // The site itself caps a leg's open->close window at 7 days; this app

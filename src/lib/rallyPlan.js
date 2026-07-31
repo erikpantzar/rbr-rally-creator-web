@@ -96,6 +96,34 @@ export const MAX_LEG_SPAN_DAYS = 6;
 // idea as MAX_LEG_SPAN_DAYS above.
 export const MAX_LEGS = 6;
 
+// rbr-rally-creator-service#11 / PR#14: a leg's open_time can't be less than
+// 5 minutes from "now" at the moment the automation actually schedules it
+// (including already being in the past) -- the backend clamps it forward to
+// CLAMP_LEG_LEAD_MINUTES minutes out as a defensive safety net, shifting
+// close_time by the same delta to preserve the leg's originally-intended
+// duration (capped at MAX_LEG_SPAN_DAYS). rbr-rally-creator-web#40: these two
+// constants let the frontend warn the user before they hit that silent
+// server-side adjustment, same "surface it before submit" idea as
+// MAX_LEG_SPAN_DAYS/MAX_LEGS above. Deliberately not replicating the actual
+// clamp-and-shift math client-side -- that stays the backend's job as a
+// last-resort safety net for values that go stale while queued.
+export const MIN_LEG_LEAD_MINUTES = 5;
+export const CLAMP_LEG_LEAD_MINUTES = 10;
+
+// True when `openTime` is less than MIN_LEG_LEAD_MINUTES from `now` --
+// including already being in the past, or unparseable. Callers evaluate this
+// with a fresh `now` on every render (see RallyBuilder's readinessProblems)
+// rather than once on change, because this condition can become true purely
+// from time passing while the user keeps building the rest of the rally, not
+// just from editing the field itself.
+export function isLegOpenTimeTooSoon(openTime, now = new Date()) {
+  if (!openTime) return false;
+  const openDate = new Date(openTime);
+  if (Number.isNaN(openDate.getTime())) return false;
+  const minOpenDate = new Date(now.getTime() + MIN_LEG_LEAD_MINUTES * 60 * 1000);
+  return openDate < minOpenDate;
+}
+
 // Seeds a brand-new "+ Add stage" slot from the most recently added/edited
 // stage already in the plan (rbr-rally-creator-web#5), instead of the
 // generic hardcoded defaults -- carrying forward surface age/wetness/

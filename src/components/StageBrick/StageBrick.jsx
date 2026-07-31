@@ -1,5 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { formatKm, parseStageKm } from '../../lib/rallyPlan.js';
 import styles from './StageBrick.module.css';
 
 // First-letter-of-surface badge -- a placeholder glyph, not a real icon
@@ -69,6 +70,7 @@ export function StageBrick({
           {surfaceGlyph(stage?.surface)}
         </span>
         <span className={styles.stageName}>{stage?.name ?? 'Unknown stage'}</span>
+        {stage && <span className={styles.stageMeta}>{formatKm(parseStageKm(stage))}</span>}
         <span className={styles.stageMeta}>{value.tracksettings_id}</span>
         <span className={styles.stageMeta}>{value.def_tyre_id}</span>
       </div>
@@ -148,6 +150,7 @@ export function StageBrick({
           {surfaceGlyph(stage?.surface)}
         </span>
         <span className={styles.stageName}>{stage?.name ?? 'Unknown stage'}</span>
+        {stage && <span className={styles.stageMeta}>{formatKm(parseStageKm(stage))}</span>}
         <span className={styles.stageMeta}>{value.tracksettings_id}</span>
         <span className={styles.stageMeta}>{value.def_tyre_id}</span>
       </button>

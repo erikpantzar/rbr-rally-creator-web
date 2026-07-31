@@ -252,11 +252,22 @@
   outline-offset: 4px;
 }
 
+/* min-height matches a real StageBrick's rendered height so the two sit
+   flush in the row (rbr-rally-creator-web#58): StageBrick.module.css's
+   .brick is padding 0.6rem 0.7rem (1.2rem vertical) + gap 0.4rem, wrapping
+   a .controls row (~1.42rem: 0.85rem font at ~1.2 normal line-height, plus
+   0.2rem*2 button padding) and a .body column with its own 0.2rem gaps
+   between 6 lines -- stageNumber (0.7rem font, ~0.84rem), the fixed
+   1.4rem-square surfaceGlyph, stageName (0.9rem font, ~1.08rem), and three
+   0.75rem stageMeta lines (~0.9rem each) -- for a body content height of
+   ~6.02rem plus 5*0.2rem gaps = ~7.02rem. Total: 1.2 + 1.42 + 0.4 + 7.02 =
+   ~10rem.  */
 .addStageBrick {
   display: flex;
   align-items: center;
   justify-content: center;
   min-width: 12rem;
+  min-height: 10rem;
   padding: 1rem 1.5rem;
   flex-shrink: 0;
   border: 1px dashed var(--border);
@@ -273,6 +284,30 @@
   border-color: var(--accent);
   color: var(--accent-soft-fg);
   background: var(--accent-soft-bg);
+}
+
+/* rbr-rally-creator-web#58: when a leg has zero stages, the "+ Add stage"
+   button is the only thing that gets it un-stuck, so it's tinted with the
+   same --danger-bg/--danger-fg tokens used elsewhere for "needs attention"
+   accents (.legRemoveButton's hover, .legRemoveBubbleConfirm) -- a solid
+   border plus a soft background tint rather than the confirm button's bold
+   filled treatment, since this is a persistent nudge rather than a
+   destructive-action confirmation. Hover still layers the normal
+   .addStageBrick:hover accent treatment on top since it's a more specific
+   selector combination further down the cascade... concretely, the empty
+   state's own hover rule below keeps the danger tone through hover too, so
+   the highlight doesn't just vanish the moment you aim for the button. */
+.addStageBrickEmpty {
+  border: 1px solid var(--danger-fg);
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+}
+
+.addStageBrickEmpty:hover {
+  border-color: var(--danger-fg);
+  color: var(--danger-fg);
+  background: var(--danger-bg);
+  filter: brightness(1.05);
 }
 
 /* Empty-leg ghost hint, per DESIGN_SPEC.md's UX review note on first-time

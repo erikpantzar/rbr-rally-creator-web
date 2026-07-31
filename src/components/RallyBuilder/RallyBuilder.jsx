@@ -6,6 +6,7 @@ import {
   getRallyOptions,
   createRally,
   getJobStatus,
+  cancelJob,
 } from '../../lib/rallyApi.js';
 import {
   createDefaultLegConfig,
@@ -33,6 +34,7 @@ const TERMINAL_JOB_STATUSES = new Set([
   'succeeded_dry_run',
   'succeeded_unconfirmed',
   'failed',
+  'cancelled',
 ]);
 
 export function RallyBuilder({ baseUrl, credentialsSaved }) {
@@ -64,6 +66,12 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
   const [job, setJob] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [dryRun, setDryRun] = useState(false);
+  // Local, optimistic "I already clicked Cancel" flag (rbr-rally-creator-web#31)
+  // -- set the instant the button is clicked so the Cancel button itself
+  // disables/relabels immediately, without waiting for the next poll tick.
+  // The poll loop's job.cancellationRequested (from GET /jobs/:id) is the
+  // real source of truth once it catches up; this just covers the gap.
+  const [cancelRequested, setCancelRequested] = useState(false);
 
   // Every stagePlan mutation funnels through here so the "service disabled
   // on the rally's final stage" business rule (confirmed live against the
@@ -179,7 +187,8 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
           res.status === 'succeeded' ||
           res.status === 'succeeded_unconfirmed' ||
           res.status === 'succeeded_dry_run' ||
-          res.status === 'failed'
+          res.status === 'failed' ||
+          res.status === 'cancelled'
         ) {
           clearInterval(interval);
           setSubmitting(false);
@@ -211,7 +220,12 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
     }
 
     if (TERMINAL_JOB_STATUSES.has(job.status)) {
-      const doneTitle = job.status === 'failed' ? '❌ Rally job failed' : '✅ Rally created!';
+      const doneTitle =
+        job.status === 'failed'
+          ? '❌ Rally job failed'
+          : job.status === 'cancelled'
+            ? '⏹️ Rally job cancelled'
+            : '✅ Rally created!';
 
       let blinkOn = true;
       document.title = doneTitle;
@@ -301,6 +315,7 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
     };
 
     setSubmitting(true);
+    setCancelRequested(false);
     const res = await createRally(baseUrl, config);
 
     if (res.ok) {
@@ -322,6 +337,23 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
       alert('Error creating rally');
       setSubmitting(false);
     }
+  }
+
+  // rbr-rally-creator-web#31: cooperative cancel. DELETE /jobs/:id is only
+  // ever a snapshot of what the service knew at that instant -- a queued
+  // job cancels immediately, but a running job just has the request noted
+  // and keeps going until it notices at its next safe step boundary (up to
+  // a couple of minutes). Deliberately not touching `job` from `res` here:
+  // the poll loop above (GET /jobs/:id) is the actual source of truth for
+  // status/cancellationRequested, and will pick up whatever really happened
+  // within one tick. 404 (job already gone) / 409 (already terminal) are
+  // edge cases -- double-click, or the job settled right as this was
+  // clicked -- and need no special handling: the next poll already reflects
+  // reality either way.
+  async function handleCancelJob() {
+    if (!jobId || cancelRequested) return;
+    setCancelRequested(true);
+    await cancelJob(baseUrl, jobId);
   }
 
   if (loading) {
@@ -429,6 +461,7 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
     setJobId(null);
     setJob(null);
     setSubmitting(false);
+    setCancelRequested(false);
   }
 
   const locked = job?.status === 'succeeded';
@@ -519,7 +552,11 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
               : styles.jobProgressScreen
           }
         >
-          <JobProgress job={job} />
+          <JobProgress
+            job={job}
+            onCancel={handleCancelJob}
+            cancelRequested={cancelRequested || job.cancellationRequested}
+          />
         </div>
       )}
     </div>

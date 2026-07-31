@@ -36,6 +36,29 @@
   color: var(--muted);
 }
 
+.cancelButton {
+  margin-top: 0.75rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font-weight: 500;
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.cancelButton:not(:disabled):hover {
+  border-color: var(--danger-fg);
+  color: var(--danger-fg);
+}
+
+.cancelButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .success,
 .warning,
 .dryRun,
@@ -158,4 +181,32 @@
 .warning_text {
   font-weight: 500;
   margin-top: 0.5rem;
+}
+
+/* Deliberately neither .success's green nor .error's red -- a cancel is a
+   stop the user asked for, not a failure, but it's also not "your rally is
+   live" or "everything validated OK", so it gets the same neutral card
+   shape with muted/border tones instead of borrowing either state's color. */
+.cancelled {
+  padding: 1rem;
+  border-left: 3px solid var(--muted);
+  background: var(--border);
+  color: var(--ink-soft);
+}
+
+.cancelled h4 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.cancelled p {
+  margin: 0.25rem 0;
+  font-size: 0.95rem;
+}
+
+.cancelled a {
+  color: var(--ink-soft);
+  text-decoration: underline;
+  font-weight: 600;
 }

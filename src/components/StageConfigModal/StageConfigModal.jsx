@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ServiceChip } from '../ServiceChip/ServiceChip.jsx';
 import { loadStageConfigDraft, saveStageConfigDraft, clearStageConfigDraft } from '../../lib/stageConfigDraft.js';
 import { getDefaultTyreForSurface, getWetTyreForSurface } from '../../lib/rallyPlan.js';
+import { loadStagePickerFilters, saveStagePickerFilters } from '../../lib/stagePickerFilters.js';
 import styles from './StageConfigModal.module.css';
 
 // In-modal stage picker. DESIGN_SPEC.md leaves open whether this reuses
@@ -16,11 +17,28 @@ import styles from './StageConfigModal.module.css';
 // might still want it.
 function StagePicker({ stages, selectedStageId, onSelect }) {
   const [nameFilter, setNameFilter] = useState('');
-  const [country, setCountry] = useState('');
-  const [surface, setSurface] = useState('');
+  const saved = useMemo(() => loadStagePickerFilters() ?? {}, []);
+  const [country, setCountry] = useState(saved.country ?? '');
+  const [surface, setSurface] = useState(saved.surface ?? '');
 
   const countries = useMemo(() => [...new Set(stages.map((s) => s.country))].sort(), [stages]);
   const surfaces = useMemo(() => [...new Set(stages.map((s) => s.surface))].sort(), [stages]);
+
+  // Stale-value guard: if the restored filter value isn't in the current catalog,
+  // reset it to '' to avoid a permanently-empty stage list if the catalog changes.
+  useEffect(() => {
+    if (country && !countries.includes(country)) {
+      setCountry('');
+    }
+    if (surface && !surfaces.includes(surface)) {
+      setSurface('');
+    }
+  }, [countries, surfaces, country, surface]);
+
+  // Persist country and surface filters on every change.
+  useEffect(() => {
+    saveStagePickerFilters({ country, surface });
+  }, [country, surface]);
 
   const filteredStages = useMemo(() => {
     const lc = nameFilter.trim().toLowerCase();

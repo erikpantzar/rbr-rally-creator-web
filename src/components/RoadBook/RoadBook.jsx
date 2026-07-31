@@ -485,7 +485,7 @@ export function RoadBook({
   if (locked) {
     return (
       <div className={styles.book}>
-        {legRanges.map(({ startIndex, endIndex, startStageNo }, legIndex) => {
+        {legRanges.map(({ startIndex, endIndex }, legIndex) => {
           const legStages = stagePlan.slice(startIndex, endIndex);
           const leg = legSchedule[legIndex];
           const legTotalKm = sumStagePlanKm(legStages, stageByCatalogId);
@@ -494,7 +494,7 @@ export function RoadBook({
             <div key={legIndex} className={styles.legGroup}>
               <div className={styles.legHeader}>
                 <h4>
-                  Leg {legIndex + 1} <span className={styles.legStartStage}>(starts at stage {startStageNo})</span>{' '}
+                  Leg {legIndex + 1}{' '}
                   <span className={styles.legStageCount}>{legStages.length} stage{legStages.length === 1 ? '' : 's'}</span>{' '}
                   <span className={styles.legKmTotal}>{formatKm(legTotalKm)}</span>
                 </h4>
@@ -542,7 +542,7 @@ export function RoadBook({
       onDragCancel={handleDragCancel}
     >
       <div className={styles.book}>
-        {legRanges.map(({ startIndex, endIndex, startStageNo }, legIndex) => {
+        {legRanges.map(({ startIndex, endIndex }, legIndex) => {
           const legStages = stagePlan.slice(startIndex, endIndex);
           const leg = legSchedule[legIndex];
           const legTotalKm = sumStagePlanKm(legStages, stageByCatalogId);
@@ -551,7 +551,7 @@ export function RoadBook({
             <div key={legIndex} className={styles.legGroup}>
               <div className={styles.legHeader}>
                 <h4>
-                  Leg {legIndex + 1} <span className={styles.legStartStage}>(starts at stage {startStageNo})</span>{' '}
+                  Leg {legIndex + 1}{' '}
                   <span className={styles.legStageCount}>{legStages.length} stage{legStages.length === 1 ? '' : 's'}</span>{' '}
                   <span className={styles.legKmTotal}>{formatKm(legTotalKm)}</span>
                 </h4>
@@ -613,13 +613,26 @@ export function RoadBook({
                       onChange={(e) => onLegFieldChange(legIndex, 'close_time', e.target.value)}
                     />
                   </label>
-                  <select value={leg.super_rally} onChange={(e) => onLegFieldChange(legIndex, 'super_rally', e.target.value)}>
-                    {options.superRally.map((opt) => (
-                      <option key={opt} value={opt}>
-                        Super Rally: {opt}
-                      </option>
-                    ))}
-                  </select>
+                  {/* rbr-rally-creator-web#61: options.superRally only ever
+                      has two entries in practice ('disabled'/'150%'), so a
+                      dropdown was overkill for a plain either/or choice --
+                      a single button that flips to the other value on click
+                      is the more direct control. Written generically against
+                      options.superRally.length (cycling to the *next* entry,
+                      wrapping around) rather than hardcoding the two known
+                      literal strings, so this keeps working even if that
+                      option list ever changes shape. */}
+                  <button
+                    type="button"
+                    className={styles.superRallyToggle}
+                    onClick={() => {
+                      const currentIndex = options.superRally.indexOf(leg.super_rally);
+                      const nextIndex = (currentIndex + 1 + options.superRally.length) % options.superRally.length;
+                      onLegFieldChange(legIndex, 'super_rally', options.superRally[nextIndex]);
+                    }}
+                  >
+                    Super Rally: {leg.super_rally}
+                  </button>
                 </div>
               </div>
 
@@ -656,7 +669,13 @@ export function RoadBook({
                     );
                   })}
 
-                  <button type="button" className={styles.addStageBrick} onClick={() => openAddModal(legIndex)}>
+                  <button
+                    type="button"
+                    className={[styles.addStageBrick, legStages.length === 0 ? styles.addStageBrickEmpty : '']
+                      .filter(Boolean)
+                      .join(' ')}
+                    onClick={() => openAddModal(legIndex)}
+                  >
                     + Add stage
                   </button>
 

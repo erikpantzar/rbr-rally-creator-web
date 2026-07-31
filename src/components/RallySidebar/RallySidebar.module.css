@@ -1,0 +1,178 @@
+/* Dimmed backdrop behind the docked panel, click-to-close (rbr-rally-creator-web#62).
+   Always shown while the panel is mounted -- unlike the rejected first pass,
+   this is never a "persistent sidebar with no closed state," so there's
+   always something to dismiss back to. */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 199;
+  background: oklch(0% 0 0 / 45%);
+}
+
+/* Fixed-position panel docked to the left edge, OVERLAYING the main content
+   rather than resizing it (rbr-rally-creator-web#62 -- see the maintainer's
+   implementation-plan comment on the issue). `.page` in App.module.css is
+   completely untouched by this: `position: fixed` takes the panel out of
+   normal flow entirely, so there's no flex-row partnership here and no risk
+   of permanently stealing width from RoadBook's stage bricks (the #52/#55
+   fix that regression would have undone). Starts translated fully
+   off-screen and slides in via `[data-visible='true']` once RallySidebar.jsx
+   flips that on the frame after mount. */
+.panel {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 200;
+  width: min(20rem, 100%);
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  outline: none;
+  transform: translateX(-100%);
+  transition: transform 0.2s ease;
+}
+
+.panel[data-visible='true'] {
+  transform: translateX(0);
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+
+.header h3 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.closeButton {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0.45rem 0.7rem;
+  border-radius: 0;
+}
+
+.closeButton:hover {
+  color: var(--ink);
+  background: var(--accent-soft-bg);
+}
+
+/* No 46rem centering here (unlike .page) -- that centering is meant for the
+   app's main content column, and would be wrong at this panel's much
+   narrower width. */
+.body {
+  padding: 0.5rem 1rem 1.5rem;
+}
+
+.empty {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.35rem;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Marks whichever saved rally is currently loaded into RallyBuilder (#62). */
+.row.active {
+  background: var(--accent-soft-bg);
+  border-left: 3px solid var(--accent);
+  margin-left: -3px;
+}
+
+.openButton {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.7rem 0.5rem;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.row.active .openButton {
+  padding-left: calc(0.5rem - 3px);
+}
+
+.openButton:hover .rowTitle {
+  color: var(--accent-soft-fg);
+}
+
+.rowTitle {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.rowMeta {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.deleteButton {
+  flex-shrink: 0;
+  align-self: center;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-family: inherit;
+  padding: 0.3rem 0.5rem;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.deleteButton:hover {
+  color: var(--danger-fg);
+  border-color: var(--danger-fg);
+  background: var(--danger-bg);
+}
+
+/* First width breakpoint in the codebase (rbr-rally-creator-web#62's
+   implementation-plan comment) -- below this, the fixed ~20rem panel
+   wouldn't leave enough room to read anything behind it anyway, so it goes
+   full-width instead of a fixed width. Still an overlay with a scrim, still
+   toggled the same way -- just sized differently. */
+@media (max-width: 48rem) {
+  .panel {
+    width: 100%;
+  }
+}

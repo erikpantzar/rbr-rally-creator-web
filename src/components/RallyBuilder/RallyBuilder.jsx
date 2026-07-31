@@ -137,8 +137,11 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
   // length is whatever that produces. So this relationship is now inverted:
   // rallyBasics.stages is DERIVED from the actual brick count, kept in sync
   // here whenever stagePlan changes, rather than the other way around.
-  // RallyBasicsForm's "Stages" field is now a read-only display of this
-  // count, not an editable control.
+  // Per rbr-rally-creator-web#30, RallyBasicsForm no longer renders a
+  // "Stages" field at all (the user sees the count via RoadBook's per-leg
+  // badges and the rally-total summary instead) -- but rallyBasics.stages
+  // is still tracked here and sent in the POST /rallies payload, which the
+  // backend validates against stagePlan.length.
   useEffect(() => {
     setRallyBasics((prev) => (prev.stages === stagePlan.length ? prev : { ...prev, stages: stagePlan.length }));
   }, [stagePlan.length]);
@@ -151,8 +154,9 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
   // length is whatever that produces. So this relationship is now inverted,
   // exactly mirroring the stagePlan.length -> rallyBasics.stages effect
   // above: rallyBasics.legs is DERIVED from the actual leg count.
-  // RallyBasicsForm's "Legs" field is now a read-only display of this
-  // count, not an editable control.
+  // Per rbr-rally-creator-web#30, RallyBasicsForm no longer renders a
+  // "Legs" field either, same reasoning as rallyBasics.stages above --
+  // rallyBasics.legs is still tracked and still sent to the backend.
   useEffect(() => {
     setRallyBasics((prev) => (prev.legs === legSchedule.length ? prev : { ...prev, legs: legSchedule.length }));
   }, [legSchedule.length]);

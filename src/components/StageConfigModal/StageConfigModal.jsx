@@ -132,7 +132,16 @@ function StagePicker({ stages, selectedStageId, onSelect }) {
 // distinct from any real weather string so it can never collide.
 const CUSTOM_WEATHER_VALUE = '__custom__';
 
-export function StageConfigModal({ mode, initialValue, stages, options, isLastStage, onSave, onCancel }) {
+export function StageConfigModal({
+  mode,
+  initialValue,
+  stages,
+  options,
+  isLastStage,
+  stageNumber,
+  onSave,
+  onCancel,
+}) {
   const [draft, setDraft] = useState(initialValue);
   const [restoredFromDraft, setRestoredFromDraft] = useState(false);
   // Whether the Weather field is showing its free-text fallback instead of
@@ -312,6 +321,32 @@ export function StageConfigModal({ mode, initialValue, stages, options, isLastSt
               patch(defaultTyre ? { stage_id: id, def_tyre_id: defaultTyre } : { stage_id: id });
             }}
           />
+        </div>
+
+        {/* rbr-rally-creator-web#64: per the maintainer's own comment on the
+            issue (superseding an earlier generic-UX-consult pass), the real
+            site has no per-stage custom-name mechanism at all -- confirmed
+            via both the discovery schema and the raw captured DOM (14 real
+            controls on the stage step, not one a text input). So this is
+            shown always, not gated on the unrelated hidden_stage_name
+            toggle (that checkbox only ever hides the real name from
+            participants server-side; it has no bearing on whether a local
+            planning nickname is useful). Placeholder shows "Stage N" for
+            this stage's position so the user still knows which physical
+            stage they're naming without that number being something they'd
+            type over blindly. */}
+        <div className={styles.formGroup}>
+          <label htmlFor="modal-label">Nickname (optional)</label>
+          <input
+            id="modal-label"
+            type="text"
+            placeholder={stageNumber ? `Stage ${stageNumber}` : 'e.g. Stage 3'}
+            value={draft._label ?? ''}
+            onChange={(e) => patch({ _label: e.target.value })}
+          />
+          <p className={styles.fieldNote}>
+            For your own planning view only — this does not appear on rallysimfans.hu and participants never see it.
+          </p>
         </div>
 
         <div className={styles.formGroup}>

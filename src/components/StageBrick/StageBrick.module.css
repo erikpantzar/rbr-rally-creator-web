@@ -116,6 +116,18 @@
   font-size: 0.9rem;
 }
 
+/* rbr-rally-creator-web#64: the real catalog stage name, shown as a muted
+   secondary line under an optional nickname (.stageName) so the user never
+   loses track of which physical stage a brick maps to, even once it has a
+   nickname -- see getStageNames in StageBrick.jsx. Only rendered when a
+   nickname is actually set; with no nickname, .stageName alone already is
+   the real name. */
+.stageNameSecondary {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
 .stageMeta {
   font-size: 0.75rem;
   color: var(--muted);

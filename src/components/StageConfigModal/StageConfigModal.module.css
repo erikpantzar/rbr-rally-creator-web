@@ -172,6 +172,18 @@
   font-family: inherit;
 }
 
+/* Quiet footnote under the nickname field (rbr-rally-creator-web#64) --
+   deliberately plain body text in the muted color, not a colored
+   banner/box like .tyreSuggestion or .restoredNotice: this is a factual
+   disclosure (local-only, never sent to rallysimfans.hu), not flagging a
+   problem or an available action, so it shouldn't read as alarming. */
+.fieldNote {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
 /* Weather's free-text fallback (StageConfigModal.jsx's CUSTOM_WEATHER_VALUE
    escape hatch) -- input plus a small button to switch back to the
    dropdown, on one row so it doesn't read as a whole separate form field. */

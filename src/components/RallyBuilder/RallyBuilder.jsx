@@ -390,7 +390,14 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
     // _uid is a client-only drag-and-drop identity (see lib/rallyPlan.js) --
     // strip it so the submitted payload shape is exactly what it was before
     // Phase 3, unchanged from what the service validates against.
-    const stagePlanPayload = stagePlan.map(({ _uid, ...rest }) => rest);
+    //
+    // _label (rbr-rally-creator-web#64) is a client-only planning nickname,
+    // stripped here for the same reason: per the maintainer's own comment on
+    // the issue, rallysimfans.hu has no per-stage custom-name mechanism at
+    // all (confirmed via both the discovery schema and the raw captured DOM
+    // of the stage step), so there is nothing site-side to honestly send --
+    // including it would just be meaningless payload weight.
+    const stagePlanPayload = stagePlan.map(({ _uid, _label, ...rest }) => rest);
 
     const config = {
       rallyBasics,

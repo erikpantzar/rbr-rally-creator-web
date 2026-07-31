@@ -1,0 +1,67 @@
+/* rbr-rally-creator-web#80: shared blue/info visual language for both the
+   'bar' (RoadBook leg-row, full-width) and 'summary' (StageConfigModal
+   form-group, inline) variants -- --info-bg/--info-fg/--info-border from
+   tokens.css, same active/empty split as ServiceChip used to have with
+   --accent-soft-bg/--success-bg, just consolidated onto one dedicated
+   "service" token pair now that it's a first-class visual peer to the
+   stage bricks rather than a small inline chip. */
+.block {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  border: 1px solid var(--info-border);
+  border-radius: 0;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.block:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.block.disabled,
+.block:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.active {
+  background: var(--info-bg);
+  color: var(--info-fg);
+}
+
+.empty {
+  background: transparent;
+  color: var(--info-fg);
+  border-style: dashed;
+}
+
+.label {
+  font-weight: 600;
+}
+
+.detail {
+  font-weight: 400;
+  opacity: 0.85;
+  font-size: 0.85em;
+}
+
+/* Full-width bar sitting after a stage brick in the leg row -- a first-class
+   visual peer to the bricks (rbr-rally-creator-web#80's explicit ask), not
+   wrapped inline with them. */
+.bar {
+  width: 100%;
+  justify-content: center;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+/* Compact inline button for StageConfigModal's "Service" form-group --
+   summary-sized rather than the full-width bar, since it sits among other
+   normal-width form fields there. */
+.summary {
+  padding: 0.55rem 0.8rem;
+  font-size: 0.85rem;
+  align-self: flex-start;
+}

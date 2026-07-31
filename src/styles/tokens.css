@@ -25,6 +25,17 @@
   --success-bg: oklch(94% 0.05 150);
   --success-fg: oklch(45% 0.13 150);
 
+  /* rbr-rally-creator-web#80: dedicated blue/info token for the road book's
+     per-stage service blocks -- --accent is a warm amber used for the app's
+     general "interactive/highlighted" language (buttons, active states),
+     so it wasn't a fit for "service" as its own distinct visual category.
+     Named/shaped like --success-bg/--success-fg above rather than reusing
+     that pair, since success and "there's a service stop here" are
+     semantically different things that happen to want similar treatment. */
+  --info-bg: oklch(94% 0.045 250);
+  --info-fg: oklch(48% 0.14 250);
+  --info-border: oklch(70% 0.12 250);
+
   --radius: 0.75rem;
 
   --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
@@ -42,15 +53,21 @@
     --accent: oklch(78% 0.16 92);
     --accent-soft-bg: oklch(32% 0.06 92);
     --accent-soft-fg: oklch(85% 0.13 92);
+
+    --info-bg: oklch(30% 0.05 250);
+    --info-fg: oklch(80% 0.1 250);
+    --info-border: oklch(55% 0.14 250);
   }
 }
 :root[data-theme='dark'] {
   --bg: oklch(20% 0.012 250); --ink: oklch(92% 0.012 250); --ink-soft: oklch(80% 0.012 250);
   --muted: oklch(65% 0.012 250); --border: oklch(32% 0.012 250); --card: oklch(25% 0.012 250);
   --accent: oklch(78% 0.16 92); --accent-soft-bg: oklch(32% 0.06 92); --accent-soft-fg: oklch(85% 0.13 92);
+  --info-bg: oklch(30% 0.05 250); --info-fg: oklch(80% 0.1 250); --info-border: oklch(55% 0.14 250);
 }
 :root[data-theme='light'] {
   --bg: oklch(97% 0.008 250); --ink: oklch(24% 0.015 250); --ink-soft: oklch(42% 0.015 250);
   --muted: oklch(55% 0.012 250); --border: oklch(88% 0.008 250); --card: #ffffff;
   --accent: oklch(58% 0.16 92); --accent-soft-bg: oklch(93% 0.06 92); --accent-soft-fg: oklch(45% 0.13 92);
+  --info-bg: oklch(94% 0.045 250); --info-fg: oklch(48% 0.14 250); --info-border: oklch(70% 0.12 250);
 }

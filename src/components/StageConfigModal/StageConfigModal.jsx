@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ServiceChip } from '../ServiceChip/ServiceChip.jsx';
+import { ServiceBlock } from '../ServiceBlock/ServiceBlock.jsx';
+import { ServiceConfigModal } from '../ServiceConfigModal/ServiceConfigModal.jsx';
 import { loadStageConfigDraft, saveStageConfigDraft, clearStageConfigDraft } from '../../lib/stageConfigDraft.js';
 import { getDefaultTyreForSurface, getWetTyreForSurface } from '../../lib/rallyPlan.js';
 import { loadStagePickerFilters, saveStagePickerFilters } from '../../lib/stagePickerFilters.js';
@@ -114,8 +115,11 @@ function StagePicker({ stages, selectedStageId, onSelect }) {
 
 // Full-page overlay holding the full stage-config form -- stage picker,
 // surface age, wetness, weather, tyre compound + choose_tyre/choose_setup,
-// and the ServiceChip. Replaces the form that used to live inline in
-// StageSlot's "Edit details" panel; now it's the *only* way to create or
+// and a "Service" summary button that opens the sibling ServiceConfigModal
+// (rbr-rally-creator-web#80; retired the old inline ServiceChip editor in
+// favor of that one shared editing surface). Replaces the form that used
+// to live inline in StageSlot's "Edit details" panel; now it's the *only*
+// way to create or
 // edit a brick's config (per DESIGN_SPEC.md: "clicking it opens a
 // dialog... on save, the dialog closes and a new brick appears").
 //
@@ -158,6 +162,13 @@ export function StageConfigModal({
   // returning to 'wet' -- surfaces the suggestion again rather than staying
   // silenced forever after one dismissal.
   const [dismissedWetSuggestion, setDismissedWetSuggestion] = useState(false);
+  // rbr-rally-creator-web#80: whether the "Service" summary button below
+  // has opened its own ServiceConfigModal -- entirely local to this modal
+  // instance (there's exactly one stage being edited here, `draft`, so no
+  // uid/stage lookup is needed the way RoadBook's serviceModalState needs
+  // one). Saving from it just patches the local draft same as any other
+  // field; nothing is written to stagePlan until this modal's own Save.
+  const [serviceModalOpen, setServiceModalOpen] = useState(false);
   const dialogRef = useRef(null);
   const hasCheckedStorageRef = useRef(false);
 
@@ -456,17 +467,22 @@ export function StageConfigModal({
 
         <div className={styles.formGroup}>
           <label>Service</label>
-          <ServiceChip
+          {/* rbr-rally-creator-web#80: opens the same ServiceConfigModal
+              the road book's leg-row blue blocks use, rather than keeping
+              a separate inline editor here -- one editing surface for
+              service, reachable from two entry points. */}
+          <ServiceBlock
+            variant="summary"
             serviceTime={draft.service_time}
-            nummechanics={draft.nummechanics}
-            mechanicsSkill={draft.mechanicsSkill}
-            options={options}
             disabled={isLastStage}
             disabledReason={
               isLastStage ? 'Service is disabled on the rally’s final stage (enforced by the site).' : null
             }
-            onChange={patch}
+            onClick={() => setServiceModalOpen(true)}
           />
+          {isLastStage && (
+            <p className={styles.fieldNote}>Service is disabled on the rally’s final stage (enforced by the site).</p>
+          )}
         </div>
 
         <div className={styles.actions}>
@@ -478,6 +494,24 @@ export function StageConfigModal({
           </button>
         </div>
       </form>
+
+      {/* rbr-rally-creator-web#80: sibling modal, opened on top of this one
+          -- no stage picker inside it, since "which stage" is just this
+          modal's own `draft`. Saving patches `draft` locally; nothing hits
+          stagePlan until this outer modal's own Save/onSave. */}
+      {serviceModalOpen && (
+        <ServiceConfigModal
+          value={draft}
+          options={options}
+          stageNumber={stageNumber}
+          isLastStage={isLastStage}
+          onSave={(serviceFields) => {
+            patch(serviceFields);
+            setServiceModalOpen(false);
+          }}
+          onCancel={() => setServiceModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

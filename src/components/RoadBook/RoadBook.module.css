@@ -265,6 +265,23 @@
   outline-offset: 4px;
 }
 
+/* rbr-rally-creator-web#80: a service block sits as its own full-width row
+   directly under the leg's wrapped stage line -- flex-basis: 100% (see
+   ServiceBlock.module.css's .bar) forces it to break onto its own line in
+   .stagesList's flex-wrap layout, spanning the full leg-row width rather
+   than sitting boxed to one brick's width. Rendered as a sibling of the
+   StageBricks in .stagesList's flex flow (not nested inside a per-brick
+   wrapper), so it reads as "a bar under this row of the leg" rather than
+   "attached to one particular brick" -- matching the "first-class visual
+   peer to the stage bricks" ask. Plain fragment/child, not a sortable item:
+   dnd-kit only ever attaches to the StageBrick via its own useSortable id,
+   and this is absent from `containers`, so it's never a drag source or
+   drop target. */
+.serviceBlockWrap {
+  flex-basis: 100%;
+  width: 100%;
+}
+
 /* Matches a real StageBrick's rendered height by stretching to fill the
    flex line rather than guessing a fixed height (rbr-rally-creator-web#58):
    .stagesList's items share a flex line with the actual StageBricks, so

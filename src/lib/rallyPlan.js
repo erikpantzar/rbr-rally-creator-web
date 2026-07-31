@@ -42,14 +42,35 @@ export function cloneStageConfigWithNewUid(stageConfig) {
   return { ...stageConfig, _uid: generateUid() };
 }
 
+// datetime-local inputs need "YYYY-MM-DDTHH:mm", in the browser's local
+// time, not toISOString() (which is UTC and includes seconds/Z).
+export function toDatetimeLocalValue(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+// Max span the site's own "leg open -> leg close" window allows is 7 days --
+// this app caps legs at 6 to stay safely inside that limit rather than
+// riding the edge of the site's own validation.
+export const MAX_LEG_SPAN_DAYS = 6;
+
 // stage_count is the manual (non-drag) leg-boundary control: how many of
 // the rally's stages fall in this leg. start_stage_no is derived from it
 // (see computeLegStageRanges) rather than stored directly, so it can never
 // drift out of sync with the counts a user has typed in or dragged.
+//
+// open_time/close_time default to "starts today, runs the max allowed span"
+// so a new leg is submittable without the user having to touch the date
+// pickers first -- they only need to adjust these if they want something
+// other than "starting now".
 export function createDefaultLegConfig(stageCount = 0) {
+  const now = new Date();
+  const closeDate = new Date(now);
+  closeDate.setDate(closeDate.getDate() + MAX_LEG_SPAN_DAYS);
+
   return {
-    open_time: '',
-    close_time: '',
+    open_time: toDatetimeLocalValue(now),
+    close_time: toDatetimeLocalValue(closeDate),
     super_rally: 'disabled',
     stage_count: stageCount,
   };

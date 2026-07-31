@@ -73,17 +73,21 @@ function App() {
         />
       </section>
 
-      {baseUrl && credState.status === 'unsaved' && (
+      {baseUrl && (
         <section className={styles.section}>
           <h2>rallysimfans.hu credentials</h2>
-          <CredentialForm onSubmit={handleSaveCredentials} submitting={saving} error={saveError} />
+          {credState.status === 'unsaved' ? (
+            <CredentialForm onSubmit={handleSaveCredentials} submitting={saving} error={saveError} />
+          ) : (
+            <p className={styles.muted}>Signed in as {credState.username}.</p>
+          )}
         </section>
       )}
 
-      {baseUrl && credState.status === 'saved' && (
+      {baseUrl && (
         <section className={styles.section}>
           <h2>Create a rally</h2>
-          <RallyBuilder baseUrl={baseUrl} />
+          <RallyBuilder baseUrl={baseUrl} credentialsSaved={credState.status === 'saved'} />
         </section>
       )}
     </div>

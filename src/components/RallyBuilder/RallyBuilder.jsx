@@ -20,7 +20,12 @@ import {
   MIN_LEG_LEAD_MINUTES,
   CLAMP_LEG_LEAD_MINUTES,
 } from '../../lib/rallyPlan.js';
-import { loadRallyDraft, saveRallyDraft, clearRallyDraft } from '../../lib/rallyDraft.js';
+import {
+  getCurrentDraft,
+  setCurrentDraft,
+  clearCurrentDraft,
+  saveRally,
+} from '../../lib/rallyStorage.js';
 import { RallyBasicsForm } from '../RallyBasicsForm/RallyBasicsForm.jsx';
 import { CarGroupPicker } from '../CarGroupPicker/CarGroupPicker.jsx';
 import { RoadBook } from '../RoadBook/RoadBook.jsx';
@@ -41,13 +46,21 @@ const TERMINAL_JOB_STATUSES = new Set([
   'cancelled',
 ]);
 
-export function RallyBuilder({ baseUrl, credentialsSaved }) {
+export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initialRallyId }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stages, setStages] = useState([]);
   const [carGroups, setCarGroups] = useState([]);
   const [cars, setCars] = useState([]);
   const [rallyOptions, setRallyOptions] = useState(null);
+
+  // Set the moment a rally opened from history is saved again (see
+  // handleSaveRally) -- lets repeat Saves update the same rbr.rallies entry
+  // in place instead of creating a new one each time. Seeded from
+  // initialRallyId when App.jsx opened this builder for an existing rally
+  // (see its `key={activeRally?.id ?? 'new'}` remount trick below).
+  const [currentRallyId, setCurrentRallyId] = useState(initialRallyId ?? null);
+  const [savedNotice, setSavedNotice] = useState(false);
 
   const [rallyBasics, setRallyBasics] = useState({
     rally_name: '',
@@ -60,11 +73,12 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
     road_side_service: 'no',
     password1: '',
     password2: '',
+    ...initialPayload?.rallyBasics,
   });
 
-  const [carGroupIds, setCarGroupIds] = useState([]);
-  const [stagePlan, setStagePlan] = useState([]);
-  const [legSchedule, setLegSchedule] = useState([]);
+  const [carGroupIds, setCarGroupIds] = useState(initialPayload?.carGroupIds ?? []);
+  const [stagePlan, setStagePlan] = useState(initialPayload?.stagePlan ?? []);
+  const [legSchedule, setLegSchedule] = useState(initialPayload?.legSchedule ?? []);
 
   const [jobId, setJobId] = useState(null);
   const [job, setJob] = useState(null);
@@ -107,27 +121,41 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
           setCars(carsRes.data || []);
           setRallyOptions(optionsRes);
 
-          // Resume an in-progress build (rbr-rally-creator-web#6) if one was
-          // left behind by an accidental refresh/close, instead of always
-          // starting from the empty-document defaults below. Each field is
-          // restored independently and only if it looks like the right
-          // shape, so a partial/corrupted draft can't crash the app --
-          // whatever's missing just falls back to its normal default.
-          const draft = loadRallyDraft();
-          if (draft?.rallyBasics) setRallyBasics(draft.rallyBasics);
-          if (Array.isArray(draft?.carGroupIds)) setCarGroupIds(draft.carGroupIds);
-          if (Array.isArray(draft?.stagePlan)) {
-            setStagePlan(normalizeLastStageService(draft.stagePlan));
+          // initialPayload means App.jsx opened this instance for a specific
+          // saved rally (see handleOpenRally / the `key` remount trick) --
+          // that already seeded state in useState above, so it wins outright
+          // and currentDraft (rbr-rally-creator-web#46) is deliberately never
+          // consulted here: a stale in-progress draft from whatever was being
+          // built before must not clobber the rally the user just chose to
+          // open.
+          if (!initialPayload) {
+            // Resume an in-progress build (rbr-rally-creator-web#6) if one was
+            // left behind by an accidental refresh/close, instead of always
+            // starting from the empty-document defaults below. Each field is
+            // restored independently and only if it looks like the right
+            // shape, so a partial/corrupted draft can't crash the app --
+            // whatever's missing just falls back to its normal default.
+            const draft = getCurrentDraft()?.payload;
+            if (draft?.rallyBasics) setRallyBasics((prev) => ({ ...prev, ...draft.rallyBasics }));
+            if (Array.isArray(draft?.carGroupIds)) setCarGroupIds(draft.carGroupIds);
+            if (Array.isArray(draft?.stagePlan)) {
+              setStagePlan(normalizeLastStageService(draft.stagePlan));
+            }
+            if (Array.isArray(draft?.legSchedule) && draft.legSchedule.length > 0) {
+              setLegSchedule(draft.legSchedule);
+            }
           }
 
-          if (Array.isArray(draft?.legSchedule) && draft.legSchedule.length > 0) {
-            setLegSchedule(draft.legSchedule);
-          } else {
-            // Empty document per DESIGN_SPEC.md: start with zero stages and
-            // a single empty Leg 1, not pre-seeded placeholder slots --
-            // bricks only get added via the "+ Add stage" modal from here
-            // on.
-            setLegSchedule([createDefaultLegConfig(0)]);
+          if (!initialPayload?.legSchedule?.length) {
+            setLegSchedule((prev) =>
+              prev.length > 0
+                ? prev
+                : // Empty document per DESIGN_SPEC.md: start with zero stages
+                  // and a single empty Leg 1, not pre-seeded placeholder slots
+                  // -- bricks only get added via the "+ Add stage" modal from
+                  // here on.
+                  [createDefaultLegConfig(0)]
+            );
           }
         } else {
           setError('Failed to fetch catalog data');
@@ -140,6 +168,11 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
     }
 
     fetchData();
+    // initialPayload/initialRallyId are only ever meaningful on first mount
+    // -- App.jsx forces a fresh RallyBuilder instance (via `key`) whenever
+    // activeRally changes, rather than expecting this same instance to react
+    // to a later change of those props.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseUrl]);
 
   // rallyBasics.stages used to be a manual number input that drove
@@ -274,7 +307,7 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
   useEffect(() => {
     if (loading || job?.status === 'succeeded') return;
     const timeout = setTimeout(() => {
-      saveRallyDraft({ rallyBasics, carGroupIds, stagePlan, legSchedule });
+      setCurrentDraft({ rallyBasics, carGroupIds, stagePlan, legSchedule });
     }, 400);
     return () => clearTimeout(timeout);
   }, [loading, job?.status, rallyBasics, carGroupIds, stagePlan, legSchedule]);
@@ -284,8 +317,17 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
   // now-submitted build. "Duplicate as new draft" (below) starts persisting
   // its own new draft the moment it changes state.
   useEffect(() => {
-    if (job?.status === 'succeeded') clearRallyDraft();
+    if (job?.status === 'succeeded') clearCurrentDraft();
   }, [job?.status]);
+
+  // Transient "Saved!" confirmation next to the Save button (see
+  // handleSaveRally) -- purely cosmetic feedback, not state anything else
+  // depends on, so a plain timeout-cleared boolean is enough.
+  useEffect(() => {
+    if (!savedNotice) return undefined;
+    const timeout = setTimeout(() => setSavedNotice(false), 2000);
+    return () => clearTimeout(timeout);
+  }, [savedNotice]);
 
   // rbr-rally-creator-web#40: "does any leg's open_time now fall inside the
   // backend's minimum lead time" (see isLegOpenTimeTooSoon below) is unlike
@@ -361,6 +403,18 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
       alert('Error creating rally');
       setSubmitting(false);
     }
+  }
+
+  // rbr-rally-creator-web#46: explicit, named save into the rbr.rallies
+  // history list -- distinct from the automatic currentDraft autosave
+  // above. Keeps _uid on stagePlan entries (unlike handleCreateRally's
+  // submit payload) since this is for reopening later in this same editor,
+  // where dnd-kit still needs that identity; it never goes over the wire.
+  function handleSaveRally() {
+    const payload = { rallyBasics, carGroupIds, stagePlan, legSchedule };
+    const id = saveRally(currentRallyId, rallyBasics.rally_name, payload);
+    setCurrentRallyId(id);
+    setSavedNotice(true);
   }
 
   // rbr-rally-creator-web#31: cooperative cancel. DELETE /jobs/:id is only
@@ -572,6 +626,15 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
             <ReadinessBanner problems={readinessProblems} />
 
             <div className={styles.actions}>
+              <button
+                type="button"
+                className={styles.saveButton}
+                onClick={handleSaveRally}
+                disabled={submitting}
+              >
+                {savedNotice ? 'Saved!' : 'Save'}
+              </button>
+
               <button
                 className={styles.submitButton}
                 onClick={handleCreateRally}

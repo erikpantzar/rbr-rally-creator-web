@@ -51,6 +51,33 @@
   text-decoration: underline;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* rbr-rally-creator-web#46: opens the RallyHistory overlay. Outlined to
+   match RallyBuilder's .saveButton -- both are secondary actions relative
+   to whatever's the primary CTA in their own context. */
+.historyButton {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.8rem;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.historyButton:hover {
+  background: var(--card);
+}
+
 .section {
   display: flex;
   flex-direction: column;

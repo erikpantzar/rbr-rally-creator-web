@@ -49,6 +49,7 @@ export function RallyBuilder({ baseUrl }) {
   const [jobId, setJobId] = useState(null);
   const [job, setJob] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [dryRun, setDryRun] = useState(false);
 
   // Every stagePlan mutation funnels through here so the "service disabled
   // on the rally's final stage" business rule (confirmed live against the
@@ -155,10 +156,17 @@ export function RallyBuilder({ baseUrl }) {
     const interval = setInterval(async () => {
       const res = await getJobStatus(baseUrl, jobId);
       if (res.ok) {
-        setJob(res);
+        // The job-status response doesn't necessarily echo back whether this
+        // was a dry run while it's still queued/running (only the eventual
+        // succeeded_dry_run result shape is guaranteed to) -- carry forward
+        // the flag we already know locally from submission time so the
+        // in-progress screen can label itself correctly throughout, not just
+        // once it finishes.
+        setJob((prev) => ({ ...res, dryRunRequested: prev?.dryRunRequested }));
         if (
           res.status === 'succeeded' ||
           res.status === 'succeeded_unconfirmed' ||
+          res.status === 'succeeded_dry_run' ||
           res.status === 'failed'
         ) {
           clearInterval(interval);
@@ -222,6 +230,7 @@ export function RallyBuilder({ baseUrl }) {
       carGroupIds,
       legSchedule: legSchedulePayload,
       stagePlan: stagePlanPayload,
+      ...(dryRun ? { dryRun: true } : {}),
     };
 
     setSubmitting(true);
@@ -233,6 +242,7 @@ export function RallyBuilder({ baseUrl }) {
         jobId: res.jobId,
         status: res.status,
         progress: { stepIndex: 0, stepCount: 1, currentStepLabel: 'Starting...' },
+        dryRunRequested: dryRun,
       });
     } else if (res.status === 401) {
       alert('Not authenticated. Please save your credentials first.');
@@ -368,15 +378,35 @@ export function RallyBuilder({ baseUrl }) {
                 onClick={handleCreateRally}
                 disabled={!canSubmit}
               >
-                {submitting ? 'Creating rally...' : 'Create Rally'}
+                {submitting
+                  ? dryRun
+                    ? 'Running test...'
+                    : 'Creating rally...'
+                  : 'Create Rally'}
               </button>
+
+              <label className={styles.testRunLabel}>
+                <input
+                  type="checkbox"
+                  checked={dryRun}
+                  onChange={(e) => setDryRun(e.target.checked)}
+                  disabled={submitting}
+                />
+                Test run (validate everything, don't actually create the rally)
+              </label>
             </div>
           </>
         )}
       </div>
 
       {job && (
-        <div className={styles.jobProgressScreen}>
+        <div
+          className={
+            job.dryRunRequested
+              ? `${styles.jobProgressScreen} ${styles.dryRunScreen}`
+              : styles.jobProgressScreen
+          }
+        >
           <JobProgress job={job} />
         </div>
       )}

@@ -22,13 +22,23 @@
   position: sticky;
   top: 0;
   z-index: 1;
+  padding: 0.85rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+
+/* Keeps Back/Save aligned with the form's own 46rem column below instead of
+   spreading to the full viewport edges -- .header's background/border still
+   span full width as a bar, but the buttons themselves shouldn't drift far
+   apart on a wide screen while the content they act on stays centered. */
+.headerInner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.85rem 1.5rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--card);
+  width: 100%;
+  max-width: 46rem;
+  margin: 0 auto;
 }
 
 .headerLeft {

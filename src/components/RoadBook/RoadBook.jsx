@@ -118,6 +118,58 @@ export function RoadBook({
     }, UNDO_TIMEOUT_MS);
   }
 
+  // rbr-rally-creator-web#29's follow-up to #15: legs are additive but were
+  // never removable. A leg with 0 stages is risk-free to drop outright (the
+  // same case #15's own comment called out as safe) -- anything else needs
+  // to ask where its stages go, since deleting them outright would silently
+  // orphan stage data the user spent time configuring.
+  //
+  // No stagePlan surgery is needed for the merge case: computeLegStageRanges
+  // derives every leg's [startIndex, endIndex) slice of the flat stagePlan
+  // array purely from stage_count, in leg order. Leg K's stages already sit
+  // immediately after leg K-1's in that array, so folding leg K's
+  // stage_count onto its neighbor's and dropping leg K's legSchedule entry
+  // is enough -- the merged leg's wider range now covers exactly the same
+  // (already-contiguous) stagePlan slice both legs used to split between
+  // them. stagePlan itself never moves.
+  function handleRemoveLeg(legIndex) {
+    const leg = legSchedule[legIndex];
+    const stageCount = leg.stage_count || 0;
+
+    if (stageCount === 0) {
+      onLegScheduleChange(legSchedule.filter((_, i) => i !== legIndex));
+      return;
+    }
+
+    const hasPrevious = legIndex > 0;
+    const hasNext = legIndex < legSchedule.length - 1;
+    if (!hasPrevious && !hasNext) {
+      // Only leg in the rally -- nothing to merge its stages into, and a
+      // rally needs at least one leg, so removal isn't possible. The
+      // control is disabled for this case below; this is just a defensive
+      // no-op if it's ever reached anyway.
+      return;
+    }
+
+    // Default direction is the previous leg per the issue; falls back to
+    // the next leg when removing the first leg (no previous exists).
+    const targetLegIndex = hasPrevious ? legIndex - 1 : legIndex + 1;
+    const direction = hasPrevious ? 'previous' : 'next';
+
+    const confirmed = window.confirm(
+      `Leg ${legIndex + 1} has ${stageCount} stage${stageCount === 1 ? '' : 's'}. Move ${
+        stageCount === 1 ? 'it' : 'them'
+      } into the ${direction} leg (Leg ${targetLegIndex + 1}) and remove Leg ${legIndex + 1}?`
+    );
+    if (!confirmed) return;
+
+    const nextLegSchedule = legSchedule
+      .map((l, i) => (i === targetLegIndex ? { ...l, stage_count: (l.stage_count || 0) + stageCount } : l))
+      .filter((_, i) => i !== legIndex);
+
+    onLegScheduleChange(nextLegSchedule);
+  }
+
   function handleUndoDelete() {
     if (!pendingUndo) return;
     const { config, legIndex, indexInLeg } = pendingUndo;
@@ -394,6 +446,19 @@ export function RoadBook({
                     ))}
                   </select>
                 </div>
+                {/* rbr-rally-creator-web#29: the only leg in the rally can't be
+                    removed -- a rally needs at least one -- so the control is
+                    disabled rather than hidden, which would otherwise read as
+                    "gone" instead of "not applicable right now". */}
+                <button
+                  type="button"
+                  className={styles.legRemoveButton}
+                  disabled={legSchedule.length <= 1}
+                  title={legSchedule.length <= 1 ? "Can't remove the only leg" : 'Remove this leg'}
+                  onClick={() => handleRemoveLeg(legIndex)}
+                >
+                  Remove leg
+                </button>
               </div>
 
               <SortableContext items={containers[legIndex]} strategy={horizontalListSortingStrategy}>
@@ -460,11 +525,10 @@ export function RoadBook({
             field is now just a read-only display of legSchedule.length).
             A new leg starts empty (0 stages); RallyBuilder's
             readinessProblems flags it as not publishable until it has at
-            least one. There's no "remove leg" control yet -- deliberately
-            left as a follow-up, since removing a leg with stages already in
-            it would orphan/need to reassign that stage data, and the only
-            leg that's ever risk-free to remove (an empty trailing one) is a
-            narrower case than a general remove button would imply. */}
+            least one. Legs are removable too (rbr-rally-creator-web#29,
+            #15's flagged follow-up) via each leg's "Remove leg" button
+            above -- see handleRemoveLeg for the empty-vs-has-stages/
+            merge-direction logic. */}
         <button type="button" className={styles.addLegButton} onClick={onAddLeg}>
           + Add Leg
         </button>

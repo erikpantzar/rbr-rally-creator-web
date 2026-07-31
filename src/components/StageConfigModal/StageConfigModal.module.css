@@ -144,6 +144,14 @@
   flex-direction: column;
   gap: 1rem;
   padding: 1.5rem;
+  /* Extra bottom breathing room (rbr-rally-creator-web#84) -- the Service
+     field is the last one before .actions, and expanding it into its
+     editable fields (see ServiceChip) was landing right against the
+     viewport bottom with nothing below .actions to scroll into. 300px
+     matches the issue's literal ask; not worth inventing a spacing token
+     for a one-off this large relative to the rest of the 0.35-1.5rem
+     scale used elsewhere in this file. */
+  padding-bottom: 300px;
   width: 100%;
   max-width: 46rem;
   margin: 0 auto;

@@ -1,10 +1,10 @@
 // Persists the *currently open* stage editor's in-progress draft
-// (rbr-rally-creator-web#16) -- distinct from rallyDraft.js, which only ever
-// holds fully-saved stages (the committed stagePlan). Without this,
-// refreshing the tab or closing it while the full-page stage editor is
-// mid-edit throws away whatever the user was typing/picking, even though
-// nothing has been "Saved" into the road book yet. Mirrors rallyDraft.js's
-// key/get/set convention.
+// (rbr-rally-creator-web#16) -- distinct from rallyStorage.js's
+// currentDraft, which only ever holds fully-saved stages (the committed
+// stagePlan). Without this, refreshing the tab or closing it while the
+// full-page stage editor is mid-edit throws away whatever the user was
+// typing/picking, even though nothing has been "Saved" into the road book
+// yet. Mirrors rallyStorage.js's key/get/set convention.
 //
 // Scope call: this is a single slot, not one draft per leg/stage. The
 // editor is mounted/unmounted per open (RoadBook only ever has one instance

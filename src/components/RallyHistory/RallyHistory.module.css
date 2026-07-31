@@ -1,0 +1,131 @@
+/* Same full-screen overlay treatment as StageConfigModal.module.css --
+   z-index 200 for the same "sits on top of everything" reason. */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  outline: none;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.85rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+
+.headerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  max-width: 46rem;
+  margin: 0 auto;
+}
+
+.header h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.closeButton {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0.45rem 0.7rem;
+  border-radius: 0;
+}
+
+.closeButton:hover {
+  color: var(--ink);
+  background: var(--accent-soft-bg);
+}
+
+.body {
+  width: 100%;
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.empty {
+  color: var(--muted);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.openButton {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  padding: 0.9rem 0.25rem;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.openButton:hover .rowTitle {
+  color: var(--accent-soft-fg);
+}
+
+.rowTitle {
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.rowMeta {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.deleteButton {
+  flex-shrink: 0;
+  align-self: center;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-family: inherit;
+  padding: 0.4rem 0.75rem;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.deleteButton:hover {
+  color: var(--danger-fg);
+  border-color: var(--danger-fg);
+  background: var(--danger-bg);
+}

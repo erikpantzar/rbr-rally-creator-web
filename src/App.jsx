@@ -4,6 +4,7 @@ import { saveCredentials, getCredentialsStatus, clearCredentials } from './lib/a
 import { CredentialForm } from './components/CredentialForm/CredentialForm.jsx';
 import { CredentialStatus } from './components/CredentialStatus/CredentialStatus.jsx';
 import { RallyBuilder } from './components/RallyBuilder/RallyBuilder.jsx';
+import { RallyHistory } from './components/RallyHistory/RallyHistory.jsx';
 import styles from './App.module.css';
 
 // Only this top-level component touches fetch/localStorage -- everything
@@ -25,6 +26,21 @@ function App() {
   const [credState, setCredState] = useState({ status: 'checking' }); // checking | saved | unsaved
   const [saveError, setSaveError] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  // rbr-rally-creator-web#46: which saved rally (if any) RallyBuilder should
+  // open with, and whether the "My Rallies" list overlay is showing.
+  // activeRally lives here rather than inside RallyBuilder because opening a
+  // *different* rally needs to reset RallyBuilder's entire local state tree
+  // -- simplest way to guarantee that is to give RallyBuilder a fresh `key`
+  // (below) and let it remount clean, which only App.jsx can drive from
+  // outside.
+  const [activeRally, setActiveRally] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
+
+  function handleOpenRally(rally) {
+    setActiveRally(rally);
+    setShowHistory(false);
+  }
 
   useEffect(() => {
     if (!baseUrl) {
@@ -72,9 +88,14 @@ function App() {
             {__COMMIT_HASH__}
           </a>
         </div>
-        {credState.status === 'saved' && (
-          <CredentialStatus username={credState.username} onClear={handleClearCredentials} />
-        )}
+        <div className={styles.headerActions}>
+          <button type="button" className={styles.historyButton} onClick={() => setShowHistory(true)}>
+            My Rallies
+          </button>
+          {credState.status === 'saved' && (
+            <CredentialStatus username={credState.username} onClear={handleClearCredentials} />
+          )}
+        </div>
       </header>
 
       {baseUrl && (
@@ -91,9 +112,22 @@ function App() {
       {baseUrl && (
         <section className={styles.section}>
           <h2>Create a rally</h2>
-          <RallyBuilder baseUrl={baseUrl} credentialsSaved={credState.status === 'saved'} />
+          {/* key forces a clean remount whenever the user opens a different
+              saved rally (or switches back to "new") -- RallyBuilder's state
+              (rallyBasics/stagePlan/etc.) is all local useState, so this is
+              the simplest way to guarantee it doesn't carry over from
+              whatever was on screen before (rbr-rally-creator-web#46). */}
+          <RallyBuilder
+            key={activeRally?.id ?? 'new'}
+            baseUrl={baseUrl}
+            credentialsSaved={credState.status === 'saved'}
+            initialPayload={activeRally?.payload}
+            initialRallyId={activeRally?.id ?? null}
+          />
         </section>
       )}
+
+      {showHistory && <RallyHistory onOpen={handleOpenRally} onClose={() => setShowHistory(false)} />}
     </div>
   );
 }

@@ -100,6 +100,34 @@
   filter: brightness(1.05);
 }
 
+/* Secondary action next to Create Rally -- explicit save into the
+   rbr.rallies history list (rbr-rally-creator-web#46), distinct from the
+   automatic currentDraft autosave that happens regardless. Outlined rather
+   than filled so it doesn't compete with .submitButton as the primary
+   action. */
+.saveButton {
+  padding: 0.75rem 1.5rem;
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.95rem;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.saveButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.saveButton:not(:disabled):hover {
+  background: var(--card);
+}
+
 .testRunLabel {
   display: flex;
   align-items: center;

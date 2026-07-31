@@ -15,6 +15,7 @@ import {
   cloneStageConfigWithNewUid,
   toDatetimeLocalValue,
   isLegOpenTimeTooSoon,
+  stockholmNow,
   MAX_LEG_SPAN_DAYS,
   MAX_LEGS,
   MIN_LEG_LEAD_MINUTES,
@@ -572,6 +573,38 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
     setLegSchedule(newLegs);
   }
 
+  // rbr-rally-creator-web#63: one-click remedy for the "leg opens too soon"
+  // readiness problem below (see legsOpeningTooSoon) -- instead of the user
+  // hunting down which leg(s) are stale and manually retyping both fields,
+  // push every too-soon leg's open_time out to CLAMP_LEG_LEAD_MINUTES from
+  // Stockholm's current wall-clock "now" (the same lead the backend's own
+  // safety-net clamp uses, rbr-rally-creator-service#11), and shift
+  // close_time by the exact same delta so the leg's originally-intended
+  // duration survives -- mirroring the backend's normalizeLegTimes
+  // reasoning, just applied client-side and immediately visible instead of
+  // silently happening at schedule time.
+  function handleFixStaleStartTimes() {
+    const newOpenDate = new Date(stockholmNow().getTime() + CLAMP_LEG_LEAD_MINUTES * 60 * 1000);
+    const newOpenValue = toDatetimeLocalValue(newOpenDate);
+
+    const newLegs = legSchedule.map((leg, i) => {
+      if (!legsOpeningTooSoon.includes(i + 1)) return leg;
+
+      const oldOpenDate = new Date(leg.open_time);
+      const deltaMs = newOpenDate.getTime() - oldOpenDate.getTime();
+
+      let newCloseValue = leg.close_time;
+      const oldCloseDate = new Date(leg.close_time);
+      if (leg.close_time && !Number.isNaN(oldCloseDate.getTime())) {
+        newCloseValue = toDatetimeLocalValue(new Date(oldCloseDate.getTime() + deltaMs));
+      }
+
+      return { ...leg, open_time: newOpenValue, close_time: newCloseValue };
+    });
+
+    setLegSchedule(newLegs);
+  }
+
   // Per rbr-rally-creator-web#15: legs are now "Lego bits" too -- appended
   // one at a time from RoadBook's "+ Add Leg" button, same additive model as
   // stages, rather than pre-sized by the old rallyBasics.legs number input.
@@ -650,6 +683,24 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
         ) : (
           <>
             <ReadinessBanner problems={readinessProblems} />
+
+            {legsOpeningTooSoon.length > 0 && (
+              // Standalone button rather than teaching ReadinessBanner a
+              // generic "action per problem" prop -- this is the only
+              // readiness problem with an automatic one-click fix, so a
+              // plain button right after the banner reads just as clearly
+              // without turning ReadinessBanner into a bigger abstraction
+              // than it needs to be.
+              <button
+                type="button"
+                className={styles.fixTimesButton}
+                onClick={handleFixStaleStartTimes}
+              >
+                {legsOpeningTooSoon.length === 1
+                  ? `Fix Leg ${legsOpeningTooSoon[0]}'s start time`
+                  : 'Fix start times'}
+              </button>
+            )}
 
             <div className={styles.actions}>
               <button

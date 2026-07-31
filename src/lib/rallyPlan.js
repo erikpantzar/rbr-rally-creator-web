@@ -83,6 +83,57 @@ export function toDatetimeLocalValue(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+// rbr-rally-creator-web#63: rallysimfans.hu itself runs on Europe/Stockholm
+// time (CET/CEST -- UTC+1 in winter, UTC+2 in summer) no matter where the
+// browser visiting this app happens to be. Every "now" used to reason about
+// leg open/close timing (isLegOpenTimeTooSoon's default, createDefaultLegConfig's
+// seed values, the fix-stale-times button in RallyBuilder) needs to mean
+// Stockholm's wall-clock "now", not the visiting browser's local "now" --
+// otherwise a visitor in, say, US/Pacific gets a "too soon" check (or a
+// freshly-seeded default) that doesn't match what the real site would
+// consider valid.
+//
+// Trick: ask Intl for Stockholm's wall-clock parts for the current instant,
+// then build a plain `new Date(year, month-1, day, hour, minute, second)`
+// from those parts. The resulting Date's epoch value is technically "wrong"
+// (it's not Stockholm time correctly re-encoded at the UTC level) -- but
+// every other function in this file only ever reads the LOCAL getters
+// (.getFullYear/.getMonth/.getDate/.getHours/.getMinutes, see
+// toDatetimeLocalValue just above) rather than doing absolute epoch math, so
+// a Date whose local getters report Stockholm's wall-clock numbers is
+// exactly what they need, regardless of what timezone the runtime itself is
+// configured for. E.g. if the current instant is 14:00 UTC, Stockholm
+// (UTC+1 in winter) reads that instant as 15:00 wall-clock -- Intl's
+// timeZone option performs that UTC->Stockholm conversion for us, and the
+// Date we construct from the resulting parts reports .getHours() === 15 no
+// matter the runtime's own timezone.
+export function stockholmNow() {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Stockholm',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    // hourCycle: 'h23' guarantees hour is always "00"-"23" -- hour12: false
+    // has a documented quirk in some engines of reporting midnight as "24"
+    // instead of "00".
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date());
+
+  const get = (type) => Number(parts.find((p) => p.type === type)?.value);
+
+  return new Date(
+    get('year'),
+    get('month') - 1,
+    get('day'),
+    get('hour'),
+    get('minute'),
+    get('second')
+  );
+}
+
 // Max span the site's own "leg open -> leg close" window allows is 7 days --
 // this app caps legs at 6 to stay safely inside that limit rather than
 // riding the edge of the site's own validation.
@@ -115,8 +166,11 @@ export const CLAMP_LEG_LEAD_MINUTES = 10;
 // with a fresh `now` on every render (see RallyBuilder's readinessProblems)
 // rather than once on change, because this condition can become true purely
 // from time passing while the user keeps building the rest of the rally, not
-// just from editing the field itself.
-export function isLegOpenTimeTooSoon(openTime, now = new Date()) {
+// just from editing the field itself. Defaults to stockholmNow() rather than
+// the browser's own new Date() (rbr-rally-creator-web#63) since it's
+// rallysimfans.hu's own clock, not the visiting browser's, that determines
+// whether this leg is actually too soon.
+export function isLegOpenTimeTooSoon(openTime, now = stockholmNow()) {
   if (!openTime) return false;
   const openDate = new Date(openTime);
   if (Number.isNaN(openDate.getTime())) return false;
@@ -150,9 +204,12 @@ export function createStageConfigFromPrevious(previousStageConfig) {
 // open_time/close_time default to "starts today, runs the max allowed span"
 // so a new leg is submittable without the user having to touch the date
 // pickers first -- they only need to adjust these if they want something
-// other than "starting now".
+// other than "starting now". Seeded from stockholmNow() rather than the
+// browser's own new Date() (rbr-rally-creator-web#63) for the same reason as
+// isLegOpenTimeTooSoon above -- "now" here means rallysimfans.hu's own
+// Stockholm clock, not the visiting browser's.
 export function createDefaultLegConfig(stageCount = 0) {
-  const now = new Date();
+  const now = stockholmNow();
   const closeDate = new Date(now);
   closeDate.setDate(closeDate.getDate() + MAX_LEG_SPAN_DAYS);
 

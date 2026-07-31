@@ -128,6 +128,34 @@
   background: var(--card);
 }
 
+/* rbr-rally-creator-web#63: danger-styled one-click fix for the "leg opens
+   too soon" readiness problem -- reuses the same --danger-bg/--danger-fg
+   tokens as RoadBook's leg-remove-confirm button (.legRemoveBubbleConfirm)
+   so it reads as clearly danger/attention-worthy as that existing pattern,
+   rather than blending in with .submitButton/.saveButton's neutral
+   palette. Sits between ReadinessBanner and .actions, so align-self keeps
+   it from stretching to the full document width like a block-level child
+   normally would in this flex column. */
+.fixTimesButton {
+  align-self: flex-start;
+  margin-top: 0.75rem;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid var(--danger-fg);
+  border-radius: 0;
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  font-weight: 600;
+  font-size: 0.9rem;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.fixTimesButton:hover {
+  filter: brightness(1.05);
+}
+
 .testRunLabel {
   display: flex;
   align-items: center;

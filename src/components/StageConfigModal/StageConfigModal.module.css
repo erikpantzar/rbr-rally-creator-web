@@ -162,6 +162,34 @@
   font-family: inherit;
 }
 
+/* Weather's free-text fallback (StageConfigModal.jsx's CUSTOM_WEATHER_VALUE
+   escape hatch) -- input plus a small button to switch back to the
+   dropdown, on one row so it doesn't read as a whole separate form field. */
+.customWeatherRow {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.customWeatherRow input {
+  flex: 1;
+}
+
+.customWeatherBackButton {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--ink);
+  padding: 0.5rem 0.7rem;
+  border-radius: 0;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.customWeatherBackButton:hover {
+  border-color: var(--accent);
+}
+
 .radioGroup {
   display: flex;
   flex-direction: column;

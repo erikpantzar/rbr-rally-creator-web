@@ -1,0 +1,192 @@
+/* Persistent left column above 768px (rbr-rally-creator-web#62) -- sticky so
+   it stays on screen while the (often much taller) rally document in .page
+   scrolls past it, with its own independent scrollbar once the rally list
+   itself outgrows the viewport. Below 768px there's no room to keep this
+   beside the editor without crowding out the document, so it becomes a
+   fixed slide-out drawer instead, toggled by App.module.css's
+   .sidebarToggle button -- same flat, no-shadow visual system as the rest
+   of the app either way. */
+.sidebar {
+  flex: 0 0 16rem;
+  width: 16rem;
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border-right: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.backdrop {
+  display: none;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+
+.header h3 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Only meaningful once the sidebar becomes a drawer (below the breakpoint)
+   -- hidden on a wide viewport, where the sidebar has no "closed" state to
+   return to. */
+.closeButton {
+  display: none;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0.45rem 0.7rem;
+  border-radius: 0;
+}
+
+.closeButton:hover {
+  color: var(--ink);
+  background: var(--accent-soft-bg);
+}
+
+.body {
+  padding: 0.5rem 1rem 1.5rem;
+}
+
+.empty {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.35rem;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Marks whichever saved rally is currently loaded into RallyBuilder (#62) --
+   the old full-screen overlay never needed this since it was only ever
+   briefly on screen mid-navigation, but a persistent list sitting next to
+   the editor the whole time should make clear which entry it reflects. */
+.row.active {
+  background: var(--accent-soft-bg);
+  border-left: 3px solid var(--accent);
+  margin-left: -3px;
+}
+
+.openButton {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.7rem 0.5rem;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.row.active .openButton {
+  padding-left: calc(0.5rem - 3px);
+}
+
+.openButton:hover .rowTitle {
+  color: var(--accent-soft-fg);
+}
+
+.rowTitle {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.rowMeta {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.deleteButton {
+  flex-shrink: 0;
+  align-self: center;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-family: inherit;
+  padding: 0.3rem 0.5rem;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.deleteButton:hover {
+  color: var(--danger-fg);
+  border-color: var(--danger-fg);
+  background: var(--danger-bg);
+}
+
+/* Below this width the two-column layout doesn't leave enough room for the
+   rally document, so the sidebar drops out of the flex row (position: fixed
+   takes it out of flow entirely) and becomes an off-canvas drawer instead,
+   opened via App.module.css's .sidebarToggle button and closed via the
+   Close button above, the backdrop below, or picking a rally. */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 200;
+    width: 85vw;
+    max-width: 20rem;
+    height: 100%;
+    border-right: 1px solid var(--border);
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+  }
+
+  .sidebar[data-open='true'] {
+    transform: translateX(0);
+  }
+
+  .closeButton {
+    display: inline-flex;
+  }
+
+  .backdrop[data-open='true'] {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 199;
+    background: oklch(0% 0 0 / 45%);
+  }
+}

@@ -46,7 +46,7 @@ const TERMINAL_JOB_STATUSES = new Set([
   'cancelled',
 ]);
 
-export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initialRallyId }) {
+export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initialRallyId, onSaved }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stages, setStages] = useState([]);
@@ -415,6 +415,11 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
     const id = saveRally(currentRallyId, rallyBasics.rally_name, payload);
     setCurrentRallyId(id);
     setSavedNotice(true);
+    // rbr-rally-creator-web#62: App.jsx's RallySidebar is now mounted for
+    // the app's whole lifetime instead of being freshly created each time
+    // it's opened, so it can't just re-read rallyStorage on mount to pick
+    // up this save -- it needs an explicit nudge.
+    onSaved?.(id);
   }
 
   // Starts a brand-new, blank rally without leaving this screen. The key

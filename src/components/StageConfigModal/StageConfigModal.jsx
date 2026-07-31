@@ -216,20 +216,22 @@ export function StageConfigModal({ mode, initialValue, stages, options, isLastSt
       tabIndex={-1}
     >
       <div className={styles.header}>
-        <div className={styles.headerLeft}>
-          <button type="button" className={styles.backButton} onClick={handleCancel}>
-            <span aria-hidden="true">&larr;</span> Back to rally
+        <div className={styles.headerInner}>
+          <div className={styles.headerLeft}>
+            <button type="button" className={styles.backButton} onClick={handleCancel}>
+              <span aria-hidden="true">&larr;</span> Back to rally
+            </button>
+            <h3 id="stage-config-modal-title">{title}</h3>
+          </div>
+          <button
+            type="submit"
+            form="stage-config-form"
+            className={styles.headerSaveButton}
+            disabled={!draft.stage_id}
+          >
+            Save
           </button>
-          <h3 id="stage-config-modal-title">{title}</h3>
         </div>
-        <button
-          type="submit"
-          form="stage-config-form"
-          className={styles.headerSaveButton}
-          disabled={!draft.stage_id}
-        >
-          Save
-        </button>
       </div>
 
       {restoredFromDraft && (

@@ -6,7 +6,7 @@ function roadSideServiceLabel(value) {
   return value === 'no' ? 'No service' : value;
 }
 
-export function RallyBasicsForm({ value, onChange, options }) {
+export function RallyBasicsForm({ value, onChange, options, rallyNameInputRef }) {
   function handleChange(field, fieldValue) {
     onChange({ ...value, [field]: fieldValue });
   }
@@ -19,6 +19,7 @@ export function RallyBasicsForm({ value, onChange, options }) {
         </label>
         <input
           id="rally-name"
+          ref={rallyNameInputRef}
           type="text"
           value={value.rally_name}
           onChange={(e) => handleChange('rally_name', e.target.value)}

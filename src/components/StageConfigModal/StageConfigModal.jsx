@@ -359,37 +359,47 @@ export function StageConfigModal({
           </div>
         </div>
 
-        <div className={styles.formGroup}>
-          <label htmlFor="modal-wetness">Wetness</label>
-          <select
-            id="modal-wetness"
-            value={draft.wetness_id}
-            onChange={(e) => patch({ wetness_id: e.target.value })}
-            disabled={!selectedStage}
-          >
-            {(selectedStage?.wetnessOptions ?? []).map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* rbr-rally-creator-web#79: wetness/weather options are per-stage
+            (see selectedStage.wetnessOptions/weatherOptions above), so with
+            no stage picked yet there's nothing to populate these with --
+            showing them disabled-but-empty read as "broken" rather than "not
+            applicable yet". Hidden outright until a stage is selected;
+            StagePicker's onSelect already seeds both fields from the newly
+            picked stage's first option, so they appear already populated
+            the moment the fields themselves appear. */}
+        {selectedStage && (
+          <>
+            <div className={styles.formGroup}>
+              <label htmlFor="modal-wetness">Wetness</label>
+              <select
+                id="modal-wetness"
+                value={draft.wetness_id}
+                onChange={(e) => patch({ wetness_id: e.target.value })}
+              >
+                {(selectedStage.wetnessOptions ?? []).map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <div className={styles.formGroup}>
-          <label htmlFor="modal-tracksettings">Weather</label>
-          <select
-            id="modal-tracksettings"
-            value={draft.tracksettings_id}
-            onChange={(e) => patch({ tracksettings_id: e.target.value })}
-            disabled={!selectedStage}
-          >
-            {(selectedStage?.weatherOptions ?? []).map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-        </div>
+            <div className={styles.formGroup}>
+              <label htmlFor="modal-tracksettings">Weather</label>
+              <select
+                id="modal-tracksettings"
+                value={draft.tracksettings_id}
+                onChange={(e) => patch({ tracksettings_id: e.target.value })}
+              >
+                {(selectedStage.weatherOptions ?? []).map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
 
         <div className={styles.formGroup}>
           <label htmlFor="modal-tyre">Default tyre</label>

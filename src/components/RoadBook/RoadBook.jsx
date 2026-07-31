@@ -9,6 +9,7 @@ import {
   formatKm,
   sumStagePlanKm,
   MAX_LEG_SPAN_DAYS,
+  MAX_LEGS,
 } from '../../lib/rallyPlan.js';
 import { StageBrick } from '../StageBrick/StageBrick.jsx';
 import { StageConfigModal } from '../StageConfigModal/StageConfigModal.jsx';
@@ -529,7 +530,19 @@ export function RoadBook({
             #15's flagged follow-up) via each leg's "Remove leg" button
             above -- see handleRemoveLeg for the empty-vs-has-stages/
             merge-direction logic. */}
-        <button type="button" className={styles.addLegButton} onClick={onAddLeg}>
+        {/* rbr-rally-creator-web#37: the real site's wizard tops out at 6
+            legs (confirmed against the backend's discovery capture) and a
+            companion backend PR is enforcing that server-side -- disabling
+            here instead of letting the user find out via a 400 after
+            submit. Disabled rather than hidden, same reasoning as the
+            "Remove leg" button above. */}
+        <button
+          type="button"
+          className={styles.addLegButton}
+          onClick={onAddLeg}
+          disabled={legSchedule.length >= MAX_LEGS}
+          title={legSchedule.length >= MAX_LEGS ? `Rallies can have at most ${MAX_LEGS} legs` : undefined}
+        >
           + Add Leg
         </button>
       </div>

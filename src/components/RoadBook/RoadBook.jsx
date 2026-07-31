@@ -599,13 +599,26 @@ export function RoadBook({
                     max={maxCloseTimeFor(leg.open_time)}
                     onChange={(e) => onLegFieldChange(legIndex, 'close_time', e.target.value)}
                   />
-                  <select value={leg.super_rally} onChange={(e) => onLegFieldChange(legIndex, 'super_rally', e.target.value)}>
-                    {options.superRally.map((opt) => (
-                      <option key={opt} value={opt}>
-                        Super Rally: {opt}
-                      </option>
-                    ))}
-                  </select>
+                  {/* rbr-rally-creator-web#61: options.superRally only ever
+                      has two entries in practice ('disabled'/'150%'), so a
+                      dropdown was overkill for a plain either/or choice --
+                      a single button that flips to the other value on click
+                      is the more direct control. Written generically against
+                      options.superRally.length (cycling to the *next* entry,
+                      wrapping around) rather than hardcoding the two known
+                      literal strings, so this keeps working even if that
+                      option list ever changes shape. */}
+                  <button
+                    type="button"
+                    className={styles.superRallyToggle}
+                    onClick={() => {
+                      const currentIndex = options.superRally.indexOf(leg.super_rally);
+                      const nextIndex = (currentIndex + 1 + options.superRally.length) % options.superRally.length;
+                      onLegFieldChange(legIndex, 'super_rally', options.superRally[nextIndex]);
+                    }}
+                  >
+                    Super Rally: {leg.super_rally}
+                  </button>
                 </div>
               </div>
 

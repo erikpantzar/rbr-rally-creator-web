@@ -230,7 +230,36 @@
 }
 
 /* Stage row: DESIGN_SPEC.md calls for a horizontal row of bricks in stage
-   order, desktop-first, scrolling rather than wrapping/stacking. */
+   order, desktop-first, scrolling rather than wrapping/stacking.
+
+   rbr-rally-creator-web#43: overflow-x: auto alone gave no visible signal
+   that a leg's row had more stages off-screen -- painfully obvious once a
+   leg has 4+ stages at a narrow (~400px) viewport, but the same "how do I
+   know to scroll?" problem exists at any width once a row overflows.
+   Rather than switching this row to flex-wrap (which would fight the
+   above -- and DESIGN_SPEC.md's own -- explicit "scroll, don't wrap"
+   choice, made because a wrapped multi-row-per-leg layout undermines the
+   "one row = one leg" scannability this document metaphor relies on),
+   two CSS-only affordances make the existing scroll discoverable without
+   any JS overflow measurement:
+
+   1. A visible, always-on scrollbar (scrollbar-color/-width, with the
+      -webkit-scrollbar-* rules below as the fallback for engines that
+      don't yet support the standard properties) instead of relying on
+      the OS's auto-hiding default, which is exactly what made this bug
+      invisible in casual testing on platforms that hide inactive
+      scrollbars entirely.
+   2. "Scroll shadow" fade gradients at the leading/trailing edges: two
+      gradients painted with background-attachment: local (so they scroll
+      *with* the brick content) sit on top of two more painted with
+      background-attachment: scroll (fixed to the row's own edges). The
+      local layer only covers the scroll layer at the end you're
+      currently scrolled to, so each fade self-hides once you've reached
+      that end -- no ResizeObserver/scroll-position state needed to know
+      whether there's really more content in that direction. Classic
+      technique (Lea Verou's "scroll shadows"), just recolored to this
+      app's tokens instead of a drop-shadow blur, to stay flat/no-shadow
+      per DESIGN_SPEC.md's visual language. */
 .stagesList {
   display: flex;
   flex-direction: row;
@@ -240,6 +269,31 @@
   padding-bottom: 0.4rem;
   overflow-x: auto;
   transition: background-color 0.15s ease;
+
+  scrollbar-color: var(--accent) var(--border);
+  scrollbar-width: thin;
+
+  background-repeat: no-repeat;
+  background-size: 28px 100%, 28px 100%, 8px 100%, 8px 100%;
+  background-position: 0 0, 100% 0, 0 0, 100% 0;
+  background-image:
+    linear-gradient(to right, var(--bg), transparent),
+    linear-gradient(to left, var(--bg), transparent),
+    linear-gradient(to right, var(--border), transparent),
+    linear-gradient(to left, var(--border), transparent);
+  background-attachment: local, local, scroll, scroll;
+}
+
+.stagesList::-webkit-scrollbar {
+  height: 8px;
+}
+
+.stagesList::-webkit-scrollbar-track {
+  background: var(--border);
+}
+
+.stagesList::-webkit-scrollbar-thumb {
+  background: var(--accent);
 }
 
 .legDropActive {

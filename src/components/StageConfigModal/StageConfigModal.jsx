@@ -132,7 +132,16 @@ function StagePicker({ stages, selectedStageId, onSelect }) {
 // distinct from any real weather string so it can never collide.
 const CUSTOM_WEATHER_VALUE = '__custom__';
 
-export function StageConfigModal({ mode, initialValue, stages, options, isLastStage, onSave, onCancel }) {
+export function StageConfigModal({
+  mode,
+  initialValue,
+  stages,
+  options,
+  isLastStage,
+  hiddenStageName = false,
+  onSave,
+  onCancel,
+}) {
   const [draft, setDraft] = useState(initialValue);
   const [restoredFromDraft, setRestoredFromDraft] = useState(false);
   // Whether the Weather field is showing its free-text fallback instead of
@@ -313,6 +322,29 @@ export function StageConfigModal({ mode, initialValue, stages, options, isLastSt
             }}
           />
         </div>
+
+        {/* rbr-rally-creator-web#64 ("Minimal" option): only rendered when
+            hidden_stage_name is on -- with it off, real stage names show
+            everywhere and a cover-name field would just be dead UI for the
+            common case. Placeholder shows the real catalog stage's name
+            (grayed out, native placeholder styling) so the user still knows
+            which physical stage they're naming without that name being
+            something they'd type over blindly. */}
+        {hiddenStageName && (
+          <div className={styles.formGroup}>
+            <label htmlFor="modal-custom-name">Cover name (only you see this)</label>
+            <input
+              id="modal-custom-name"
+              type="text"
+              placeholder={selectedStage?.name ?? ''}
+              value={draft.custom_name ?? ''}
+              onChange={(e) => patch({ custom_name: e.target.value })}
+            />
+            <p className={styles.fieldNote}>
+              Local label only — not yet confirmed whether rallysimfans.hu accepts a custom stage name.
+            </p>
+          </div>
+        )}
 
         <div className={styles.formGroup}>
           <label>Surface age</label>

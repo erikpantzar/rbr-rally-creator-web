@@ -370,6 +370,14 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
     // _uid is a client-only drag-and-drop identity (see lib/rallyPlan.js) --
     // strip it so the submitted payload shape is exactly what it was before
     // Phase 3, unchanged from what the service validates against.
+    //
+    // custom_name (rbr-rally-creator-web#64) is deliberately NOT stripped
+    // here even though the backend doesn't currently do anything with it --
+    // per the UX consult's "don't silently strip at submit" pitfall, honesty
+    // means not hiding this field's uncertainty, not avoiding sending it.
+    // The service's per-stage validation only checks specific known keys and
+    // doesn't reject unrecognized extra ones, so this is a harmless no-op on
+    // that side for now, not a bug.
     const stagePlanPayload = stagePlan.map(({ _uid, ...rest }) => rest);
 
     const config = {
@@ -633,6 +641,7 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
             onLegScheduleChange={setLegSchedule}
             onLegFieldChange={handleLegFieldChange}
             onAddLeg={handleAddLeg}
+            hiddenStageName={rallyBasics.hidden_stage_name}
             locked={locked}
           />
         </div>

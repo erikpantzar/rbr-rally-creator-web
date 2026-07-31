@@ -100,6 +100,7 @@ export function RoadBook({
   onLegScheduleChange,
   onLegFieldChange,
   onAddLeg,
+  hiddenStageName = false,
   locked = false,
 }) {
   const [activeDrag, setActiveDrag] = useState(null);
@@ -516,6 +517,7 @@ export function RoadBook({
                       stage={catalogStage}
                       value={stageConfig}
                       stageNumber={absoluteIndex + 1}
+                      hiddenStageName={hiddenStageName}
                       locked
                     />
                   );
@@ -621,6 +623,7 @@ export function RoadBook({
                         stage={catalogStage}
                         value={stageConfig}
                         stageNumber={absoluteIndex + 1}
+                        hiddenStageName={hiddenStageName}
                         isFirst={i === 0}
                         isLast={i === legStages.length - 1}
                         onEdit={() => openEditModal(legIndex, stageConfig._uid)}
@@ -715,6 +718,7 @@ export function RoadBook({
           stages={stages}
           options={options}
           isLastStage={modalState.willBeLastStage}
+          hiddenStageName={hiddenStageName}
           onSave={handleModalSave}
           onCancel={closeModal}
         />

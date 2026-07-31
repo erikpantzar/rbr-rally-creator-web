@@ -1,0 +1,33 @@
+/* Rule-separated line, not a boxed/carded warning -- matches the document's
+   "technical timing sheet" language (see .legWarning's old top/bottom rule
+   treatment in RallyBuilder.module.css, and .actions' top rule) rather than
+   introducing a new card/box visual. */
+.ready {
+  margin: 0;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border);
+  color: var(--success-fg);
+  font-size: 0.85rem;
+}
+
+.notReady {
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--danger-fg);
+  border-bottom: 1px solid var(--danger-fg);
+  color: var(--danger-fg);
+}
+
+.heading {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}

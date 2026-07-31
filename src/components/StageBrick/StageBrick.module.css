@@ -1,0 +1,145 @@
+.brick {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 11rem;
+  padding: 0.6rem 0.7rem;
+  background: var(--accent-soft-bg);
+  border-radius: 0;
+  border-left: 4px solid var(--accent);
+  flex-shrink: 0;
+}
+
+.brick.dragging {
+  opacity: 0.5;
+}
+
+.brick.dropTarget {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Hidden in the brick's resting state -- per DESIGN_SPEC.md's UX review
+   ("brick control clutter cuts against the 'scannable at a glance' goal"),
+   drag/move/duplicate/delete only reveal on :hover or :focus-within of the
+   brick root. opacity (not display/visibility) keeps the buttons in the tab
+   order and focusable even while invisible, so a keyboard user tabbing in
+   from the previous brick's body reaches these controls and :focus-within
+   reveals them without ever needing a mouse hover first. */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.brick:hover .controls,
+.brick:focus-within .controls {
+  opacity: 1;
+}
+
+.dragHandle,
+.controlButton {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 0.2rem 0.3rem;
+  border-radius: 0;
+  font-family: inherit;
+}
+
+.dragHandle {
+  cursor: grab;
+  touch-action: none;
+  margin-right: auto;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+.controlButton:hover:not(:disabled) {
+  color: var(--ink);
+  background: var(--card);
+}
+
+.controlButton:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.deleteButton:hover:not(:disabled) {
+  color: var(--danger-fg);
+  background: var(--danger-bg);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  width: 100%;
+}
+
+.stageNumber {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.surfaceGlyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 0;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.stageName {
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
+.stageMeta {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* Locked/summary brick, per DESIGN_SPEC.md ("bricks render in a plain
+   locked/summary style") -- deliberately flatter than the editable brick's
+   resting state: no accent left-border, no hover states, muted border
+   instead of the accent-soft background, so a finalized document visibly
+   reads as "settled" rather than "still an interactive card that happens to
+   have nothing active right now." */
+.brickLocked {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  min-width: 11rem;
+  padding: 0.6rem 0.7rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  flex-shrink: 0;
+}
+
+.brickLocked .surfaceGlyph {
+  background: var(--muted);
+}

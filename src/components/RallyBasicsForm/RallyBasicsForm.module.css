@@ -12,8 +12,32 @@
 
 .formGroup label {
   font-weight: 600;
-  color: var(--ink);
-  font-size: 0.9rem;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Title + description read as the document's own header -- same mono
+   family as the rest of the app (index.css sets it globally) but larger
+   and un-boxed, distinct from the ordinary field inputs below them. */
+.form .formGroup:first-child input {
+  font-size: 1.4rem;
+  font-weight: 600;
+  padding: 0.25rem 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  border-radius: 0;
+}
+
+.form .formGroup:nth-child(2) textarea {
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  border-radius: 0;
+  padding: 0.25rem 0;
+  color: var(--ink-soft);
 }
 
 .required {
@@ -25,12 +49,12 @@
 .formGroup input[type="number"],
 .formGroup textarea,
 .formGroup select {
-  padding: 0.65rem 0.85rem;
+  padding: 0.5rem 0.7rem;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--card);
+  border-radius: 0;
+  background: var(--bg);
   color: var(--ink);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-family: inherit;
 }
 
@@ -71,9 +95,8 @@
   flex-direction: column;
   gap: 0.75rem;
   margin-top: 0.5rem;
-  padding: 0.75rem;
-  background: var(--accent-soft-bg);
-  border-radius: var(--radius);
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border);
 }
 
 .passwordNote {

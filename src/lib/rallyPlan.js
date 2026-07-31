@@ -35,6 +35,13 @@ export function createDefaultStageConfig() {
   };
 }
 
+// Used by the brick "Duplicate" action -- same config values as an existing
+// stage, but a fresh _uid so it's a genuinely new brick rather than an alias
+// for the one it was copied from.
+export function cloneStageConfigWithNewUid(stageConfig) {
+  return { ...stageConfig, _uid: generateUid() };
+}
+
 // stage_count is the manual (non-drag) leg-boundary control: how many of
 // the rally's stages fall in this leg. start_stage_no is derived from it
 // (see computeLegStageRanges) rather than stored directly, so it can never

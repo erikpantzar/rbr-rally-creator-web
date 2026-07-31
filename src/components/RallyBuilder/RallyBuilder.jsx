@@ -8,16 +8,16 @@ import {
   getJobStatus,
 } from '../../lib/rallyApi.js';
 import {
-  createDefaultStageConfig,
   createDefaultLegConfig,
-  distributeStagesEvenly,
   computeLegStageRanges,
   normalizeLastStageService,
+  cloneStageConfigWithNewUid,
 } from '../../lib/rallyPlan.js';
 import { RallyBasicsForm } from '../RallyBasicsForm/RallyBasicsForm.jsx';
 import { CarGroupPicker } from '../CarGroupPicker/CarGroupPicker.jsx';
 import { RoadBook } from '../RoadBook/RoadBook.jsx';
 import { JobProgress } from '../JobProgress/JobProgress.jsx';
+import { ReadinessBanner } from '../ReadinessBanner/ReadinessBanner.jsx';
 import styles from './RallyBuilder.module.css';
 
 export function RallyBuilder({ baseUrl }) {
@@ -79,12 +79,10 @@ export function RallyBuilder({ baseUrl }) {
           setCars(carsRes.data || []);
           setRallyOptions(optionsRes);
 
-          // Initialize stagePlan and legSchedule with defaults (2 stages, 1 leg)
-          const defaultStageConfigs = Array.from({ length: 2 }, () => createDefaultStageConfig());
-          updateStagePlan(defaultStageConfigs);
-
-          const [legStageCount] = distributeStagesEvenly(2, 1);
-          setLegSchedule([createDefaultLegConfig(legStageCount)]);
+          // Empty document per DESIGN_SPEC.md: start with zero stages and a
+          // single empty Leg 1, not pre-seeded placeholder slots -- bricks
+          // only get added via the "+ Add stage" modal from here on.
+          setLegSchedule([createDefaultLegConfig(0)]);
         } else {
           setError('Failed to fetch catalog data');
         }
@@ -98,20 +96,18 @@ export function RallyBuilder({ baseUrl }) {
     fetchData();
   }, [baseUrl]);
 
-  // Keep stagePlan in sync with rallyBasics.stages
+  // rallyBasics.stages used to be a manual number input that drove
+  // stagePlan's length (pre-seeding that many empty slots). Per
+  // DESIGN_SPEC.md's "Lego bits" model, the road book is additive -- bricks
+  // are created one at a time via the "+ Add stage" modal, and stagePlan's
+  // length is whatever that produces. So this relationship is now inverted:
+  // rallyBasics.stages is DERIVED from the actual brick count, kept in sync
+  // here whenever stagePlan changes, rather than the other way around.
+  // RallyBasicsForm's "Stages" field is now a read-only display of this
+  // count, not an editable control.
   useEffect(() => {
-    setStagePlan((prev) => {
-      const newLength = rallyBasics.stages;
-      if (prev.length === newLength) return prev;
-
-      const next =
-        newLength > prev.length
-          ? [...prev, ...Array.from({ length: newLength - prev.length }, () => createDefaultStageConfig())]
-          : prev.slice(0, newLength);
-
-      return normalizeLastStageService(next);
-    });
-  }, [rallyBasics.stages]);
+    setRallyBasics((prev) => (prev.stages === stagePlan.length ? prev : { ...prev, stages: stagePlan.length }));
+  }, [stagePlan.length]);
 
   // Keep legSchedule in sync with rallyBasics.legs (added legs start with
   // stage_count: 0 -- the rebalance effect below fills them in)
@@ -132,26 +128,6 @@ export function RallyBuilder({ baseUrl }) {
       }
     });
   }, [rallyBasics.legs]);
-
-  // Manual (non-drag) leg-boundary control: each leg carries its own
-  // stage_count, editable by the user (see the "Stages in this leg" input
-  // below), and start_stage_no is derived from the cumulative counts at
-  // render/submit time (computeLegStageRanges) rather than stored here.
-  // This effect only auto-redistributes stages evenly across legs when the
-  // counts don't already add up to the total -- i.e. right after the leg
-  // count or total stage count changes -- so it never clobbers a manual
-  // per-leg edit that already sums correctly.
-  useEffect(() => {
-    setLegSchedule((prev) => {
-      if (prev.length === 0) return prev;
-      const totalStages = stagePlan.length;
-      const currentSum = prev.reduce((sum, leg) => sum + (leg.stage_count || 0), 0);
-      if (currentSum === totalStages) return prev;
-
-      const counts = distributeStagesEvenly(totalStages, prev.length);
-      return prev.map((leg, i) => ({ ...leg, stage_count: counts[i] }));
-    });
-  }, [stagePlan.length, legSchedule.length]);
 
   // Poll job status when jobId is set
   useEffect(() => {
@@ -176,34 +152,12 @@ export function RallyBuilder({ baseUrl }) {
   }, [jobId, baseUrl]);
 
   async function handleCreateRally() {
-    if (!rallyBasics.rally_name.trim()) {
-      alert('Rally name is required');
-      return;
-    }
-
-    if (carGroupIds.length === 0) {
-      alert('Select at least one car group');
-      return;
-    }
-
-    if (stagePlan.length !== rallyBasics.stages) {
-      alert('Stage count mismatch');
-      return;
-    }
-
-    if (stagePlan.some((s) => !s.stage_id)) {
-      alert('Every stage slot needs a stage assigned -- drag one in from the catalog.');
-      return;
-    }
-
+    // Pre-submit validation (rally name, car groups, stage count, leg/stage
+    // sync) is surfaced proactively by ReadinessBanner and gates canSubmit
+    // (button disabled) -- this function only runs once canSubmit is true,
+    // so no need to re-check/alert() those cases here. Only genuine
+    // runtime/network failures below still use alert().
     const legRanges = computeLegStageRanges(legSchedule);
-    const assignedStages = legRanges.length > 0 ? legRanges[legRanges.length - 1].endIndex : 0;
-    if (assignedStages !== stagePlan.length) {
-      alert(
-        `Leg "stages in this leg" counts add up to ${assignedStages}, but the rally has ${stagePlan.length} stages. Adjust each leg's stage count so they add up to the total.`
-      );
-      return;
-    }
 
     // Only open_time/close_time/super_rally/start_stage_no are part of the
     // shared payload contract -- stage_count is a frontend-only control for
@@ -261,15 +215,36 @@ export function RallyBuilder({ baseUrl }) {
   const legRanges = computeLegStageRanges(legSchedule);
   const assignedStages = legRanges.length > 0 ? legRanges[legRanges.length - 1].endIndex : 0;
   const legStagesBalanced = assignedStages === stagePlan.length;
-  const allStagesAssigned = stagePlan.every((s) => s.stage_id);
 
   const canSubmit =
     !submitting &&
     rallyBasics.rally_name.trim() &&
     carGroupIds.length > 0 &&
-    stagePlan.length === rallyBasics.stages &&
-    legStagesBalanced &&
-    allStagesAssigned;
+    stagePlan.length > 0 &&
+    legStagesBalanced;
+
+  // Every pre-submit problem the old alert()s/.legWarning used to catch,
+  // collected into one list for ReadinessBanner. Note: "some stage slots
+  // are still empty" isn't a reachable case any more -- stagePlan entries
+  // only ever get created by RoadBook's modal flow, which requires a
+  // stage_id to be picked before Save is enabled (see
+  // StageConfigModal's `disabled={!draft.stage_id}`), so there's no path
+  // to a brick without one.
+  const readinessProblems = [];
+  if (!rallyBasics.rally_name.trim()) {
+    readinessProblems.push('Rally name is required.');
+  }
+  if (carGroupIds.length === 0) {
+    readinessProblems.push('Select at least one car group.');
+  }
+  if (stagePlan.length === 0) {
+    readinessProblems.push('Add at least one stage before creating the rally.');
+  }
+  if (!legStagesBalanced) {
+    readinessProblems.push(
+      `Leg stage counts add up to ${assignedStages}, but the rally has ${stagePlan.length} stages — drag a stage across a leg divider to move it into the right leg.`
+    );
+  }
 
   function handleLegFieldChange(legIndex, field, value) {
     const newLegs = [...legSchedule];
@@ -277,55 +252,91 @@ export function RallyBuilder({ baseUrl }) {
     setLegSchedule(newLegs);
   }
 
+  // "Duplicate as new draft" per DESIGN_SPEC.md's UX review note: once
+  // locked, cloning the current config into a fresh editable document is a
+  // pure client-side state reset -- no API call, no touching the live rally
+  // on rallysimfans.hu. rallyBasics/carGroupIds/legSchedule carry no
+  // client-only identity so they're left as-is; stagePlan entries do (their
+  // _uid is drag-and-drop keying, see lib/rallyPlan.js), so each gets a
+  // fresh one via the same helper the brick "Duplicate" action uses --
+  // otherwise the new draft would start with duplicate dnd-kit ids.
+  function handleDuplicateAsNewDraft() {
+    setStagePlan(stagePlan.map(cloneStageConfigWithNewUid));
+    setJobId(null);
+    setJob(null);
+    setSubmitting(false);
+  }
+
+  const locked = job?.status === 'succeeded';
+
   return (
     <div className={styles.container}>
-      <RallyBasicsForm value={rallyBasics} onChange={setRallyBasics} options={rallyOptions} />
+      {/* The document: header block through Leg N, one continuous flow.
+          Job progress (below) is a deliberately separate screen/step-list,
+          not layered onto this -- see DESIGN_SPEC.md "Job progress:
+          separate screen". */}
+      <div className={styles.document}>
+        {/* Once locked, the header block's fields have nothing left to
+            submit -- wrapping RallyBasicsForm/CarGroupPicker in a plain
+            disabled fieldset freezes every input without needing either
+            component to know about "locked" itself (native fieldset
+            disabling cascades to all descendant form controls). */}
+        <fieldset className={styles.headerBlock} disabled={locked}>
+          <RallyBasicsForm value={rallyBasics} onChange={setRallyBasics} options={rallyOptions} />
 
-      <CarGroupPicker
-        carGroups={carGroups}
-        cars={cars}
-        selectedIds={carGroupIds}
-        onChange={setCarGroupIds}
-      />
+          <CarGroupPicker
+            carGroups={carGroups}
+            cars={cars}
+            selectedIds={carGroupIds}
+            onChange={setCarGroupIds}
+          />
+        </fieldset>
 
-      <div className={styles.stagesSection}>
-        <h3>Road book</h3>
+        <div className={styles.stagesSection}>
+          <RoadBook
+            stages={stages}
+            options={rallyOptions}
+            stagePlan={stagePlan}
+            legSchedule={legSchedule}
+            onStagePlanChange={updateStagePlan}
+            onLegScheduleChange={setLegSchedule}
+            onLegFieldChange={handleLegFieldChange}
+            locked={locked}
+          />
+        </div>
 
-        {!legStagesBalanced && (
-          <p className={styles.legWarning}>
-            Leg stage counts add up to {assignedStages}, but the rally has {stagePlan.length}{' '}
-            stages. Adjust "Stages in this leg" below, or drag a stage across a leg divider, so
-            they add up to the total.
-          </p>
+        {locked ? (
+          // Nothing left to submit once locked -- readiness/submit are
+          // replaced by the "Duplicate as new draft" escape hatch from
+          // DESIGN_SPEC.md's UX review note, rather than disappearing with
+          // no replacement action.
+          <div className={styles.actions}>
+            <button className={styles.submitButton} onClick={handleDuplicateAsNewDraft}>
+              Duplicate as new draft
+            </button>
+          </div>
+        ) : (
+          <>
+            <ReadinessBanner problems={readinessProblems} />
+
+            <div className={styles.actions}>
+              <button
+                className={styles.submitButton}
+                onClick={handleCreateRally}
+                disabled={!canSubmit}
+              >
+                {submitting ? 'Creating rally...' : 'Create Rally'}
+              </button>
+            </div>
+          </>
         )}
-        {legStagesBalanced && !allStagesAssigned && (
-          <p className={styles.legWarning}>
-            Some stage slots are still empty -- drag a stage onto each one from the catalog panel.
-          </p>
-        )}
-
-        <RoadBook
-          stages={stages}
-          options={rallyOptions}
-          stagePlan={stagePlan}
-          legSchedule={legSchedule}
-          onStagePlanChange={updateStagePlan}
-          onLegScheduleChange={setLegSchedule}
-          onLegFieldChange={handleLegFieldChange}
-        />
       </div>
 
-      <div className={styles.actions}>
-        <button
-          className={styles.submitButton}
-          onClick={handleCreateRally}
-          disabled={!canSubmit}
-        >
-          {submitting ? 'Creating rally...' : 'Create Rally'}
-        </button>
-      </div>
-
-      {job && <JobProgress job={job} />}
+      {job && (
+        <div className={styles.jobProgressScreen}>
+          <JobProgress job={job} />
+        </div>
+      )}
     </div>
   );
 }

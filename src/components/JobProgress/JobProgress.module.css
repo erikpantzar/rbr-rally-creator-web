@@ -38,6 +38,7 @@
 
 .success,
 .warning,
+.dryRun,
 .error {
   padding: 1rem;
   border-left: 3px solid currentColor;
@@ -81,6 +82,32 @@
 }
 
 .warning a {
+  color: var(--accent-soft-fg);
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+/* Distinct from .success (a real, live rally) and .warning (something needs
+   the user's attention) -- a completed dry run is a good outcome but must
+   never be visually mistaken for "your rally is live", so it gets its own
+   neutral accent treatment rather than borrowing green. */
+.dryRun {
+  background: var(--accent-soft-bg);
+  color: var(--accent-soft-fg);
+}
+
+.dryRun h4 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.dryRun p {
+  margin: 0.25rem 0;
+  font-size: 0.95rem;
+}
+
+.dryRun a {
   color: var(--accent-soft-fg);
   text-decoration: underline;
   font-weight: 600;

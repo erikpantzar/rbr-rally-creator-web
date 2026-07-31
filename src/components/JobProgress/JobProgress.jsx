@@ -36,6 +36,24 @@ export function JobProgress({ job }) {
     );
   }
 
+  if (job.status === 'succeeded_dry_run') {
+    return (
+      <div className={styles.container}>
+        <div className={styles.dryRun}>
+          <h4>Test run complete — no rally was created, everything validated OK</h4>
+          {job.result?.note && <p>{job.result.note}</p>}
+          {job.result?.finalPageUrl && (
+            <p>
+              <a href={job.result.finalPageUrl} target="_blank" rel="noopener noreferrer">
+                View final page reached during the test
+              </a>
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (job.status === 'succeeded_unconfirmed') {
     return (
       <div className={styles.container}>

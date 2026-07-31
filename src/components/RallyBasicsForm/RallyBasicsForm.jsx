@@ -56,24 +56,6 @@ export function RallyBasicsForm({ value, onChange, options }) {
       </div>
 
       <div className={styles.formGroup}>
-        <label htmlFor="stages">Stages</label>
-        {/* Derived, not editable: this count now comes from the number of
-            stage bricks actually placed in the road book (see RoadBook /
-            StageBrick / StageConfigModal's "+ Add stage" flow) rather than
-            driving how many placeholder slots get pre-seeded. */}
-        <input id="stages" type="number" value={value.stages} readOnly disabled />
-      </div>
-
-      <div className={styles.formGroup}>
-        <label htmlFor="legs">Legs</label>
-        {/* Derived, not editable: same "Lego bits" model as Stages above --
-            this count now comes from how many legs actually exist in the
-            road book (see RoadBook's "+ Add Leg" button) rather than a
-            manual number pre-sizing legSchedule. */}
-        <input id="legs" type="number" value={value.legs} readOnly disabled />
-      </div>
-
-      <div className={styles.formGroup}>
         <label htmlFor="pacenotes">Pacenotes option</label>
         <select
           id="pacenotes"

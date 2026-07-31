@@ -190,6 +190,47 @@
   border-color: var(--accent);
 }
 
+/* Wet-tyre suggestion banner (rbr-rally-creator-web#24) -- sits right under
+   the tyre select it's advising on. Deliberately less prominent than
+   .restoredNotice (no full-bleed background break-out): this is a soft
+   nudge attached to one field, not a page-level "something happened"
+   notice. */
+.tyreSuggestion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  background: var(--accent-soft-bg);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.tyreSuggestionActions {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.tyreSuggestionActions button {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--ink);
+  padding: 0.3rem 0.6rem;
+  border-radius: 0;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tyreSuggestionActions button:hover {
+  border-color: var(--accent);
+}
+
 .radioGroup {
   display: flex;
   flex-direction: column;

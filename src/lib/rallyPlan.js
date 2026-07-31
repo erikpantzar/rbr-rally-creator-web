@@ -42,6 +42,40 @@ export function cloneStageConfigWithNewUid(stageConfig) {
   return { ...stageConfig, _uid: generateUid() };
 }
 
+// Surface -> tyre compound defaults (rbr-rally-creator-web#24) -- "if I
+// make a tarmac stage, auto pick tarmac tires but don't enforce it". These
+// back a DEFAULT applied at the moment a stage is picked in the editor and
+// a SUGGESTION offered when wetness is set to 'wet', not a constraint --
+// callers always leave the tyre dropdown free to override afterward.
+// Strings must match TYRE_OPTIONS exactly (rbr-rally-creator-service's
+// src/lib/rallyOptions.js, the confirmed-valid enum served over
+// GET /catalog/rally-options and validated against on submit) -- deliberately
+// hardcoded here rather than pattern-built ("`${Surface} Dry`") so a rename
+// on that side shows up as a mismatch rather than silently drifting.
+const SURFACE_DEFAULT_TYRE = {
+  tarmac: 'Tarmac Dry',
+  gravel: 'Gravel Dry',
+  snow: 'Snow',
+};
+
+// Wet-weather variant per surface. Snow has no wet entry in TYRE_OPTIONS
+// (just the single 'Snow' compound), so it's deliberately absent here --
+// getWetTyreForSurface returns null for it and callers treat that as "no
+// suggestion applies", per the issue's own note that wet suggestions only
+// make sense for tarmac/gravel.
+const SURFACE_WET_TYRE = {
+  tarmac: 'Tarmac Wet',
+  gravel: 'Gravel Wet',
+};
+
+export function getDefaultTyreForSurface(surface) {
+  return SURFACE_DEFAULT_TYRE[surface] ?? null;
+}
+
+export function getWetTyreForSurface(surface) {
+  return SURFACE_WET_TYRE[surface] ?? null;
+}
+
 // datetime-local inputs need "YYYY-MM-DDTHH:mm", in the browser's local
 // time, not toISOString() (which is UTC and includes seconds/Z).
 export function toDatetimeLocalValue(date) {

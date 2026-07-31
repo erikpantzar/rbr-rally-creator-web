@@ -68,6 +68,7 @@ export function RoadBook({
   onStagePlanChange,
   onLegScheduleChange,
   onLegFieldChange,
+  onAddLeg,
   locked = false,
 }) {
   const [activeDrag, setActiveDrag] = useState(null);
@@ -426,6 +427,21 @@ export function RoadBook({
             </div>
           );
         })}
+
+        {/* Legs are additive too, per rbr-rally-creator-web#15's "Lego
+            bits" model -- appended one at a time here rather than pre-sized
+            by a rallyBasics.legs number input (RallyBasicsForm's "Legs"
+            field is now just a read-only display of legSchedule.length).
+            A new leg starts empty (0 stages); RallyBuilder's
+            readinessProblems flags it as not publishable until it has at
+            least one. There's no "remove leg" control yet -- deliberately
+            left as a follow-up, since removing a leg with stages already in
+            it would orphan/need to reassign that stage data, and the only
+            leg that's ever risk-free to remove (an empty trailing one) is a
+            narrower case than a general remove button would imply. */}
+        <button type="button" className={styles.addLegButton} onClick={onAddLeg}>
+          + Add Leg
+        </button>
       </div>
 
       <DragOverlay>

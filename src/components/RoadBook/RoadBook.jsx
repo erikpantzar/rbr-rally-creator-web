@@ -485,7 +485,7 @@ export function RoadBook({
   if (locked) {
     return (
       <div className={styles.book}>
-        {legRanges.map(({ startIndex, endIndex, startStageNo }, legIndex) => {
+        {legRanges.map(({ startIndex, endIndex }, legIndex) => {
           const legStages = stagePlan.slice(startIndex, endIndex);
           const leg = legSchedule[legIndex];
           const legTotalKm = sumStagePlanKm(legStages, stageByCatalogId);
@@ -494,7 +494,7 @@ export function RoadBook({
             <div key={legIndex} className={styles.legGroup}>
               <div className={styles.legHeader}>
                 <h4>
-                  Leg {legIndex + 1} <span className={styles.legStartStage}>(starts at stage {startStageNo})</span>{' '}
+                  Leg {legIndex + 1}{' '}
                   <span className={styles.legStageCount}>{legStages.length} stage{legStages.length === 1 ? '' : 's'}</span>{' '}
                   <span className={styles.legKmTotal}>{formatKm(legTotalKm)}</span>
                 </h4>
@@ -542,7 +542,7 @@ export function RoadBook({
       onDragCancel={handleDragCancel}
     >
       <div className={styles.book}>
-        {legRanges.map(({ startIndex, endIndex, startStageNo }, legIndex) => {
+        {legRanges.map(({ startIndex, endIndex }, legIndex) => {
           const legStages = stagePlan.slice(startIndex, endIndex);
           const leg = legSchedule[legIndex];
           const legTotalKm = sumStagePlanKm(legStages, stageByCatalogId);
@@ -551,7 +551,7 @@ export function RoadBook({
             <div key={legIndex} className={styles.legGroup}>
               <div className={styles.legHeader}>
                 <h4>
-                  Leg {legIndex + 1} <span className={styles.legStartStage}>(starts at stage {startStageNo})</span>{' '}
+                  Leg {legIndex + 1}{' '}
                   <span className={styles.legStageCount}>{legStages.length} stage{legStages.length === 1 ? '' : 's'}</span>{' '}
                   <span className={styles.legKmTotal}>{formatKm(legTotalKm)}</span>
                 </h4>

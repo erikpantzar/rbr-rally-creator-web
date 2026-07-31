@@ -107,13 +107,18 @@ today:
 - **Visual language**: amber/timing-clock accent and monospace-leaning styling per DESIGN_SPEC.md
   are in `tokens.css` (`--accent` at oklch hue ~92, both light/dark blocks) — the spec's visual
   redesign has landed, not just the interaction model.
+- **Per-stage nickname (issue #64)**: `StageConfigModal` has a "Nickname (optional)" field per
+  stage, but it's purely a local planning label — stripped before submission, never sent to the
+  backend, never visible on rallysimfans.hu or to participants. Confirmed (per that issue) that the
+  real site has no per-stage custom-naming mechanism of its own.
 
 **Not yet in the frontend**: the backend (`rbr-rally-creator-service`) recently added support for
-a per-stage custom "hidden name" (a `stage_name` field shown only when hidden-stage-names are
-enabled). This app's "Hide stage names" control is still only the rally-level boolean checkbox in
-`RallyBasicsForm` — there is no per-stage custom-name input anywhere in `StageConfigModal` or
-`stagePlan`/`rallyPlan.js` yet. If per-stage naming is meant to be user-editable here, that's
-unbuilt.
+an actual per-stage **public** hidden name (a `stage_name` field, distinct from this app's local
+nickname above, shown only when hidden-stage-names are enabled — it's what participants would
+actually see on rallysimfans.hu). This app's "Hide stage names" control is still only the
+rally-level boolean checkbox in `RallyBasicsForm`; there is no UI yet to set that per-stage public
+name, and `stagePlan`/`rallyPlan.js` don't send one. If that's meant to be user-editable here,
+that's unbuilt — separate from (and not solved by) the local-only nickname field above.
 
 **Known risk, untested**: the session cookie is cross-site (this GitHub Pages origin ↔ the
 service's own host). Some browsers (Safari ITP, strict tracking-protection modes) block cross-site

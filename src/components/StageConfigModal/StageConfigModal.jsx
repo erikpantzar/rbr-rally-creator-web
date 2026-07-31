@@ -128,9 +128,6 @@ function StagePicker({ stages, selectedStageId, onSelect }) {
 // eyes for 'add', while RoadBook is responsible for actually treating
 // 'duplicate' as "append as new" vs 'edit' as "update in place" -- this
 // component only edits a local draft and hands the finished object back.
-// Sentinel select value for the "type it in yourself" fallback option --
-// distinct from any real weather string so it can never collide.
-const CUSTOM_WEATHER_VALUE = '__custom__';
 
 export function StageConfigModal({
   mode,
@@ -144,17 +141,6 @@ export function StageConfigModal({
 }) {
   const [draft, setDraft] = useState(initialValue);
   const [restoredFromDraft, setRestoredFromDraft] = useState(false);
-  // Whether the Weather field is showing its free-text fallback instead of
-  // the dropdown. tracksettings_id's known values are just examples
-  // observed for one stage/leg combo (see rallyOptions.js on the backend --
-  // "likely tied to the leg's scheduled time of day, not a fixed global
-  // list"), so a dropdown of only those 3 could otherwise strand a real
-  // site value that isn't in the list yet. Starts true if the current
-  // value isn't one of the known examples, so an existing/restored draft
-  // with an unlisted value doesn't get silently clobbered by the select.
-  const [customWeather, setCustomWeather] = useState(
-    () => !!initialValue?.tracksettings_id && !options.weatherOptions?.includes(initialValue.tracksettings_id)
-  );
   // Whether the wet-tyre suggestion banner (see below) has been explicitly
   // dismissed for the current wetness/stage combo. Reset to false whenever
   // either changes (effect further down) so a fresh trigger of the
@@ -179,13 +165,11 @@ export function StageConfigModal({
       const sameTarget = saved && saved.mode === mode && (mode !== 'edit' || saved.targetUid === initialValue?._uid);
       if (sameTarget && saved.draft?.stage_id) {
         setDraft(saved.draft);
-        setCustomWeather(!!saved.draft.tracksettings_id && !options.weatherOptions?.includes(saved.draft.tracksettings_id));
         setRestoredFromDraft(true);
         return;
       }
     }
     setDraft(initialValue);
-    setCustomWeather(!!initialValue?.tracksettings_id && !options.weatherOptions?.includes(initialValue.tracksettings_id));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialValue, mode]);
 
@@ -255,7 +239,6 @@ export function StageConfigModal({
   function handleDiscardDraft() {
     clearStageConfigDraft();
     setDraft(initialValue);
-    setCustomWeather(!!initialValue?.tracksettings_id && !options.weatherOptions?.includes(initialValue.tracksettings_id));
     setRestoredFromDraft(false);
   }
 
@@ -318,7 +301,16 @@ export function StageConfigModal({
               // catalog entry currently has one of tarmac/gravel/snow).
               const stage = stages.find((s) => s.id === id);
               const defaultTyre = stage ? getDefaultTyreForSurface(stage.surface) : null;
-              patch(defaultTyre ? { stage_id: id, def_tyre_id: defaultTyre } : { stage_id: id });
+              // Wetness/weather option lists are per-stage (see
+              // discovery/capabilities/stages.json on the backend), so a
+              // value valid for the previous stage may not exist on this
+              // one -- reset both to the new stage's first option.
+              patch({
+                stage_id: id,
+                ...(defaultTyre ? { def_tyre_id: defaultTyre } : {}),
+                wetness_id: stage?.wetnessOptions?.[0] ?? '',
+                tracksettings_id: stage?.weatherOptions?.[0] ?? '',
+              });
             }}
           />
         </div>
@@ -373,8 +365,9 @@ export function StageConfigModal({
             id="modal-wetness"
             value={draft.wetness_id}
             onChange={(e) => patch({ wetness_id: e.target.value })}
+            disabled={!selectedStage}
           >
-            {options.wetnessOptions.map((opt) => (
+            {(selectedStage?.wetnessOptions ?? []).map((opt) => (
               <option key={opt} value={opt}>
                 {opt}
               </option>
@@ -384,54 +377,18 @@ export function StageConfigModal({
 
         <div className={styles.formGroup}>
           <label htmlFor="modal-tracksettings">Weather</label>
-          {/* options.weatherOptions is only a few examples observed for one
-              stage/leg combo, not a confirmed exhaustive list (see the
-              backend's rallyOptions.js) -- so unlike every other dropdown
-              here, this one keeps an escape hatch: picking "Other" swaps to
-              a free-text input instead of silently limiting the user to the
-              3 known examples. */}
-          {!customWeather ? (
-            <select
-              id="modal-tracksettings"
-              value={draft.tracksettings_id}
-              onChange={(e) => {
-                if (e.target.value === CUSTOM_WEATHER_VALUE) {
-                  setCustomWeather(true);
-                  return;
-                }
-                patch({ tracksettings_id: e.target.value });
-              }}
-            >
-              {options.weatherOptions.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-              <option value={CUSTOM_WEATHER_VALUE}>Other (type manually)...</option>
-            </select>
-          ) : (
-            <div className={styles.customWeatherRow}>
-              <input
-                id="modal-tracksettings"
-                type="text"
-                placeholder="e.g. Morning Clear Crisp"
-                value={draft.tracksettings_id}
-                onChange={(e) => patch({ tracksettings_id: e.target.value })}
-              />
-              <button
-                type="button"
-                className={styles.customWeatherBackButton}
-                onClick={() => {
-                  setCustomWeather(false);
-                  if (!options.weatherOptions.includes(draft.tracksettings_id)) {
-                    patch({ tracksettings_id: options.weatherOptions[0] ?? '' });
-                  }
-                }}
-              >
-                Choose from list
-              </button>
-            </div>
-          )}
+          <select
+            id="modal-tracksettings"
+            value={draft.tracksettings_id}
+            onChange={(e) => patch({ tracksettings_id: e.target.value })}
+            disabled={!selectedStage}
+          >
+            {(selectedStage?.weatherOptions ?? []).map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className={styles.formGroup}>

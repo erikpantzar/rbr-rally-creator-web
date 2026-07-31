@@ -178,6 +178,51 @@ export function isLegOpenTimeTooSoon(openTime, now = stockholmNow()) {
   return openDate < minOpenDate;
 }
 
+// Shared clamp math, extracted out of RallyBuilder's "fix stale start times"
+// button handler so it's a plain, named, exported, unit-testable helper
+// instead of inlined event-handler math. Mirrors rbr-rally-creator-service's
+// own normalizeLegTimes (src/lib/legTimeRules.js) shape/reasoning exactly --
+// same two rules, just phrased over this app's "YYYY-MM-DDTHH:mm"
+// datetime-local strings and stockholmNow() instead of the backend's
+// caller-supplied `now`:
+//  - shift open_time forward to `now + CLAMP_LEG_LEAD_MINUTES` (the backend's
+//    own safety-net lead, rbr-rally-creator-service#11) -- callers only ever
+//    invoke this for a leg already confirmed too-soon (isLegOpenTimeTooSoon),
+//    so unlike the backend's version this doesn't re-check that condition
+//    itself, it just performs the shift;
+//  - shift close_time by that same delta so the leg's originally-intended
+//    open->close duration survives the move;
+//  - cap close_time at MAX_LEG_SPAN_DAYS from the new open_time, same as
+//    handleLegFieldChange's manual-edit clamp above.
+// `now` defaults to stockholmNow() (rallysimfans.hu's own clock, not the
+// browser's) but takes it as a parameter -- same "deterministic/testable,
+// caller controls which now" reasoning as the backend's normalizeLegTimes.
+export function clampLegTimes(openTime, closeTime, now = stockholmNow()) {
+  const newOpenDate = new Date(now.getTime() + CLAMP_LEG_LEAD_MINUTES * 60 * 1000);
+
+  const oldOpenDate = new Date(openTime);
+  const deltaMs = Number.isNaN(oldOpenDate.getTime())
+    ? 0
+    : newOpenDate.getTime() - oldOpenDate.getTime();
+
+  let newCloseDate = null;
+  const oldCloseDate = new Date(closeTime);
+  if (closeTime && !Number.isNaN(oldCloseDate.getTime())) {
+    newCloseDate = new Date(oldCloseDate.getTime() + deltaMs);
+
+    const maxCloseDate = new Date(newOpenDate);
+    maxCloseDate.setDate(maxCloseDate.getDate() + MAX_LEG_SPAN_DAYS);
+    if (newCloseDate > maxCloseDate) {
+      newCloseDate = maxCloseDate;
+    }
+  }
+
+  return {
+    open_time: toDatetimeLocalValue(newOpenDate),
+    close_time: newCloseDate ? toDatetimeLocalValue(newCloseDate) : closeTime,
+  };
+}
+
 // Seeds a brand-new "+ Add stage" slot from the most recently added/edited
 // stage already in the plan (rbr-rally-creator-web#5), instead of the
 // generic hardcoded defaults -- carrying forward surface age/wetness/

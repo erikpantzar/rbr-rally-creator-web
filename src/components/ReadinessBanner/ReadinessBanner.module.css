@@ -31,3 +31,30 @@
   font-size: 0.85rem;
   line-height: 1.5;
 }
+
+/* rbr-rally-creator-web#63: inline one-click fix, attached to the specific
+   problem line it resolves (see ReadinessBanner's `action` support) rather
+   than a standalone button below the whole banner -- moved here from what
+   used to be RallyBuilder.module.css's standalone .fixTimesButton, same
+   danger-styled treatment (this problem is the "you're about to hit a
+   silent server-side clamp" kind of urgent) but sized to sit inline after a
+   line of list text instead of as its own block-level button. */
+.problemAction {
+  margin-left: 0.6rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--danger-fg);
+  border-radius: 0;
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  font-weight: 600;
+  font-size: 0.78rem;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.problemAction:hover {
+  filter: brightness(1.05);
+}

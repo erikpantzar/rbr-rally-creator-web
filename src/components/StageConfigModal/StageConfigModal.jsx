@@ -150,6 +150,7 @@ export function StageConfigModal({
   options,
   isLastStage,
   stageNumber,
+  hiddenStageNameEnabled = false,
   onSave,
   onCancel,
 }) {
@@ -336,18 +337,12 @@ export function StageConfigModal({
           />
         </div>
 
-        {/* rbr-rally-creator-web#64: per the maintainer's own comment on the
-            issue (superseding an earlier generic-UX-consult pass), the real
-            site has no per-stage custom-name mechanism at all -- confirmed
-            via both the discovery schema and the raw captured DOM (14 real
-            controls on the stage step, not one a text input). So this is
-            shown always, not gated on the unrelated hidden_stage_name
-            toggle (that checkbox only ever hides the real name from
-            participants server-side; it has no bearing on whether a local
-            planning nickname is useful). Placeholder shows "Stage N" for
-            this stage's position so the user still knows which physical
-            stage they're naming without that number being something they'd
-            type over blindly. */}
+        {/* rbr-rally-creator-web#64: a purely local planning nickname --
+            shown always, not gated on hidden_stage_name (that checkbox
+            controls the real public name field below instead). Placeholder
+            shows "Stage N" for this stage's position so the user still
+            knows which physical stage they're naming without that number
+            being something they'd type over blindly. */}
         <div className={styles.formGroup}>
           <label htmlFor="modal-label">Nickname (optional)</label>
           <input
@@ -361,6 +356,28 @@ export function StageConfigModal({
             For your own planning view only — this does not appear on rallysimfans.hu and participants never see it.
           </p>
         </div>
+
+        {/* rbr-rally-creator-service#20: the real public per-stage name
+            shown to participants on rallysimfans.hu -- only rendered (and
+            only meaningful) when "Hide stage names" is checked in Rally
+            basics, matching the site's own #stage_name field, which only
+            appears in that same condition. Distinct from the always-visible
+            local Nickname field above. */}
+        {hiddenStageNameEnabled && (
+          <div className={styles.formGroup}>
+            <label htmlFor="modal-hidden-name">Hidden stage name</label>
+            <input
+              id="modal-hidden-name"
+              type="text"
+              placeholder="Name shown to participants instead of the real stage name"
+              value={draft.hidden_name ?? ''}
+              onChange={(e) => patch({ hidden_name: e.target.value })}
+            />
+            <p className={styles.fieldNote}>
+              Shown to participants on rallysimfans.hu in place of this stage's real name.
+            </p>
+          </div>
+        )}
 
         <div className={styles.formGroup}>
           <label>Surface age</label>

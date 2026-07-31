@@ -1,11 +1,13 @@
 # rbr-rally-creator-web
 
-React + Vite frontend for creating RBR rallies on [rallysimfans.hu](https://rallysimfans.hu)
-through a nicer UI than the site's own wizard. Deployed to GitHub Pages at
-https://erikpantzar.github.io/rbr-rally-creator-web/.
+[rallysimfans.hu](https://rallysimfans.hu) (RSF) is where the sim-racing community creates and
+runs online rallies, but its own rally-creation wizard is clunky and unpleasant to use. This app
+is the frontend half of a project to fix that: a modern, friendlier UI for building an RSF rally,
+which hands the actual work off to a backend service that drives RSF on your behalf. Deployed to
+GitHub Pages at https://erikpantzar.github.io/rbr-rally-creator-web/.
 
 Paired with [rbr-rally-creator-service](https://github.com/erikpantzar/rbr-rally-creator-service),
-the Playwright automation backend this app talks to. See
+the automation backend this app talks to. See
 [ideas-and-projects/active/rally-creation-automation/NOTES.md](https://github.com/erikpantzar/ideas-and-projects/blob/main/active/rally-creation-automation/NOTES.md)
 for the full plan.
 
@@ -82,9 +84,9 @@ today:
   reorderable "brick" (collapsed summary; click to reopen the full config in a full-screen modal).
   Bricks support add / edit / **duplicate** / delete, with an **undo toast** (5s) on delete for
   both a stage and a whole leg removal. Legs are removable (merging orphaned stages into an
-  adjacent leg via an inline confirm bubble), capped at 6 total to match the real site's wizard,
-  and the stage row scrolls horizontally with an explicit affordance so overflow is discoverable
-  (issue #43).
+  adjacent leg via an inline confirm bubble), capped at 6 total to match the real site's wizard.
+  The stage row wraps rather than scrolling horizontally (issue #52, superseding the earlier
+  horizontal-scroll approach from issue #43).
 - **Readiness banner**: a persistent line at the bottom of the document listing every reason
   "Create Rally" is disabled (missing name, no car group, unbalanced leg/stage counts, empty legs,
   too many legs, a leg opening too soon — see "Leg time rules" below), replacing the old

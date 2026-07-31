@@ -32,19 +32,16 @@ export function createDefaultStageConfig() {
     service_time: '60 minutes',
     nummechanics: '6 mechanic',
     mechanicsSkill: 'Expert',
-    // rbr-rally-creator-web#64: client-side-only nickname, per the
-    // maintainer's own comment on the issue (superseding an earlier
-    // generic-UX-consult pass). Confirmed via two independent sources (the
-    // discovery schema's field list AND the raw captured DOM's 14 real
-    // controls on the stage step) that rallysimfans.hu has no per-stage
-    // custom-name mechanism at all -- so this can only ever be a local
-    // planning label, never sent to the site. Follows the exact precedent of
-    // `_uid` (also client-only, also stripped before submission in
-    // RallyBuilder's handleCreateRally): underscore-prefixed to mark it as
-    // never reaching the backend, shown always rather than gated on the
-    // unrelated hidden_stage_name checkbox. Stored unconditionally here so
-    // it's a stable field on every stage config rather than something that
-    // pops in/out of the object shape.
+    // Real site field (rbr-rally-creator-service#20): the public per-stage
+    // name shown to participants when rallyBasics.hidden_stage_name is
+    // checked. Sent to the backend as-is -- distinct from `_label` below.
+    hidden_name: '',
+    // Client-side-only planning nickname (rbr-rally-creator-web#64) --
+    // underscore-prefixed, stripped before submission in RallyBuilder's
+    // handleCreateRally, never sent to the site. NOT the same field as
+    // hidden_name above: this is a private "what am I looking at" label for
+    // the person building the rally, hidden_name is the public name
+    // participants see on rallysimfans.hu.
     _label: '',
   };
 }
@@ -258,11 +255,12 @@ export function createStageConfigFromPrevious(previousStageConfig) {
     ...previousStageConfig,
     _uid: generateUid(),
     stage_id: null,
-    // rbr-rally-creator-web#64: a nickname is a label for one specific
-    // physical stage, not a config preference like surface age/tyre that
-    // makes sense to reuse -- carrying it forward here (the way stage_id
-    // itself explicitly isn't) would just seed a brand-new, not-yet-assigned
-    // stage with a confusing duplicate of the previous one's name.
+    // A hidden/public name and a planning nickname are both labels for one
+    // specific physical stage, not a config preference like surface
+    // age/tyre that makes sense to reuse -- carrying either forward here
+    // (the way stage_id itself explicitly isn't) would just seed a
+    // brand-new, not-yet-assigned stage with a confusing duplicate name.
+    hidden_name: '',
     _label: '',
   };
 }

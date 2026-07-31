@@ -102,6 +102,7 @@ export function RoadBook({
   onLegScheduleChange,
   onLegFieldChange,
   onAddLeg,
+  hiddenStageNameEnabled = false,
   locked = false,
 }) {
   const [activeDrag, setActiveDrag] = useState(null);
@@ -834,6 +835,7 @@ export function RoadBook({
           options={options}
           isLastStage={modalState.willBeLastStage}
           stageNumber={modalState.stageNumber}
+          hiddenStageNameEnabled={hiddenStageNameEnabled}
           onSave={handleModalSave}
           onCancel={closeModal}
         />

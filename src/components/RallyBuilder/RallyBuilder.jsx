@@ -396,11 +396,12 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
     // Phase 3, unchanged from what the service validates against.
     //
     // _label (rbr-rally-creator-web#64) is a client-only planning nickname,
-    // stripped here for the same reason: per the maintainer's own comment on
-    // the issue, rallysimfans.hu has no per-stage custom-name mechanism at
-    // all (confirmed via both the discovery schema and the raw captured DOM
-    // of the stage step), so there is nothing site-side to honestly send --
-    // including it would just be meaningless payload weight.
+    // stripped here for the same reason: it's a private "what am I looking
+    // at" label for the person building the rally, never sent site-side.
+    // hidden_name (a different field, not stripped) is the real per-stage
+    // public name rallyWizard.js fills into rallysimfans.hu's own
+    // #stage_name field when hidden_stage_name is checked -- it's part of
+    // `...rest` below and flows straight through.
     const stagePlanPayload = stagePlan.map(({ _uid, _label, ...rest }) => rest);
 
     const config = {
@@ -537,6 +538,14 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
     .map((leg, i) => (isLegOpenTimeTooSoon(leg.open_time) ? i + 1 : null))
     .filter((n) => n !== null);
 
+  // Both password fields are optional (an empty rally has no password), but
+  // if either has been touched they must match -- otherwise the mismatch
+  // would only ever surface later as an opaque backend/site error, if at
+  // all (RallyBasicsForm renders "Password" + "Confirm password" as if this
+  // were already enforced).
+  const passwordMismatch =
+    (rallyBasics.password1 || rallyBasics.password2) && rallyBasics.password1 !== rallyBasics.password2;
+
   const canSubmit =
     !submitting &&
     credentialsSaved &&
@@ -546,7 +555,8 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
     legStagesBalanced &&
     emptyLegNumbers.length === 0 &&
     !tooManyLegs &&
-    legsOpeningTooSoon.length === 0;
+    legsOpeningTooSoon.length === 0 &&
+    !passwordMismatch;
 
   // Every pre-submit problem the old alert()s/.legWarning used to catch,
   // collected into one list for ReadinessBanner. Note: "some stage slots
@@ -567,6 +577,9 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
   }
   if (stagePlan.length === 0) {
     readinessProblems.push('Add at least one stage before creating the rally.');
+  }
+  if (passwordMismatch) {
+    readinessProblems.push('Password and confirm password don\'t match.');
   }
   if (!legStagesBalanced) {
     readinessProblems.push(
@@ -713,6 +726,7 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
             onLegScheduleChange={setLegSchedule}
             onLegFieldChange={handleLegFieldChange}
             onAddLeg={handleAddLeg}
+            hiddenStageNameEnabled={rallyBasics.hidden_stage_name}
             locked={locked}
           />
         </div>

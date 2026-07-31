@@ -40,8 +40,10 @@ document *is* the editing surface.
 2. **Leg heading** — one per leg (`Leg 1`, `Leg 2`, ...), in the same
    heading weight/style as the document header, just nested one level down.
 3. **Stage row** — under each leg heading, its stages laid out in a
-   horizontal row of "bricks," left to right in stage order. Desktop-first:
-   the row is allowed to scroll horizontally rather than wrap or stack.
+   horizontal row of "bricks," left to right in stage order. Desktop-first;
+   originally spec'd as horizontally-scrolling, but issue #52 replaced that
+   with wrapping (`flex-wrap`) — see README.md's Status section for current
+   behavior.
 4. Repeat 2–3 for every leg. An "add leg" affordance sits at the bottom of
    the document, matching the same brick-adding interaction as stages.
 

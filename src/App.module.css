@@ -62,20 +62,20 @@
 }
 
 /* rbr-rally-creator-web#62: opens/closes the RallySidebar overlay panel.
-   Toggleable on every viewport width -- unlike the rejected first pass,
-   there's no "persistent on wide screens" state where this has nothing to
-   do, since the panel always overlays rather than resizes .page. Kept as
-   .historyButton (its pre-#62 name) since it's the same control the old
-   full-screen "My Rallies" overlay used. data-active reflects whether the
-   panel is currently open, purely as a pressed-state visual cue. */
+   Kept as .historyButton (its pre-#62 name) since it's the same control the
+   old full-screen "My Rallies" overlay used. data-active reflects whether
+   the panel is currently open, purely as a pressed-state visual cue.
+   rbr-rally-creator-web#77: demoted to a small, subtle top-left text link,
+   first child in .header (see App.jsx) so flex space-between naturally
+   pins it at the start of the row, ahead of the title group. */
 .historyButton {
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--ink);
+  padding: 0.2rem 0;
+  border: none;
   border-radius: 0;
   background: transparent;
-  color: var(--ink);
-  font-weight: 600;
-  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 0.7rem;
   font-family: inherit;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -84,7 +84,8 @@
 
 .historyButton:hover,
 .historyButton[data-active='true'] {
-  background: var(--card);
+  color: var(--ink);
+  text-decoration: underline;
 }
 
 .section {

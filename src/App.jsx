@@ -79,6 +79,18 @@ function App() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
+        {/* rbr-rally-creator-web#77: top-left, small and subtle -- secondary
+            to the title/primary actions rather than a competing button, so
+            it sits ahead of .titleGroup styled as a plain text-link. */}
+        <button
+          type="button"
+          className={styles.historyButton}
+          data-active={sidebarOpen}
+          aria-pressed={sidebarOpen}
+          onClick={() => setSidebarOpen(true)}
+        >
+          My Rallies
+        </button>
         <div className={styles.titleGroup}>
           <h1>RBR Rally Creator</h1>
           {/* Build-time commit hash (see vite.config.js's __COMMIT_HASH__
@@ -95,15 +107,6 @@ function App() {
           </a>
         </div>
         <div className={styles.headerActions}>
-          <button
-            type="button"
-            className={styles.historyButton}
-            data-active={sidebarOpen}
-            aria-pressed={sidebarOpen}
-            onClick={() => setSidebarOpen(true)}
-          >
-            My Rallies
-          </button>
           {credState.status === 'saved' && (
             <CredentialStatus username={credState.username} onClear={handleClearCredentials} />
           )}

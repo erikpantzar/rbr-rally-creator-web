@@ -16,10 +16,10 @@ import { StageConfigModal } from '../StageConfigModal/StageConfigModal.jsx';
 import { Toast } from '../Toast/Toast.jsx';
 import styles from './RoadBook.module.css';
 
-// How long the "Undo" toast stays up after a brick delete, per
-// DESIGN_SPEC.md's UX review note on undo. One pending delete at a time --
-// starting a new one (via a fresh delete) simply replaces whatever was
-// pending, no queue/stack.
+// How long the "Undo" toast stays up after a brick delete or leg removal,
+// per DESIGN_SPEC.md's UX review note on undo. One pending undo at a time --
+// starting a new one (a fresh delete, or a fresh leg removal) simply
+// replaces whatever was pending, no queue/stack.
 const UNDO_TIMEOUT_MS = 5000;
 
 // Droppable wrapper around a leg's stage row. Individual StageBricks are
@@ -104,11 +104,31 @@ export function RoadBook({
 }) {
   const [activeDrag, setActiveDrag] = useState(null);
   const [modalState, setModalState] = useState(null); // { mode, legIndex, uid?, initialValue }
-  // Single in-flight undo slot: { config, legIndex, indexInLeg }. config is
-  // the deleted stage's full plan entry (including its original _uid) so
-  // undo can splice it back into stagePlan exactly where it was, and bump
-  // that leg's stage_count back up -- the same cross-leg math handleDragEnd
-  // already does for drag moves, just adding one instead of moving one.
+  // Single in-flight undo slot, shared by stage-delete and leg-remove (the
+  // Toast below is one fixed-position element -- two independent pending
+  // states could in theory both be "live" and would render on top of each
+  // other, so this is deliberately one discriminated slot rather than a
+  // second `pendingLegUndo` sibling). Starting either kind of undo replaces
+  // whatever was pending, same "no queue/stack" rule as before; in practice
+  // a stage-delete and a leg-removal can't both be mid-flight anyway since
+  // they're separate user actions and this is a single-user UI.
+  //
+  // Shape is one of:
+  //   { type: 'stage', config, legIndex, indexInLeg } -- config is the
+  //     deleted stage's full plan entry (including its original _uid) so
+  //     undo can splice it back into stagePlan exactly where it was, and
+  //     bump that leg's stage_count back up -- the same cross-leg math
+  //     handleDragEnd already does for drag moves, just adding one instead
+  //     of moving one.
+  //   { type: 'leg', legIndex, legConfig, targetLegIndex,
+  //     targetStageCountBefore } -- legConfig is the removed leg's full
+  //     legSchedule entry (open_time/close_time/super_rally/stage_count) as
+  //     it was right before removal, legIndex is where it lived so undo can
+  //     reinsert it there, and targetStageCountBefore is the merge target's
+  //     stage_count *before* the removed leg's stages were folded in, so
+  //     undo can restore it exactly rather than subtracting stageCount back
+  //     out of whatever the target's count happens to be by the time Undo
+  //     is clicked.
   const [pendingUndo, setPendingUndo] = useState(null);
   const undoTimerRef = useRef(null);
 
@@ -166,7 +186,7 @@ export function RoadBook({
       legSchedule.map((l, li) => (li === legIndex ? { ...l, stage_count: Math.max(0, (l.stage_count || 0) - 1) } : l))
     );
 
-    setPendingUndo({ config: stageConfig, legIndex, indexInLeg });
+    setPendingUndo({ type: 'stage', config: stageConfig, legIndex, indexInLeg });
     undoTimerRef.current = setTimeout(() => {
       undoTimerRef.current = null;
       setPendingUndo(null);
@@ -221,21 +241,39 @@ export function RoadBook({
     if (!removeConfirm) return;
     const { legIndex, targetLegIndex, stageCount } = removeConfirm;
 
+    // Capture the removed leg's full config and the merge target's
+    // stage_count as they stand right now, before either is touched --
+    // this is exactly what handleUndoRemoveLeg needs to reverse the merge
+    // precisely, rather than re-deriving it from post-merge state later.
+    const legConfig = legSchedule[legIndex];
+    const targetStageCountBefore = legSchedule[targetLegIndex].stage_count || 0;
+
     const nextLegSchedule = legSchedule
-      .map((l, i) => (i === targetLegIndex ? { ...l, stage_count: (l.stage_count || 0) + stageCount } : l))
+      .map((l, i) => (i === targetLegIndex ? { ...l, stage_count: targetStageCountBefore + stageCount } : l))
       .filter((_, i) => i !== legIndex);
+
+    // Same "one pending undo at a time" rule as handleDeleteStage: clear
+    // any still-running timer (e.g. a stage-delete undo that's still up)
+    // before replacing pendingUndo, so it can't fire later and clobber this
+    // brand-new leg-removal undo.
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
 
     onLegScheduleChange(nextLegSchedule);
     setRemoveConfirm(null);
+
+    setPendingUndo({ type: 'leg', legIndex, legConfig, targetLegIndex, targetStageCountBefore });
+    undoTimerRef.current = setTimeout(() => {
+      undoTimerRef.current = null;
+      setPendingUndo(null);
+    }, UNDO_TIMEOUT_MS);
   }
 
   function handleCancelRemoveLeg() {
     setRemoveConfirm(null);
   }
 
-  function handleUndoDelete() {
-    if (!pendingUndo) return;
-    const { config, legIndex, indexInLeg } = pendingUndo;
+  function handleUndoStageDelete(pending) {
+    const { config, legIndex, indexInLeg } = pending;
 
     // Re-derive the leg's current start/end from live legSchedule/stagePlan
     // (not from stale legRanges captured at delete time) -- reinsertion
@@ -249,7 +287,37 @@ export function RoadBook({
     onLegScheduleChange(
       legSchedule.map((l, li) => (li === legIndex ? { ...l, stage_count: (l.stage_count || 0) + 1 } : l))
     );
+  }
 
+  function handleUndoRemoveLeg(pending) {
+    const { legIndex, legConfig, targetLegIndex, targetStageCountBefore } = pending;
+
+    // Reinsert the removed leg at its original index first -- that alone
+    // restores every other leg's index to exactly what it was pre-removal
+    // (removal only ever drops one entry, nothing else shifts), so
+    // targetLegIndex (captured at removal time) is safe to use as-is
+    // against the reinserted array to restore its original stage_count,
+    // rather than re-deriving "current" target index from a shifted one.
+    if (legIndex < 0 || legIndex > legSchedule.length || targetLegIndex < 0) return;
+
+    const withLegReinserted = [...legSchedule.slice(0, legIndex), legConfig, ...legSchedule.slice(legIndex)];
+    if (targetLegIndex >= withLegReinserted.length) return;
+
+    onLegScheduleChange(
+      withLegReinserted.map((l, i) => (i === targetLegIndex ? { ...l, stage_count: targetStageCountBefore } : l))
+    );
+  }
+
+  // Dispatches to the right undo based on what's pending -- see the
+  // pendingUndo declaration above for why stage-delete and leg-remove share
+  // this one slot/Toast instead of separate state.
+  function handleUndo() {
+    if (!pendingUndo) return;
+    if (pendingUndo.type === 'leg') {
+      handleUndoRemoveLeg(pendingUndo);
+    } else {
+      handleUndoStageDelete(pendingUndo);
+    }
     clearPendingUndo();
   }
 
@@ -653,7 +721,12 @@ export function RoadBook({
       )}
 
       {pendingUndo && (
-        <Toast message="Stage removed" actionLabel="Undo" onAction={handleUndoDelete} onDismiss={clearPendingUndo} />
+        <Toast
+          message={pendingUndo.type === 'leg' ? 'Leg removed' : 'Stage removed'}
+          actionLabel="Undo"
+          onAction={handleUndo}
+          onDismiss={clearPendingUndo}
+        />
       )}
     </DndContext>
   );

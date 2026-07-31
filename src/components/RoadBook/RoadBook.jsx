@@ -655,7 +655,13 @@ export function RoadBook({
                     );
                   })}
 
-                  <button type="button" className={styles.addStageBrick} onClick={() => openAddModal(legIndex)}>
+                  <button
+                    type="button"
+                    className={[styles.addStageBrick, legStages.length === 0 ? styles.addStageBrickEmpty : '']
+                      .filter(Boolean)
+                      .join(' ')}
+                    onClick={() => openAddModal(legIndex)}
+                  >
                     + Add stage
                   </button>
 

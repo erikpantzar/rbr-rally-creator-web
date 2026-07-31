@@ -43,3 +43,11 @@ export const createRally = (baseUrl, config) =>
   request(baseUrl, '/rallies', { method: 'POST', body: config });
 
 export const getJobStatus = (baseUrl, jobId) => request(baseUrl, `/jobs/${jobId}`);
+
+// Cooperative cancel (rbr-rally-creator-web#31). The response is only a
+// snapshot at the moment the service received the request -- a queued job
+// is cancelled immediately (200), but a running job just has the request
+// noted (202) and keeps running until it notices at the next safe step
+// boundary. Callers must keep polling getJobStatus() for the actual
+// outcome rather than trusting this response as final.
+export const cancelJob = (baseUrl, jobId) => request(baseUrl, `/jobs/${jobId}`, { method: 'DELETE' });

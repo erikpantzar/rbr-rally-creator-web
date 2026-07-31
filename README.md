@@ -25,22 +25,95 @@ the field reverts to the public default. Your rallysimfans.hu credentials are **
 here: signing in sends them once to the service, which validates them via a real login and sets
 an httpOnly session cookie. This app never reads or stores the raw password.
 
+### Leg time rules (configurable, rbr-rally-creator-service#12)
+
+`src/lib/rallyPlan.js` exports three constants used to warn users *before* they submit a rally
+that would hit the backend's leg-time limits — `MAX_LEG_SPAN_DAYS`, `MIN_LEG_LEAD_MINUTES`,
+`CLAMP_LEG_LEAD_MINUTES`. These are **best-guess assumptions**, not confirmed live boundaries (see
+that issue for why) — they're read from build-time env vars, falling back to the current best
+guesses if unset:
+
+| Env var | Default | Meaning |
+|---|---|---|
+| `VITE_MAX_LEG_SPAN_DAYS` | `6` | A leg can be open at most this many days. |
+| `VITE_MIN_LEG_LEAD_MINUTES` | `5` | A leg can't start less than this many minutes from "now". |
+| `VITE_CLAMP_LEG_LEAD_MINUTES` | `10` | Informational only here — matches the backend's clamp target, shown in warnings. |
+
+Set these in a local `.env` (gitignored, Vite convention) to override for a build — since this is
+a static GitHub Pages deploy, changing them requires a rebuild, unlike the backend service where
+they're read live from the process environment. **Keep these in sync with the mirrored
+`LEG_MAX_SPAN_DAYS`/`LEG_MIN_LEAD_MINUTES`/`LEG_CLAMP_LEAD_MINUTES` in
+`rbr-rally-creator-service`'s `src/lib/legTimeRules.js`** — this app's values only warn pre-submit,
+the backend's are what's actually enforced. If you ever get real confirmed numbers, update the
+defaults in `rallyPlan.js` itself (not just the env var), so a build without the env var set still
+gets the right behavior.
+
 ## Architecture
 
 - **React + CSS Modules** (`*.module.css` per component) + one global `src/styles/tokens.css` for
   design tokens (colors, light/dark). No CSS-in-JS, no UI kit — plain, isolated component styles.
 - **Component convention**: presentational components (`src/components/`) take data in via props
   and report out via callback props — no component reaches into `fetch`/`localStorage` itself.
-  Only `App.jsx` owns state and talks to the service/localStorage. Mirrors
+  Only `App.jsx` and `RallyBuilder.jsx` own state and talk to the service/localStorage. Mirrors
   [willys-web-prototype](https://github.com/erikpantzar/willys-web-prototype)'s
   `docs/COMPONENTS.md` convention.
-- No router yet — Phase 1 is a single real view. Add one when a second distinct, deep-linkable
+- No router yet — still a single real view. Add one when a second distinct, deep-linkable
   page exists (e.g. a job-status page).
+- **Drag-and-drop** via `@dnd-kit` (`core`/`sortable`/`utilities`) — used only to reorder
+  already-placed stage "bricks" within or across legs. There's no drag-and-drop *creation* from a
+  catalog panel (that was explicitly deferred; see DESIGN_SPEC.md's scope note).
 
 ## Status
 
-Phase 1 (auth): service URL settings + rallysimfans.hu sign-in against the service's httpOnly-cookie
-session API. Rally creation itself isn't built yet.
+The rally builder described in `DESIGN_SPEC.md` (the "document of bricks" model) is built and is
+the only way to compose a rally in this app — there's no older wizard-style form left. End to end,
+today:
+
+- **Auth**: rallysimfans.hu sign-in against the service's httpOnly-cookie session API. The service
+  URL is fixed to the public Tailscale Funnel address (no user-facing settings UI); a
+  `localStorage` override still exists as a devtools-only escape hatch for local dev (see
+  `src/lib/settings.js`).
+- **Rally basics**: name, description, damage rules, pacenotes option, road-side service cap,
+  a rally-level "Hide stage names" checkbox, optional password. Stage/leg counts are no longer
+  manual inputs — they're derived read-only from what's actually been built below.
+- **Car groups**: picker over the service's car-group/car catalog.
+- **Road book**: additive "Lego bits" model exactly as designed — legs and stages are only ever
+  added explicitly (`+ Add Leg`, `+ Add stage`), never pre-sized. Each stage is a draggable/
+  reorderable "brick" (collapsed summary; click to reopen the full config in a full-screen modal).
+  Bricks support add / edit / **duplicate** / delete, with an **undo toast** (5s) on delete for
+  both a stage and a whole leg removal. Legs are removable (merging orphaned stages into an
+  adjacent leg via an inline confirm bubble), capped at 6 total to match the real site's wizard,
+  and the stage row scrolls horizontally with an explicit affordance so overflow is discoverable
+  (issue #43).
+- **Readiness banner**: a persistent line at the bottom of the document listing every reason
+  "Create Rally" is disabled (missing name, no car group, unbalanced leg/stage counts, empty legs,
+  too many legs, a leg opening too soon — see "Leg time rules" below), replacing the old
+  alert()-based validation.
+- **Leg time validation (frontend, issue #40)**: a leg whose open time is inside
+  `MIN_LEG_LEAD_MINUTES` of "now" (or already past) is flagged in the readiness banner before
+  submit, since the backend would otherwise silently clamp it forward. Rechecked every 30s so this
+  can't go stale just from time passing while the user keeps building.
+- **Locked/created state**: once a rally job succeeds, the document goes read-only (no more add/
+  edit/delete/reorder) and offers a **"Duplicate as new draft"** action instead — clones the local
+  config into a fresh editable draft, no touching the live rally on rallysimfans.hu. Actual
+  edit-and-republish of a live rally is still out of scope.
+- **In-progress persistence**: both the whole rally draft and an open stage-config modal's
+  in-progress edits are saved to `localStorage` and restored on reload/reopen, so an accidental
+  refresh or closed tab doesn't lose work.
+- **Job progress**: shown as its own screen once "Create Rally" is pressed (not layered onto the
+  document) — progress bar, cooperative cancel (`DELETE /jobs/:id`), a "Test run" (dry-run)
+  checkbox, and the browser tab title reflects live progress/completion so the tab doesn't need to
+  stay in focus.
+- **Visual language**: amber/timing-clock accent and monospace-leaning styling per DESIGN_SPEC.md
+  are in `tokens.css` (`--accent` at oklch hue ~92, both light/dark blocks) — the spec's visual
+  redesign has landed, not just the interaction model.
+
+**Not yet in the frontend**: the backend (`rbr-rally-creator-service`) recently added support for
+a per-stage custom "hidden name" (a `stage_name` field shown only when hidden-stage-names are
+enabled). This app's "Hide stage names" control is still only the rally-level boolean checkbox in
+`RallyBasicsForm` — there is no per-stage custom-name input anywhere in `StageConfigModal` or
+`stagePlan`/`rallyPlan.js` yet. If per-stage naming is meant to be user-editable here, that's
+unbuilt.
 
 **Known risk, untested**: the session cookie is cross-site (this GitHub Pages origin ↔ the
 service's own host). Some browsers (Safari ITP, strict tracking-protection modes) block cross-site

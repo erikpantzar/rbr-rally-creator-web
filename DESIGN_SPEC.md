@@ -1,7 +1,14 @@
 # Design spec: the rally as a document
 
-Status: proposed, not yet built
-Created: 2026-07-31
+Status: **implemented**. Every piece described below — the document/brick structure and
+interaction model, all six UX-review recommendations (duplicate-brick action, hover-revealed
+brick controls, sticky leg headings plus per-leg stage-count badges, the readiness banner, the
+undo toast, and "duplicate as new draft" for the locked state), and the amber visual language in
+`tokens.css` — has landed in `src/`. See README.md's Status section for the current plain-language
+rundown of what's built. Kept here as the reference for *why* the current structure looks the way
+it does; treat the body below as historical/design record rather than a forward-looking TODO,
+except where a line is explicitly flagged as still open.
+Created: 2026-07-31 (implementation completed shortly after, see git log)
 
 ## Premise
 
@@ -137,14 +144,21 @@ structure/interaction model. It does **not** cover:
 - Mobile/responsive layout — desktop-first by explicit decision; mobile
   just needs to not be actively broken, not a first-class target.
 
-## Open items for implementation planning (not decided here)
+## Open items for implementation planning (resolved, kept for history)
 
-- Exact amber hue/lightness/chroma values for `--accent` in both theme
-  blocks (needs a swatch pass, not just a spec sentence).
-- Whether the modal dialog reuses `StageCatalogPanel`'s existing catalog
-  list UI internally, or needs a redesigned in-modal picker.
-- Icon set for surface/weather/tyre glyphs on collapsed bricks (currently
-  no icon system exists in the codebase).
+- ~~Exact amber hue/lightness/chroma values for `--accent`~~ — resolved:
+  `oklch(58% 0.16 92)` light / `oklch(78% 0.16 92)` dark, in `tokens.css`.
+- ~~Whether the modal dialog reuses `StageCatalogPanel`'s existing catalog
+  list UI~~ — resolved: `StageConfigModal` has its own simple in-modal
+  `StagePicker` (click-to-select list with name/country/surface filters),
+  not a reuse of `StageCatalogPanel`. `StageCatalogPanel` (the old
+  drag-source side panel from the now-removed drag-onto-slot flow) no
+  longer exists in `src/components/` at all — it's been removed, not just
+  left unused.
+- **Still open**: icon set for surface/weather/tyre glyphs on collapsed
+  bricks. `StageBrick` currently renders a first-letter placeholder glyph
+  (`G`/`T`/`S` for gravel/tarmac/snow, falling back to the surface's own
+  first letter) — not a real icon system.
 
 ## UX review notes
 
@@ -153,10 +167,12 @@ rally organizer wants to get a good rally live on rallysimfans.hu with less
 tedium than the site's own wizard, while feeling like they're *composing*
 something rather than filling out bureaucratic forms. The document/brick
 metaphor serves that well for the "feeling in control" half; the notes
-below are mostly about the tedium half, which the current plan doesn't yet
-address.
+below were originally about the tedium half, which the plan hadn't yet
+addressed at spec time. **All six recommendations below have since been
+built** — tagged `[Done]` inline; left as prose rather than deleted since
+it's still the record of *why* each exists.
 
-**The costliest step in the current plan: one modal per stage, every time.**
+**[Done] The costliest step in the current plan: one modal per stage, every time.**
 A real rally is 4-8 stages across 2-3 legs, and adjacent stages are
 frequently near-identical (same surface/wetness/weather/tyre, maybe just a
 different stage pick or service time). The spec as written makes every
@@ -169,7 +185,7 @@ instead of blank) alongside the plain `+ Add stage`. Cheap to build, and it
 turns the slowest part of building a multi-stage leg into the fastest.
 Worth prioritizing over some of the "open items" already listed.
 
-**Brick control clutter cuts against the "scannable at a glance" goal.**
+**[Done] Brick control clutter cuts against the "scannable at a glance" goal.**
 Drag handle + up + down + delete + click-to-edit is five affordances
 competing for space on a card that's also supposed to read cleanly as
 "stage name + surface icon + weather + tyre." Recommend collapsing
@@ -178,7 +194,7 @@ users) rather than being permanently visible — the brick's resting state
 stays a clean data summary, the editing controls appear only when you're
 actually interacting with that brick.
 
-**Long rallies fight the "document" metaphor's own scroll model.** A
+**[Done] Long rallies fight the "document" metaphor's own scroll model.** A
 3-leg rally means 3 independently horizontally-scrolling rows, stacked
 vertically. To review a rally with several legs you're scrolling down
 *and* right, repeatedly, and once a stage row overflows you lose the leg
@@ -188,7 +204,7 @@ while its stage row is mid-scroll, and add a stage-count badge next to the
 leg heading (`Leg 2 — 4 stages`) so the row's contents are legible even
 before scrolling it into view.
 
-**The locked state is a dead end for an ordinary mistake, not just a
+**[Done] The locked state is a dead end for an ordinary mistake, not just a
 missing "future feature."** The spec defers edit/republish, which is
 reasonable for actually *changing a live rally* — but the gap it leaves is
 that a user who notices a typo the moment after their rally locks has no
@@ -200,14 +216,14 @@ dead end without pulling the deferred edit-and-republish work forward.
 Recommend promoting this from "future extension point" to in-scope for
 this pass.
 
-**No undo on brick delete.** Deleting a fully-configured stage (all those
+**[Done] No undo on brick delete.** Deleting a fully-configured stage (all those
 modal fields filled in) is one click, with no confirmation and no way
 back except re-entering everything from scratch. Given the modal-heavy
 add flow above, an accidental delete is disproportionately expensive to
 recover from. A simple "Undo" toast for a few seconds after delete covers
 this without needing a full trash/history system.
 
-**Validation surfacing is under-specified, and "disabled button" alone
+**[Done] Validation surfacing is under-specified, and "disabled button" alone
 isn't an answer.** The existing per-leg stage-count validation guard (from
 the NOTES.md history) needs a visible home in this document layout — is it
 a banner at the document level, an inline flag on the offending leg
@@ -219,7 +235,7 @@ document (e.g. "Leg 2: stage count doesn't match schedule — fix before
 publishing") that's visible without having to guess why the submit action
 won't fire.
 
-**First-time discoverability of the "add pieces to a document" pattern.**
+**[Done] First-time discoverability of the "add pieces to a document" pattern.**
 This is not a common web pattern, and the spec's answer — "the empty `+`
 brick is the empty state" — leans entirely on the affordance of a plus
 sign being obvious. Recommend a lightweight, dismissible ghost-text hint

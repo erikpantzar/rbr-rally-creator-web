@@ -1,7 +1,13 @@
 # Design spec: the rally as a document
 
-Status: proposed, not yet built
+Status: implemented
 Created: 2026-07-31
+
+This spec has been fully built — the document/brick rally builder, every UX-review
+recommendation below, and the amber visual redesign are all live (see README.md's Status section
+for the current feature list). This document is kept as the design record: the "why" behind the
+structure, plus each recommendation tagged `[Done]` where it shipped. The "Open items" section
+below has been resolved except for the icon set, which remains genuinely open.
 
 ## Premise
 
@@ -139,12 +145,14 @@ structure/interaction model. It does **not** cover:
 
 ## Open items for implementation planning (not decided here)
 
-- Exact amber hue/lightness/chroma values for `--accent` in both theme
-  blocks (needs a swatch pass, not just a spec sentence).
-- Whether the modal dialog reuses `StageCatalogPanel`'s existing catalog
-  list UI internally, or needs a redesigned in-modal picker.
-- Icon set for surface/weather/tyre glyphs on collapsed bricks (currently
-  no icon system exists in the codebase).
+- **[Resolved]** Exact amber hue/lightness/chroma values for `--accent` in both theme blocks:
+  `oklch(58% 0.16 92)` light / `oklch(78% 0.16 92)` dark, live in `tokens.css`.
+- **[Resolved]** The modal dialog does not reuse `StageCatalogPanel` — that component was a drag
+  *source* for a since-removed drag-in-from-catalog flow. The stage-config modal has its own
+  simpler in-modal picker (click-to-select, with name/country/surface filters); `StageCatalogPanel`
+  no longer exists in the codebase.
+- **Still open.** Icon set for surface/weather/tyre glyphs on collapsed bricks — still a
+  first-letter placeholder (`G`/`T`/`S`), no icon system in the codebase yet.
 
 ## UX review notes
 
@@ -155,6 +163,10 @@ something rather than filling out bureaucratic forms. The document/brick
 metaphor serves that well for the "feeling in control" half; the notes
 below are mostly about the tedium half, which the current plan doesn't yet
 address.
+
+**[Done]** — a "Duplicate" action exists on every brick, and beyond the original recommendation,
+new stages also seed their default config from whichever stage was most recently added/edited
+(not just an explicit Duplicate click), so consecutive similar stages need even less re-entry.
 
 **The costliest step in the current plan: one modal per stage, every time.**
 A real rally is 4-8 stages across 2-3 legs, and adjacent stages are
@@ -169,6 +181,9 @@ instead of blank) alongside the plain `+ Add stage`. Cheap to build, and it
 turns the slowest part of building a multi-stage leg into the fastest.
 Worth prioritizing over some of the "open items" already listed.
 
+**[Done]** — drag handle, up/down, duplicate, and delete all live in a `.controls` wrapper hidden
+at rest and revealed on hover/focus-within, exactly as recommended.
+
 **Brick control clutter cuts against the "scannable at a glance" goal.**
 Drag handle + up + down + delete + click-to-edit is five affordances
 competing for space on a card that's also supposed to read cleanly as
@@ -177,6 +192,10 @@ up/down/delete/drag-handle to reveal on hover (or focus, for keyboard
 users) rather than being permanently visible — the brick's resting state
 stays a clean data summary, the editing controls appear only when you're
 actually interacting with that brick.
+
+**[Done]** — leg headings are `position: sticky` while their stage row scrolls, and each leg
+header shows a live stage-count badge (`N stages`) plus a running km total, so both mitigations
+shipped.
 
 **Long rallies fight the "document" metaphor's own scroll model.** A
 3-leg rally means 3 independently horizontally-scrolling rows, stacked
@@ -187,6 +206,9 @@ cheap mitigations worth adding to scope: make each leg heading **sticky**
 while its stage row is mid-scroll, and add a stage-count badge next to the
 leg heading (`Leg 2 — 4 stages`) so the row's contents are legible even
 before scrolling it into view.
+
+**[Done]** — a "Duplicate as new draft" action is available on a locked document, per the
+recommendation to promote it into this pass rather than leaving it as a future extension point.
 
 **The locked state is a dead end for an ordinary mistake, not just a
 missing "future feature."** The spec defers edit/republish, which is
@@ -200,12 +222,19 @@ dead end without pulling the deferred edit-and-republish work forward.
 Recommend promoting this from "future extension point" to in-scope for
 this pass.
 
+**[Done]** — a 5-second "Undo" toast follows stage deletion, and the same mechanism was extended
+to cover leg removal (a later addition) too.
+
 **No undo on brick delete.** Deleting a fully-configured stage (all those
 modal fields filled in) is one click, with no confirmation and no way
 back except re-entering everything from scratch. Given the modal-heavy
 add flow above, an accidental delete is disproportionately expensive to
 recover from. A simple "Undo" toast for a few seconds after delete covers
 this without needing a full trash/history system.
+
+**[Done]** — a persistent `ReadinessBanner` at the bottom of the document lists every reason
+"Create Rally" is disabled, replacing the old `alert()`-based validation entirely; problems with
+an automatic fix (e.g. a stale leg start time) get an inline one-click action right on that line.
 
 **Validation surfacing is under-specified, and "disabled button" alone
 isn't an answer.** The existing per-leg stage-count validation guard (from
@@ -218,6 +247,9 @@ Recommend a persistent, small "readiness" line at the bottom of the
 document (e.g. "Leg 2: stage count doesn't match schedule — fix before
 publishing") that's visible without having to guess why the submit action
 won't fire.
+
+**[Done]** — an empty leg row shows a dismissible-by-nature ghost hint ("Add your first stage →")
+that disappears on its own once the row has content, exactly as recommended.
 
 **First-time discoverability of the "add pieces to a document" pattern.**
 This is not a common web pattern, and the spec's answer — "the empty `+`
@@ -234,3 +266,6 @@ pass. The undo-toast and the locked-document "duplicate as new draft"
 action are slightly bigger (need a small amount of new state/history
 handling) but still well within scope — worth including rather than
 punting, since both close real dead-ends rather than adding polish.
+
+**Update: every recommendation in this review shipped** (see the `[Done]`
+tags above) — nothing from this pass was punted.

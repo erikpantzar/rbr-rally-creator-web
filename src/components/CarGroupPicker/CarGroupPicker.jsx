@@ -1,74 +1,52 @@
 import { useMemo, useState } from 'react';
 import styles from './CarGroupPicker.module.css';
 
-const CHEVRON_EXPANDED = '▾'; // ▾
-const CHEVRON_COLLAPSED = '▸'; // ▸
+// Builds the live selected-summary text shown in a <summary>, whether the
+// <details> is open or collapsed -- so the count/names are visible either
+// way, per the maintainer's plan on issue #60:
+//   0 selected -> muted "None selected"
+//   1-3 selected -> comma-joined names
+//   4+ selected -> first 2 names + "+N more" (full list in title= on hover)
+function summarizeSelection(items) {
+  if (items.length === 0) {
+    return { text: 'None selected', title: undefined, muted: true };
+  }
+  const names = items.map((item) => item.name);
+  if (items.length <= 3) {
+    return { text: names.join(', '), title: undefined, muted: false };
+  }
+  const shown = names.slice(0, 2).join(', ');
+  const more = names.length - 2;
+  return { text: `${shown}, +${more} more`, title: names.join(', '), muted: false };
+}
 
-// A single labelled disclosure: heading + expand/collapse toggle, and --
-// when collapsed -- either a wrapping strip of chips naming what's selected
-// (each removable via its own x, without expanding), an "open mode"
-// summary badge, or an empty-state hint. Shared by both the car-groups and
-// individual-cars sections below since the collapse/chip shell is
-// identical; only the expanded body (children) and the open-mode extras
-// differ.
-function CollapsibleSection({
-  title,
-  expanded,
-  onToggleExpanded,
-  selectedItems,
-  onRemove,
-  isOpenMode = false,
-  openLabel,
-  onCustomize,
-  children,
-}) {
+// A single <details>/<summary> disclosure with a live selected-count
+// summary baked into the <summary> itself (title + count/names), reusing
+// the native disclosure element already used for JobProgress's "Debug
+// snippet" (see JobProgress.module.css's .details/.details summary).
+// Native <details> keeps working inside the header block's disabled
+// fieldset -- fieldset only disables form *controls*, not disclosure
+// elements -- so `locked` rally views are unaffected.
+//
+// Fully controlled via open/onToggle (rather than defaultOpen/uncontrolled)
+// so the "Open rally" checkbox below can force sections open/closed, while
+// a manual click on <summary> still works normally -- the native toggle
+// event just flows back into onToggle and updates the owning state.
+function DisclosureSection({ title, open, onToggle, selectedItems, children }) {
+  const summary = summarizeSelection(selectedItems);
   return (
-    <div className={styles.section}>
-      <h3 className={styles.sectionTitle}>
-        <button
-          type="button"
-          className={styles.sectionToggle}
-          onClick={onToggleExpanded}
-          aria-expanded={expanded}
+    <details className={styles.details} open={open} onToggle={(e) => onToggle(e.target.open)}>
+      <summary className={styles.summary}>
+        <span className={styles.summaryTitle}>{title}</span>
+        <span
+          className={summary.muted ? styles.summaryMeta : styles.summaryMetaActive}
+          title={summary.title}
         >
-          {title}
-          <span aria-hidden="true">{expanded ? CHEVRON_EXPANDED : CHEVRON_COLLAPSED}</span>
-        </button>
-      </h3>
-
-      {!expanded && isOpenMode && (
-        <div className={styles.openSummary}>
-          <span className={styles.openBadge}>{openLabel}</span>
-          <button type="button" className={styles.customizeLink} onClick={onCustomize}>
-            Customize instead
-          </button>
-        </div>
-      )}
-
-      {!expanded && !isOpenMode && selectedItems.length > 0 && (
-        <div className={styles.chipStrip}>
-          {selectedItems.map((item) => (
-            <span key={item.id} className={styles.chip}>
-              {item.name}
-              <button
-                type="button"
-                className={styles.chipRemove}
-                onClick={() => onRemove(item.id)}
-                aria-label={`Remove ${item.name}`}
-              >
-                &times;
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-
-      {!expanded && !isOpenMode && selectedItems.length === 0 && (
-        <p className={styles.emptyHint}>None selected yet</p>
-      )}
-
-      {expanded && <div className={styles.sectionBody}>{children}</div>}
-    </div>
+          {summary.text}
+        </span>
+      </summary>
+      <div className={styles.sectionBody}>{children}</div>
+    </details>
   );
 }
 
@@ -77,58 +55,51 @@ function CollapsibleSection({
 // selectedIds array -- the site's own picker treats both id spaces the
 // same way (POST /rallies' carGroupIds field accepts either, mixed freely).
 //
-// Car groups and individual cars each collapse independently into a chip
-// summary (see CollapsibleSection above) so the picker doesn't dominate the
-// page once something's selected. The "open to all car groups" state is
-// deliberately *derived*, not stored: isOpenMode below just checks whether
-// every car-group id currently happens to be in selectedIds. That way,
-// however the selection got to "all groups" -- the button below, manually
-// checking every box, or unchecking one after using the button -- the UI
-// always reflects reality instead of a stale flag that could claim "open"
-// while a group is actually missing.
+// Confirmed catalog size: 22 car groups + 102 individual cars. The
+// individual-cars list is the real space hog (~400-600px of long names),
+// not the groups, so it defaults collapsed while car groups default open
+// (see issue #60 maintainer plan). Each section is a native <details> with
+// a live selected-count summary, so what's picked stays visible either way.
 export function CarGroupPicker({ carGroups, cars, selectedIds, onChange }) {
   const [carFilter, setCarFilter] = useState('');
 
-  // Default collapse state is decided once, at mount: start expanded if
-  // nothing's picked yet in that section (so a first-time user sees the
-  // choice), start collapsed if the picker is loading an existing
-  // selection (e.g. reopening a saved rally) -- the chip strip already
-  // shows what's picked without needing to expand.
-  const [groupsExpanded, setGroupsExpanded] = useState(
-    () => !carGroups.some((g) => selectedIds.includes(g.id))
-  );
-  const [carsExpanded, setCarsExpanded] = useState(
-    () => !cars.some((c) => selectedIds.includes(c.id))
-  );
+  // Default open state: car groups open, individual cars collapsed --
+  // cars are the space hog (102 long names, ~400-600px) and the rarer
+  // intent (picking specific cars rather than whole homologation classes).
+  // Both stay independently, manually expandable/collapsible via <summary>
+  // clicks (synced back through onToggle below); the "Open rally" checkbox
+  // just drives them programmatically on top of that.
+  const [groupsOpen, setGroupsOpen] = useState(true);
+  const [carsOpen, setCarsOpen] = useState(false);
 
   const groupIds = useMemo(() => carGroups.map((g) => g.id), [carGroups]);
-  const isOpenMode = groupIds.length > 0 && groupIds.every((id) => selectedIds.includes(id));
 
-  function handleToggle(id, space) {
+  // "Open rally (all car groups)" is derived state, not persisted --
+  // checked whenever every car-group id currently happens to be in
+  // selectedIds, however that came to be (the checkbox itself, or manually
+  // checking every box one by one).
+  const isOpenRally = groupIds.length > 0 && groupIds.every((id) => selectedIds.includes(id));
+
+  function handleToggle(id) {
     const willSelect = !selectedIds.includes(id);
-    const newIds = willSelect
-      ? [...selectedIds, id]
-      : selectedIds.filter((sid) => sid !== id);
+    const newIds = willSelect ? [...selectedIds, id] : selectedIds.filter((sid) => sid !== id);
     onChange(newIds);
-
-    // Auto-collapse the first time a section goes from empty to having a
-    // pick -- not on every subsequent click, which would fight whoever's
-    // mid-customization by yanking the list closed under them.
-    if (willSelect) {
-      if (space === 'group') {
-        const hadOtherSelected = carGroups.some((g) => g.id !== id && selectedIds.includes(g.id));
-        if (!hadOtherSelected) setGroupsExpanded(false);
-      } else {
-        const hadOtherSelected = cars.some((c) => c.id !== id && selectedIds.includes(c.id));
-        if (!hadOtherSelected) setCarsExpanded(false);
-      }
-    }
   }
 
-  function handleOpenAll() {
-    const nonGroupIds = selectedIds.filter((id) => !groupIds.includes(id));
-    onChange([...nonGroupIds, ...groupIds]);
-    setGroupsExpanded(false);
+  function handleOpenRallyToggle(checked) {
+    if (checked) {
+      // Add all 22 group ids, preserving any individually-picked car ids,
+      // and force both sections collapsed.
+      const nonGroupIds = selectedIds.filter((id) => !groupIds.includes(id));
+      onChange([...nonGroupIds, ...groupIds]);
+      setGroupsOpen(false);
+      setCarsOpen(false);
+    } else {
+      // Remove all group ids; car picks stay intact. Reopen "Car groups"
+      // for manual editing.
+      onChange(selectedIds.filter((id) => !groupIds.includes(id)));
+      setGroupsOpen(true);
+    }
   }
 
   const selectedGroups = useMemo(
@@ -148,21 +119,20 @@ export function CarGroupPicker({ carGroups, cars, selectedIds, onChange }) {
 
   return (
     <div className={styles.container}>
-      {!isOpenMode && (
-        <button type="button" className={styles.openAllButton} onClick={handleOpenAll}>
-          Open to all car groups
-        </button>
-      )}
+      <label className={styles.openRallyLabel}>
+        <input
+          type="checkbox"
+          checked={isOpenRally}
+          onChange={(e) => handleOpenRallyToggle(e.target.checked)}
+        />
+        Open rally (all car groups)
+      </label>
 
-      <CollapsibleSection
+      <DisclosureSection
         title="Car groups"
-        expanded={groupsExpanded}
-        onToggleExpanded={() => setGroupsExpanded((v) => !v)}
+        open={groupsOpen}
+        onToggle={setGroupsOpen}
         selectedItems={selectedGroups}
-        onRemove={(id) => handleToggle(id, 'group')}
-        isOpenMode={isOpenMode}
-        openLabel="Open — all car groups eligible"
-        onCustomize={() => setGroupsExpanded(true)}
       >
         <div className={styles.checkboxList}>
           {carGroups.map((group) => (
@@ -170,20 +140,19 @@ export function CarGroupPicker({ carGroups, cars, selectedIds, onChange }) {
               <input
                 type="checkbox"
                 checked={selectedIds.includes(group.id)}
-                onChange={() => handleToggle(group.id, 'group')}
+                onChange={() => handleToggle(group.id)}
               />
               {group.name}
             </label>
           ))}
         </div>
-      </CollapsibleSection>
+      </DisclosureSection>
 
-      <CollapsibleSection
+      <DisclosureSection
         title="Individual cars"
-        expanded={carsExpanded}
-        onToggleExpanded={() => setCarsExpanded((v) => !v)}
+        open={carsOpen}
+        onToggle={setCarsOpen}
         selectedItems={selectedCars}
-        onRemove={(id) => handleToggle(id, 'car')}
       >
         <input
           type="text"
@@ -198,13 +167,13 @@ export function CarGroupPicker({ carGroups, cars, selectedIds, onChange }) {
               <input
                 type="checkbox"
                 checked={selectedIds.includes(car.id)}
-                onChange={() => handleToggle(car.id, 'car')}
+                onChange={() => handleToggle(car.id)}
               />
               {car.name}
             </label>
           ))}
         </div>
-      </CollapsibleSection>
+      </DisclosureSection>
     </div>
   );
 }

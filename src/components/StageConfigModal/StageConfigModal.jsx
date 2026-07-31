@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ServiceChip } from '../ServiceChip/ServiceChip.jsx';
+import { loadStageConfigDraft, saveStageConfigDraft, clearStageConfigDraft } from '../../lib/stageConfigDraft.js';
 import styles from './StageConfigModal.module.css';
 
 // In-modal stage picker. DESIGN_SPEC.md leaves open whether this reuses
@@ -82,16 +83,25 @@ function StagePicker({ stages, selectedStageId, onSelect }) {
   );
 }
 
-// Modal dialog holding the full stage-config form -- stage picker, surface
-// age, wetness, weather, tyre compound + choose_tyre/choose_setup, and the
-// ServiceChip. Replaces the form that used to live inline in StageSlot's
-// "Edit details" panel; now it's the *only* way to create or edit a brick's
-// config (per DESIGN_SPEC.md: "clicking it opens a modal dialog... on save,
-// the modal closes and a new brick appears").
+// Full-page overlay holding the full stage-config form -- stage picker,
+// surface age, wetness, weather, tyre compound + choose_tyre/choose_setup,
+// and the ServiceChip. Replaces the form that used to live inline in
+// StageSlot's "Edit details" panel; now it's the *only* way to create or
+// edit a brick's config (per DESIGN_SPEC.md: "clicking it opens a
+// dialog... on save, the dialog closes and a new brick appears").
 //
-// Plain React dialog -- no modal/dialog dependency exists in package.json,
-// and this doesn't need more than a backdrop + Escape/click-outside +
-// focus-on-open to satisfy the spec.
+// Was originally a centered backdrop+dialog; rbr-rally-creator-web#16 asked
+// for a full-screen overlay instead ("its full view... a full layer on top
+// of the app") with the close (x) replaced by an explicit "<- Back to
+// rally" affordance and Save always reachable without scrolling. There's no
+// "outside" to click on a full-page layer, so the old click-outside-closes
+// backdrop behavior is gone; Escape still closes it (now via the same
+// handleCancel as the Back button) since that's still a reasonable "back
+// out" shortcut in a full-page context.
+//
+// Plain React overlay -- no modal/dialog dependency exists in package.json,
+// and this doesn't need more than Escape + focus-on-open to satisfy the
+// spec.
 //
 // `mode` is 'add' | 'edit' | 'duplicate' purely for the title copy; add and
 // duplicate both start from a blank/pre-filled draft respectively and both
@@ -101,157 +111,217 @@ function StagePicker({ stages, selectedStageId, onSelect }) {
 // component only edits a local draft and hands the finished object back.
 export function StageConfigModal({ mode, initialValue, stages, options, isLastStage, onSave, onCancel }) {
   const [draft, setDraft] = useState(initialValue);
+  const [restoredFromDraft, setRestoredFromDraft] = useState(false);
   const dialogRef = useRef(null);
+  const hasCheckedStorageRef = useRef(false);
 
+  // On first mount, prefer a matching abandoned in-progress draft (see
+  // stageConfigDraft.js) over the freshly-computed initialValue -- but only
+  // if it looks like genuine progress (a stage was actually picked), so a
+  // draft that's just the untouched seed doesn't shadow a legitimate fresh
+  // previous-stage-seeded default (rbr-rally-creator-web#5). Subsequent
+  // initialValue changes (while this instance stays mounted) just reset the
+  // draft normally -- the storage check only ever happens once per open.
   useEffect(() => {
+    if (!hasCheckedStorageRef.current) {
+      hasCheckedStorageRef.current = true;
+      const saved = loadStageConfigDraft();
+      const sameTarget = saved && saved.mode === mode && (mode !== 'edit' || saved.targetUid === initialValue?._uid);
+      if (sameTarget && saved.draft?.stage_id) {
+        setDraft(saved.draft);
+        setRestoredFromDraft(true);
+        return;
+      }
+    }
     setDraft(initialValue);
-  }, [initialValue]);
+  }, [initialValue, mode]);
 
   useEffect(() => {
     dialogRef.current?.focus();
   }, []);
 
+  // Save every change immediately so a refresh or closed tab mid-edit can
+  // be recovered -- debouncing isn't worth the complexity here, this is a
+  // small object and localStorage writes are cheap.
+  useEffect(() => {
+    saveStageConfigDraft({
+      mode,
+      targetUid: mode === 'edit' ? (initialValue?._uid ?? null) : null,
+      draft,
+      savedAt: Date.now(),
+    });
+  }, [draft, mode, initialValue]);
+
+  function handleCancel() {
+    clearStageConfigDraft();
+    onCancel();
+  }
+
   useEffect(() => {
     function handleKeyDown(e) {
-      if (e.key === 'Escape') onCancel();
+      if (e.key === 'Escape') handleCancel();
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onCancel]);
 
   function patch(fields) {
     setDraft((prev) => ({ ...prev, ...fields }));
   }
 
-  function handleBackdropClick(e) {
-    if (e.target === e.currentTarget) onCancel();
+  // Lets the user explicitly bail out of a restored draft back to the
+  // "normal" starting point (previous-stage seed / the brick's saved
+  // values) if the recovered in-progress edit isn't what they wanted.
+  function handleDiscardDraft() {
+    clearStageConfigDraft();
+    setDraft(initialValue);
+    setRestoredFromDraft(false);
   }
 
   function handleSave(e) {
     e.preventDefault();
+    clearStageConfigDraft();
     onSave(draft);
   }
 
   const title = mode === 'edit' ? 'Edit stage' : mode === 'duplicate' ? 'Duplicate stage' : 'Add stage';
 
   return (
-    <div className={styles.backdrop} onMouseDown={handleBackdropClick}>
-      <div
-        className={styles.dialog}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="stage-config-modal-title"
-        ref={dialogRef}
-        tabIndex={-1}
-      >
-        <div className={styles.header}>
+    <div
+      className={styles.overlay}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="stage-config-modal-title"
+      ref={dialogRef}
+      tabIndex={-1}
+    >
+      <div className={styles.header}>
+        <div className={styles.headerLeft}>
+          <button type="button" className={styles.backButton} onClick={handleCancel}>
+            <span aria-hidden="true">&larr;</span> Back to rally
+          </button>
           <h3 id="stage-config-modal-title">{title}</h3>
-          <button type="button" className={styles.closeButton} onClick={onCancel} aria-label="Close">
-            ×
+        </div>
+        <button
+          type="submit"
+          form="stage-config-form"
+          className={styles.headerSaveButton}
+          disabled={!draft.stage_id}
+        >
+          Save
+        </button>
+      </div>
+
+      {restoredFromDraft && (
+        <div className={styles.restoredNotice}>
+          <span>Restored your unsaved changes from before.</span>
+          <button type="button" onClick={handleDiscardDraft}>
+            Discard &amp; start fresh
           </button>
         </div>
+      )}
 
-        <form className={styles.form} onSubmit={handleSave}>
-          <div className={styles.formGroup}>
-            <label>Stage</label>
-            <StagePicker stages={stages} selectedStageId={draft.stage_id} onSelect={(id) => patch({ stage_id: id })} />
+      <form id="stage-config-form" className={styles.form} onSubmit={handleSave}>
+        <div className={styles.formGroup}>
+          <label>Stage</label>
+          <StagePicker stages={stages} selectedStageId={draft.stage_id} onSelect={(id) => patch({ stage_id: id })} />
+        </div>
+
+        <div className={styles.formGroup}>
+          <label>Surface age</label>
+          <div className={styles.radioGroup}>
+            {options.surfaceAge.map((age) => (
+              <label key={age.value} className={styles.radioLabel}>
+                <input
+                  type="radio"
+                  name="surface-age"
+                  value={age.value}
+                  checked={draft.surface_age_id === age.value}
+                  onChange={(e) => patch({ surface_age_id: e.target.value })}
+                />
+                {age.label}
+              </label>
+            ))}
           </div>
+        </div>
 
-          <div className={styles.formGroup}>
-            <label>Surface age</label>
-            <div className={styles.radioGroup}>
-              {options.surfaceAge.map((age) => (
-                <label key={age.value} className={styles.radioLabel}>
-                  <input
-                    type="radio"
-                    name="surface-age"
-                    value={age.value}
-                    checked={draft.surface_age_id === age.value}
-                    onChange={(e) => patch({ surface_age_id: e.target.value })}
-                  />
-                  {age.label}
-                </label>
-              ))}
-            </div>
-          </div>
+        <div className={styles.formGroup}>
+          <label htmlFor="modal-wetness">Wetness</label>
+          <input
+            id="modal-wetness"
+            type="text"
+            placeholder="e.g. dry, damp, wet"
+            value={draft.wetness_id}
+            onChange={(e) => patch({ wetness_id: e.target.value })}
+          />
+        </div>
 
-          <div className={styles.formGroup}>
-            <label htmlFor="modal-wetness">Wetness</label>
+        <div className={styles.formGroup}>
+          <label htmlFor="modal-tracksettings">Weather</label>
+          <input
+            id="modal-tracksettings"
+            type="text"
+            placeholder="e.g. Morning Clear Crisp"
+            value={draft.tracksettings_id}
+            onChange={(e) => patch({ tracksettings_id: e.target.value })}
+          />
+        </div>
+
+        <div className={styles.formGroup}>
+          <label htmlFor="modal-tyre">Default tyre</label>
+          <select id="modal-tyre" value={draft.def_tyre_id} onChange={(e) => patch({ def_tyre_id: e.target.value })}>
+            {options.tyreOptions.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className={styles.checkboxes}>
+          <label className={styles.checkboxLabel}>
             <input
-              id="modal-wetness"
-              type="text"
-              placeholder="e.g. dry, damp, wet"
-              value={draft.wetness_id}
-              onChange={(e) => patch({ wetness_id: e.target.value })}
+              type="checkbox"
+              checked={draft.choose_tyre}
+              onChange={(e) => patch({ choose_tyre: e.target.checked })}
             />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label htmlFor="modal-tracksettings">Weather</label>
+            Allow tyre choice
+          </label>
+          <label className={styles.checkboxLabel}>
             <input
-              id="modal-tracksettings"
-              type="text"
-              placeholder="e.g. Morning Clear Crisp"
-              value={draft.tracksettings_id}
-              onChange={(e) => patch({ tracksettings_id: e.target.value })}
+              type="checkbox"
+              checked={draft.choose_setup}
+              onChange={(e) => patch({ choose_setup: e.target.checked })}
             />
-          </div>
+            Allow setup choice
+          </label>
+        </div>
 
-          <div className={styles.formGroup}>
-            <label htmlFor="modal-tyre">Default tyre</label>
-            <select id="modal-tyre" value={draft.def_tyre_id} onChange={(e) => patch({ def_tyre_id: e.target.value })}>
-              {options.tyreOptions.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className={styles.formGroup}>
+          <label>Service</label>
+          <ServiceChip
+            serviceTime={draft.service_time}
+            nummechanics={draft.nummechanics}
+            mechanicsSkill={draft.mechanicsSkill}
+            options={options}
+            disabled={isLastStage}
+            disabledReason={
+              isLastStage ? 'Service is disabled on the rally’s final stage (enforced by the site).' : null
+            }
+            onChange={patch}
+          />
+        </div>
 
-          <div className={styles.checkboxes}>
-            <label className={styles.checkboxLabel}>
-              <input
-                type="checkbox"
-                checked={draft.choose_tyre}
-                onChange={(e) => patch({ choose_tyre: e.target.checked })}
-              />
-              Allow tyre choice
-            </label>
-            <label className={styles.checkboxLabel}>
-              <input
-                type="checkbox"
-                checked={draft.choose_setup}
-                onChange={(e) => patch({ choose_setup: e.target.checked })}
-              />
-              Allow setup choice
-            </label>
-          </div>
-
-          <div className={styles.formGroup}>
-            <label>Service</label>
-            <ServiceChip
-              serviceTime={draft.service_time}
-              nummechanics={draft.nummechanics}
-              mechanicsSkill={draft.mechanicsSkill}
-              options={options}
-              disabled={isLastStage}
-              disabledReason={
-                isLastStage ? 'Service is disabled on the rally’s final stage (enforced by the site).' : null
-              }
-              onChange={patch}
-            />
-          </div>
-
-          <div className={styles.actions}>
-            <button type="button" className={styles.cancelButton} onClick={onCancel}>
-              Cancel
-            </button>
-            <button type="submit" className={styles.saveButton} disabled={!draft.stage_id}>
-              Save
-            </button>
-          </div>
-        </form>
-      </div>
+        <div className={styles.actions}>
+          <button type="button" className={styles.cancelButton} onClick={handleCancel}>
+            Cancel
+          </button>
+          <button type="submit" className={styles.saveButton} disabled={!draft.stage_id}>
+            Save
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

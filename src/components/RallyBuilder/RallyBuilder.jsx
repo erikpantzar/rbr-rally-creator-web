@@ -131,25 +131,19 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
     setRallyBasics((prev) => (prev.stages === stagePlan.length ? prev : { ...prev, stages: stagePlan.length }));
   }, [stagePlan.length]);
 
-  // Keep legSchedule in sync with rallyBasics.legs (added legs start with
-  // stage_count: 0 -- the rebalance effect below fills them in)
+  // rallyBasics.legs used to be a manual number input that drove
+  // legSchedule's length (pre-sizing that many leg slots). Per
+  // DESIGN_SPEC.md's "Lego bits" model (rbr-rally-creator-web#15), the road
+  // book is additive here too -- legs are added one at a time via the
+  // "+ Add Leg" button (see handleAddLeg / RoadBook), and legSchedule's
+  // length is whatever that produces. So this relationship is now inverted,
+  // exactly mirroring the stagePlan.length -> rallyBasics.stages effect
+  // above: rallyBasics.legs is DERIVED from the actual leg count.
+  // RallyBasicsForm's "Legs" field is now a read-only display of this
+  // count, not an editable control.
   useEffect(() => {
-    setLegSchedule((prev) => {
-      const newLength = rallyBasics.legs;
-      if (prev.length === newLength) return prev;
-
-      if (newLength > prev.length) {
-        // Add new legs
-        const newLegs = Array.from({ length: newLength - prev.length }, () =>
-          createDefaultLegConfig()
-        );
-        return [...prev, ...newLegs];
-      } else {
-        // Remove excess legs
-        return prev.slice(0, newLength);
-      }
-    });
-  }, [rallyBasics.legs]);
+    setRallyBasics((prev) => (prev.legs === legSchedule.length ? prev : { ...prev, legs: legSchedule.length }));
+  }, [legSchedule.length]);
 
   // Poll job status when jobId is set
   useEffect(() => {
@@ -270,6 +264,12 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
   const legRanges = computeLegStageRanges(legSchedule);
   const assignedStages = legRanges.length > 0 ? legRanges[legRanges.length - 1].endIndex : 0;
   const legStagesBalanced = assignedStages === stagePlan.length;
+  // Per rbr-rally-creator-web#15: legs are now added freely via "+ Add Leg",
+  // so it's easy to end up with a leg nobody has put a stage into yet -- that
+  // wouldn't count as valid to publish, per the issue's own wording.
+  const emptyLegNumbers = legRanges
+    .map(({ startIndex, endIndex }, i) => (endIndex - startIndex === 0 ? i + 1 : null))
+    .filter((n) => n !== null);
 
   const canSubmit =
     !submitting &&
@@ -277,7 +277,8 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
     rallyBasics.rally_name.trim() &&
     carGroupIds.length > 0 &&
     stagePlan.length > 0 &&
-    legStagesBalanced;
+    legStagesBalanced &&
+    emptyLegNumbers.length === 0;
 
   // Every pre-submit problem the old alert()s/.legWarning used to catch,
   // collected into one list for ReadinessBanner. Note: "some stage slots
@@ -304,6 +305,12 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
       `Leg stage counts add up to ${assignedStages}, but the rally has ${stagePlan.length} stages — drag a stage across a leg divider to move it into the right leg.`
     );
   }
+  if (emptyLegNumbers.length > 0) {
+    const legWord = emptyLegNumbers.length === 1 ? 'Leg' : 'Legs';
+    readinessProblems.push(
+      `${legWord} ${emptyLegNumbers.join(', ')} ${emptyLegNumbers.length === 1 ? 'has' : 'have'} no stages — add at least one stage to every leg (or remove the empty one).`
+    );
+  }
 
   // The site itself caps a leg's open->close window at 7 days; this app
   // enforces 6 to stay safely inside that limit. Whichever date field just
@@ -326,6 +333,16 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
 
     newLegs[legIndex] = updatedLeg;
     setLegSchedule(newLegs);
+  }
+
+  // Per rbr-rally-creator-web#15: legs are now "Lego bits" too -- appended
+  // one at a time from RoadBook's "+ Add Leg" button, same additive model as
+  // stages, rather than pre-sized by the old rallyBasics.legs number input.
+  // The new leg starts with stage_count: 0 (empty), same as
+  // createDefaultLegConfig's default -- the readinessProblems check above
+  // flags it until at least one stage gets added to it.
+  function handleAddLeg() {
+    setLegSchedule([...legSchedule, createDefaultLegConfig(0)]);
   }
 
   // "Duplicate as new draft" per DESIGN_SPEC.md's UX review note: once
@@ -377,6 +394,7 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
             onStagePlanChange={updateStagePlan}
             onLegScheduleChange={setLegSchedule}
             onLegFieldChange={handleLegFieldChange}
+            onAddLeg={handleAddLeg}
             locked={locked}
           />
         </div>

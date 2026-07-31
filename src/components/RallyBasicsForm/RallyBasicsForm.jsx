@@ -66,14 +66,11 @@ export function RallyBasicsForm({ value, onChange, options }) {
 
       <div className={styles.formGroup}>
         <label htmlFor="legs">Legs</label>
-        <input
-          id="legs"
-          type="number"
-          min="1"
-          max="6"
-          value={value.legs}
-          onChange={(e) => handleChange('legs', parseInt(e.target.value, 10))}
-        />
+        {/* Derived, not editable: same "Lego bits" model as Stages above --
+            this count now comes from how many legs actually exist in the
+            road book (see RoadBook's "+ Add Leg" button) rather than a
+            manual number pre-sizing legSchedule. */}
+        <input id="legs" type="number" value={value.legs} readOnly disabled />
       </div>
 
       <div className={styles.formGroup}>

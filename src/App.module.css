@@ -1,21 +1,12 @@
-/* rbr-rally-creator-web#62: outer row pairing the persistent RallySidebar
-   with the app's main content column. align-items: flex-start keeps .page
-   from being stretched to the sidebar's sticky height -- it should size to
-   its own (usually much taller) content and scroll the document normally. */
-.layout {
-  display: flex;
-  align-items: flex-start;
-}
-
 /* App shell -- same technical/timing-sheet visual system as the rally
    document itself (see DESIGN_SPEC.md "Same visual system app-wide"):
    flat rules instead of card shadows, mono type, no separate "utility
-   screen" styling for credentials/settings vs. the builder. flex: 1 +
-   min-width: 0 let it shrink below its max-width alongside the sidebar
-   instead of overflowing/pushing the layout wider than the viewport. */
+   screen" styling for credentials/settings vs. the builder.
+   rbr-rally-creator-web#62: RallySidebar is a `position: fixed` overlay
+   panel, not a layout participant, so this column is completely unaffected
+   by whether it's open or closed -- no flex/min-width partnering needed
+   here, same as before #62. */
 .page {
-  flex: 1;
-  min-width: 0;
   max-width: 46rem;
   margin: 0 auto;
   padding: 2rem 1.5rem 4rem;
@@ -70,32 +61,30 @@
   gap: 1rem;
 }
 
-/* rbr-rally-creator-web#62: opens the RallySidebar drawer. Hidden by
-   default -- the sidebar is a persistent column on wide viewports with
-   nothing to toggle -- and only shown below RallySidebar.module.css's
-   collapse breakpoint, where the sidebar becomes an off-canvas drawer this
-   is the only way to reach. Kept in sync with that breakpoint (768px). */
-.sidebarToggle {
-  display: none;
-  padding: 0.4rem 0.6rem;
+/* rbr-rally-creator-web#62: opens/closes the RallySidebar overlay panel.
+   Toggleable on every viewport width -- unlike the rejected first pass,
+   there's no "persistent on wide screens" state where this has nothing to
+   do, since the panel always overlays rather than resizes .page. Kept as
+   .historyButton (its pre-#62 name) since it's the same control the old
+   full-screen "My Rallies" overlay used. data-active reflects whether the
+   panel is currently open, purely as a pressed-state visual cue. */
+.historyButton {
+  padding: 0.5rem 1rem;
   border: 1px solid var(--ink);
   border-radius: 0;
   background: transparent;
   color: var(--ink);
-  font-size: 1rem;
+  font-weight: 600;
+  font-size: 0.8rem;
   font-family: inherit;
-  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   cursor: pointer;
 }
 
-.sidebarToggle:hover {
+.historyButton:hover,
+.historyButton[data-active='true'] {
   background: var(--card);
-}
-
-@media (max-width: 768px) {
-  .sidebarToggle {
-    display: inline-flex;
-  }
 }
 
 .section {

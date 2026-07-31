@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { listRallies, deleteRally } from '../../lib/rallyStorage.js';
 import styles from './RallySidebar.module.css';
 
@@ -11,35 +11,49 @@ function rallyLabel(rally) {
   return rally.title?.trim() || new Date(rally.updatedAt).toLocaleString();
 }
 
-// "My Rallies" sidebar (rbr-rally-creator-web#62) -- lists every rally saved
+// "My Rallies" panel (rbr-rally-creator-web#62) -- lists every rally saved
 // via RallyBuilder's explicit Save action (distinct from the automatic
 // currentDraft, which never appears here). Originally a full-screen overlay
-// opened via a header button (#46, then named RallyHistory); #62 asked to
-// see this list alongside the editor at all times instead of behind a
-// click, so it's now a persistent left column on wide viewports. On narrow
-// ones there isn't room to keep it beside the editor, so it collapses into
-// a toggleable slide-out drawer instead (see the module CSS's breakpoint) --
-// App.jsx owns the open/close state since the toggle button that drives it
-// lives in its header, not here.
-export function RallySidebar({ activeRallyId, onOpen, isOpen, onClose, refreshToken }) {
+// (#46, then named RallyHistory); #62 asked for a docked-panel feel instead
+// of a full-screen takeover. The maintainer's plan (see issue #62's
+// implementation-plan comment) is explicit that this should be a
+// `position: fixed` panel that OVERLAYS the main content -- never a flex-row
+// layout partner that resizes .page, since RoadBook's stage bricks
+// (#52/#55) only fit ~3 per row at the app's current 46rem content width and
+// permanently stealing horizontal space would regress that back to 2 per
+// row. So this is fixed to the left edge, slides in via a transform, and
+// sits on top of everything else at every viewport width -- App.jsx only
+// renders this component while open, so it mounts fresh each time and this
+// lazy useState initializer re-reads rallyStorage for free, with no separate
+// refresh-on-save plumbing needed.
+export function RallySidebar({ activeRallyId, onOpen, onClose }) {
   const [rallies, setRallies] = useState(() => listRallies());
+  // Starts false so the panel first renders off-screen (see .panel's default
+  // transform in the CSS module), then flips true on the next frame so the
+  // transition actually animates the slide-in instead of the panel just
+  // appearing already-open.
+  const [visible, setVisible] = useState(false);
+  const panelRef = useRef(null);
 
-  // This component stays mounted for the app's whole lifetime now (it's no
-  // longer created/destroyed by an open/close toggle), but rallies are saved
-  // from inside RallyBuilder, not here -- so without this it would only ever
-  // show whatever existed at initial page load. App.jsx bumps refreshToken
-  // every time RallyBuilder saves, which re-reads storage so a newly-saved
-  // rally shows up immediately instead of only after a reload.
   useEffect(() => {
-    setRallies(listRallies());
-  }, [refreshToken]);
+    const raf = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  useEffect(() => {
+    panelRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   function handleOpen(rally) {
     onOpen(rally);
-    // No-op on a wide viewport (the sidebar has no "closed" state there --
-    // see the CSS, .sidebar ignores data-open above the breakpoint). On a
-    // narrow one this is the drawer, and picking a rally is the natural
-    // moment to dismiss it, same as picking a menu item closes the menu.
     onClose();
   }
 
@@ -56,12 +70,20 @@ export function RallySidebar({ activeRallyId, onOpen, isOpen, onClose, refreshTo
 
   return (
     <>
-      {/* Click-outside-to-close backdrop -- only rendered visible (via CSS)
-          below the sidebar's collapse breakpoint, where the sidebar behaves
-          as a drawer instead of a persistent column. */}
-      <div className={styles.backdrop} data-open={isOpen} onClick={onClose} aria-hidden="true" />
+      {/* Click-to-close backdrop -- always present while the panel is
+          mounted (the panel always overlays now, on every viewport width,
+          not just a narrow-viewport drawer mode). */}
+      <div className={styles.scrim} onClick={onClose} aria-hidden="true" />
 
-      <aside className={styles.sidebar} data-open={isOpen} aria-label="My Rallies">
+      <aside
+        className={styles.panel}
+        data-visible={visible}
+        role="dialog"
+        aria-modal="true"
+        aria-label="My Rallies"
+        ref={panelRef}
+        tabIndex={-1}
+      >
         <div className={styles.header}>
           <h3>My Rallies</h3>
           <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Close My Rallies">

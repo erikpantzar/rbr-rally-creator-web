@@ -35,20 +35,13 @@ function App() {
   // App.jsx can drive from outside.
   const [activeRally, setActiveRally] = useState(null);
 
-  // rbr-rally-creator-web#62: the "My Rallies" list used to be a full-screen
-  // overlay opened via a header button; it's now a persistent sidebar that's
-  // always visible on wide viewports, so there's no open/close state to
-  // track there any more. sidebarOpen only matters on narrow viewports,
-  // where the sidebar collapses into a toggleable drawer instead (see
-  // RallySidebar.module.css) -- the toggle button that flips it lives in
-  // the header below.
+  // rbr-rally-creator-web#62: "My Rallies" is a toggleable panel that
+  // overlays the main content (see RallySidebar) rather than a persistent
+  // column that resizes it -- toggleable on every viewport width, not just
+  // narrow ones. RallySidebar is only rendered while this is true, so it
+  // mounts fresh each time it's opened and its own lazy useState initializer
+  // re-reads rallyStorage for free -- no separate refresh plumbing needed.
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // Bumped every time RallyBuilder saves a rally (see onSaved below) so the
-  // sidebar -- now mounted once for the app's whole lifetime instead of
-  // being recreated each time it's opened -- knows to re-read rallyStorage
-  // and show the new/updated entry immediately.
-  const [rallyListVersion, setRallyListVersion] = useState(0);
 
   function handleOpenRally(rally) {
     setActiveRally(rally);
@@ -84,84 +77,81 @@ function App() {
   }
 
   return (
-    <div className={styles.layout}>
-      {/* rbr-rally-creator-web#62: persistent on wide viewports, a
-          toggleable drawer on narrow ones -- see RallySidebar.module.css.
-          activeRallyId drives the highlighted row; refreshToken makes it
-          re-read rallyStorage after RallyBuilder saves (it's mounted once
-          for the app's whole lifetime now, not recreated per-open). */}
-      <RallySidebar
-        activeRallyId={activeRally?.id ?? null}
-        onOpen={handleOpenRally}
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        refreshToken={rallyListVersion}
-      />
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <div className={styles.titleGroup}>
+          <h1>RBR Rally Creator</h1>
+          {/* Build-time commit hash (see vite.config.js's __COMMIT_HASH__
+              define) -- links to the actual diff so "what's live right now"
+              is always one click away, no changelog to keep in sync. */}
+          <a
+            className={styles.commitHash}
+            href={`https://github.com/erikpantzar/rbr-rally-creator-web/commit/${__COMMIT_HASH__}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="View this build's commit on GitHub"
+          >
+            {__COMMIT_HASH__}
+          </a>
+        </div>
+        <div className={styles.headerActions}>
+          <button
+            type="button"
+            className={styles.historyButton}
+            data-active={sidebarOpen}
+            aria-pressed={sidebarOpen}
+            onClick={() => setSidebarOpen(true)}
+          >
+            My Rallies
+          </button>
+          {credState.status === 'saved' && (
+            <CredentialStatus username={credState.username} onClear={handleClearCredentials} />
+          )}
+        </div>
+      </header>
 
-      <div className={styles.page}>
-        <header className={styles.header}>
-          <div className={styles.titleGroup}>
-            {/* Only shown below the sidebar's collapse breakpoint (see
-                .sidebarToggle) -- opens the drawer. */}
-            <button
-              type="button"
-              className={styles.sidebarToggle}
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Open My Rallies"
-            >
-              ☰
-            </button>
-            <h1>RBR Rally Creator</h1>
-            {/* Build-time commit hash (see vite.config.js's __COMMIT_HASH__
-                define) -- links to the actual diff so "what's live right now"
-                is always one click away, no changelog to keep in sync. */}
-            <a
-              className={styles.commitHash}
-              href={`https://github.com/erikpantzar/rbr-rally-creator-web/commit/${__COMMIT_HASH__}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="View this build's commit on GitHub"
-            >
-              {__COMMIT_HASH__}
-            </a>
-          </div>
-          <div className={styles.headerActions}>
-            {credState.status === 'saved' && (
-              <CredentialStatus username={credState.username} onClear={handleClearCredentials} />
-            )}
-          </div>
-        </header>
+      {baseUrl && (
+        <section className={styles.section}>
+          <h2>rallysimfans.hu credentials</h2>
+          {credState.status === 'unsaved' ? (
+            <CredentialForm onSubmit={handleSaveCredentials} submitting={saving} error={saveError} />
+          ) : (
+            <p className={styles.muted}>Signed in as {credState.username}.</p>
+          )}
+        </section>
+      )}
 
-        {baseUrl && (
-          <section className={styles.section}>
-            <h2>rallysimfans.hu credentials</h2>
-            {credState.status === 'unsaved' ? (
-              <CredentialForm onSubmit={handleSaveCredentials} submitting={saving} error={saveError} />
-            ) : (
-              <p className={styles.muted}>Signed in as {credState.username}.</p>
-            )}
-          </section>
-        )}
+      {baseUrl && (
+        <section className={styles.section}>
+          <h2>Create a rally</h2>
+          {/* key forces a clean remount whenever the user opens a different
+              saved rally (or switches back to "new") -- RallyBuilder's state
+              (rallyBasics/stagePlan/etc.) is all local useState, so this is
+              the simplest way to guarantee it doesn't carry over from
+              whatever was on screen before (rbr-rally-creator-web#46). */}
+          <RallyBuilder
+            key={activeRally?.id ?? 'new'}
+            baseUrl={baseUrl}
+            credentialsSaved={credState.status === 'saved'}
+            initialPayload={activeRally?.payload}
+            initialRallyId={activeRally?.id ?? null}
+          />
+        </section>
+      )}
 
-        {baseUrl && (
-          <section className={styles.section}>
-            <h2>Create a rally</h2>
-            {/* key forces a clean remount whenever the user opens a different
-                saved rally (or switches back to "new") -- RallyBuilder's state
-                (rallyBasics/stagePlan/etc.) is all local useState, so this is
-                the simplest way to guarantee it doesn't carry over from
-                whatever was on screen before (rbr-rally-creator-web#46). */}
-            <RallyBuilder
-              key={activeRally?.id ?? 'new'}
-              baseUrl={baseUrl}
-              credentialsSaved={credState.status === 'saved'}
-              initialPayload={activeRally?.payload}
-              initialRallyId={activeRally?.id ?? null}
-              onSaved={() => setRallyListVersion((v) => v + 1)}
-            />
-          </section>
-        )}
-      </div>
+      {/* rbr-rally-creator-web#62: fixed-position overlay panel, rendered
+          only while open -- position is order-independent (fixed takes it
+          out of normal flow), and only mounting it while open means its own
+          lazy useState(() => listRallies()) initializer re-reads storage
+          fresh every time it's reopened, so a rally saved elsewhere always
+          shows up without any extra refresh plumbing. */}
+      {sidebarOpen && (
+        <RallySidebar
+          activeRallyId={activeRally?.id ?? null}
+          onOpen={handleOpenRally}
+          onClose={() => setSidebarOpen(false)}
+        />
+      )}
     </div>
   );
 }

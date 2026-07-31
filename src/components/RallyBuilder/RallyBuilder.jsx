@@ -13,6 +13,7 @@ import {
   normalizeLastStageService,
   cloneStageConfigWithNewUid,
 } from '../../lib/rallyPlan.js';
+import { loadRallyDraft, saveRallyDraft, clearRallyDraft } from '../../lib/rallyDraft.js';
 import { RallyBasicsForm } from '../RallyBasicsForm/RallyBasicsForm.jsx';
 import { CarGroupPicker } from '../CarGroupPicker/CarGroupPicker.jsx';
 import { RoadBook } from '../RoadBook/RoadBook.jsx';
@@ -79,10 +80,28 @@ export function RallyBuilder({ baseUrl }) {
           setCars(carsRes.data || []);
           setRallyOptions(optionsRes);
 
-          // Empty document per DESIGN_SPEC.md: start with zero stages and a
-          // single empty Leg 1, not pre-seeded placeholder slots -- bricks
-          // only get added via the "+ Add stage" modal from here on.
-          setLegSchedule([createDefaultLegConfig(0)]);
+          // Resume an in-progress build (rbr-rally-creator-web#6) if one was
+          // left behind by an accidental refresh/close, instead of always
+          // starting from the empty-document defaults below. Each field is
+          // restored independently and only if it looks like the right
+          // shape, so a partial/corrupted draft can't crash the app --
+          // whatever's missing just falls back to its normal default.
+          const draft = loadRallyDraft();
+          if (draft?.rallyBasics) setRallyBasics(draft.rallyBasics);
+          if (Array.isArray(draft?.carGroupIds)) setCarGroupIds(draft.carGroupIds);
+          if (Array.isArray(draft?.stagePlan)) {
+            setStagePlan(normalizeLastStageService(draft.stagePlan));
+          }
+
+          if (Array.isArray(draft?.legSchedule) && draft.legSchedule.length > 0) {
+            setLegSchedule(draft.legSchedule);
+          } else {
+            // Empty document per DESIGN_SPEC.md: start with zero stages and
+            // a single empty Leg 1, not pre-seeded placeholder slots --
+            // bricks only get added via the "+ Add stage" modal from here
+            // on.
+            setLegSchedule([createDefaultLegConfig(0)]);
+          }
         } else {
           setError('Failed to fetch catalog data');
         }
@@ -150,6 +169,30 @@ export function RallyBuilder({ baseUrl }) {
 
     return () => clearInterval(interval);
   }, [jobId, baseUrl]);
+
+  // Persist the in-progress build to localStorage as the user edits it
+  // (rbr-rally-creator-web#6), debounced so a burst of keystrokes/drags
+  // doesn't hit localStorage on every one. Guarded on `loading` so this
+  // can't fire with the pre-fetch empty defaults and clobber a real draft
+  // before the restore effect above has run; guarded on `locked` so a
+  // successfully-created rally's document (frozen anyway, see the
+  // fieldset below) doesn't keep re-saving after the clear effect below
+  // has already dropped it.
+  useEffect(() => {
+    if (loading || job?.status === 'succeeded') return;
+    const timeout = setTimeout(() => {
+      saveRallyDraft({ rallyBasics, carGroupIds, stagePlan, legSchedule });
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [loading, job?.status, rallyBasics, carGroupIds, stagePlan, legSchedule]);
+
+  // Once a rally has actually been created, the draft has done its job --
+  // drop it so the next visit starts fresh rather than resurrecting a
+  // now-submitted build. "Duplicate as new draft" (below) starts persisting
+  // its own new draft the moment it changes state.
+  useEffect(() => {
+    if (job?.status === 'succeeded') clearRallyDraft();
+  }, [job?.status]);
 
   async function handleCreateRally() {
     // Pre-submit validation (rally name, car groups, stage count, leg/stage

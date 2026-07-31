@@ -172,11 +172,11 @@
   font-family: inherit;
 }
 
-/* Quiet footnote under the cover-name field (rbr-rally-creator-web#64) --
+/* Quiet footnote under the nickname field (rbr-rally-creator-web#64) --
    deliberately plain body text in the muted color, not a colored
-   banner/box like .tyreSuggestion or .restoredNotice: this is disclosing an
-   open question, not flagging a problem or an available action, so it
-   shouldn't read as alarming. */
+   banner/box like .tyreSuggestion or .restoredNotice: this is a factual
+   disclosure (local-only, never sent to rallysimfans.hu), not flagging a
+   problem or an available action, so it shouldn't read as alarming. */
 .fieldNote {
   margin: 0;
   font-size: 0.8rem;

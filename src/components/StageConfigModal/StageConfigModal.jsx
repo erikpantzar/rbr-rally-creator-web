@@ -138,7 +138,7 @@ export function StageConfigModal({
   stages,
   options,
   isLastStage,
-  hiddenStageName = false,
+  stageNumber,
   onSave,
   onCancel,
 }) {
@@ -323,28 +323,31 @@ export function StageConfigModal({
           />
         </div>
 
-        {/* rbr-rally-creator-web#64 ("Minimal" option): only rendered when
-            hidden_stage_name is on -- with it off, real stage names show
-            everywhere and a cover-name field would just be dead UI for the
-            common case. Placeholder shows the real catalog stage's name
-            (grayed out, native placeholder styling) so the user still knows
-            which physical stage they're naming without that name being
-            something they'd type over blindly. */}
-        {hiddenStageName && (
-          <div className={styles.formGroup}>
-            <label htmlFor="modal-custom-name">Cover name (only you see this)</label>
-            <input
-              id="modal-custom-name"
-              type="text"
-              placeholder={selectedStage?.name ?? ''}
-              value={draft.custom_name ?? ''}
-              onChange={(e) => patch({ custom_name: e.target.value })}
-            />
-            <p className={styles.fieldNote}>
-              Local label only — not yet confirmed whether rallysimfans.hu accepts a custom stage name.
-            </p>
-          </div>
-        )}
+        {/* rbr-rally-creator-web#64: per the maintainer's own comment on the
+            issue (superseding an earlier generic-UX-consult pass), the real
+            site has no per-stage custom-name mechanism at all -- confirmed
+            via both the discovery schema and the raw captured DOM (14 real
+            controls on the stage step, not one a text input). So this is
+            shown always, not gated on the unrelated hidden_stage_name
+            toggle (that checkbox only ever hides the real name from
+            participants server-side; it has no bearing on whether a local
+            planning nickname is useful). Placeholder shows "Stage N" for
+            this stage's position so the user still knows which physical
+            stage they're naming without that number being something they'd
+            type over blindly. */}
+        <div className={styles.formGroup}>
+          <label htmlFor="modal-label">Nickname (optional)</label>
+          <input
+            id="modal-label"
+            type="text"
+            placeholder={stageNumber ? `Stage ${stageNumber}` : 'e.g. Stage 3'}
+            value={draft._label ?? ''}
+            onChange={(e) => patch({ _label: e.target.value })}
+          />
+          <p className={styles.fieldNote}>
+            For your own planning view only — this does not appear on rallysimfans.hu and participants never see it.
+          </p>
+        </div>
 
         <div className={styles.formGroup}>
           <label>Surface age</label>

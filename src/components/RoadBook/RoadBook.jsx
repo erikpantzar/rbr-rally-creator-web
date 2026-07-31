@@ -100,7 +100,6 @@ export function RoadBook({
   onLegScheduleChange,
   onLegFieldChange,
   onAddLeg,
-  hiddenStageName = false,
   locked = false,
 }) {
   const [activeDrag, setActiveDrag] = useState(null);
@@ -428,6 +427,10 @@ export function RoadBook({
       uid: null,
       initialValue: createStageConfigFromPrevious(stagePlan[endIndex - 1]),
       willBeLastStage: isLastLegPosition(legIndex),
+      // rbr-rally-creator-web#64: 1-based position this new brick will land
+      // at once saved (handleModalSave appends 'add'/'duplicate' at endIndex)
+      // -- feeds StageConfigModal's nickname field's "Stage N" placeholder.
+      stageNumber: endIndex + 1,
     });
   }
 
@@ -438,16 +441,19 @@ export function RoadBook({
       uid,
       initialValue: stageByUid.get(uid),
       willBeLastStage: uid === stagePlan[stagePlan.length - 1]?._uid,
+      stageNumber: stagePlan.findIndex((s) => s._uid === uid) + 1,
     });
   }
 
   function openDuplicateModal(legIndex, uid) {
+    const { endIndex } = legRanges[legIndex];
     setModalState({
       mode: 'duplicate',
       legIndex,
       uid: null,
       initialValue: cloneStageConfigWithNewUid(stageByUid.get(uid)),
       willBeLastStage: isLastLegPosition(legIndex),
+      stageNumber: endIndex + 1,
     });
   }
 
@@ -517,7 +523,6 @@ export function RoadBook({
                       stage={catalogStage}
                       value={stageConfig}
                       stageNumber={absoluteIndex + 1}
-                      hiddenStageName={hiddenStageName}
                       locked
                     />
                   );
@@ -623,7 +628,6 @@ export function RoadBook({
                         stage={catalogStage}
                         value={stageConfig}
                         stageNumber={absoluteIndex + 1}
-                        hiddenStageName={hiddenStageName}
                         isFirst={i === 0}
                         isLast={i === legStages.length - 1}
                         onEdit={() => openEditModal(legIndex, stageConfig._uid)}
@@ -718,7 +722,7 @@ export function RoadBook({
           stages={stages}
           options={options}
           isLastStage={modalState.willBeLastStage}
-          hiddenStageName={hiddenStageName}
+          stageNumber={modalState.stageNumber}
           onSave={handleModalSave}
           onCancel={closeModal}
         />

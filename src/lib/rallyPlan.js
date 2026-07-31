@@ -32,24 +32,28 @@ export function createDefaultStageConfig() {
     service_time: '60 minutes',
     nummechanics: '6 mechanic',
     mechanicsSkill: 'Expert',
-    // rbr-rally-creator-web#64 ("Minimal" option): client-side-only cover
-    // name shown instead of the real catalog stage name once
-    // rallyBasics.hidden_stage_name is checked. Only ever rendered when that
-    // checkbox is on (see StageConfigModal/StageBrick) -- stored
-    // unconditionally here so it's a stable field on every stage config
-    // rather than something that pops in/out of the object shape depending
-    // on a setting elsewhere. See createStageConfigFromPrevious below for
-    // why this deliberately does NOT carry over from a previous stage the
-    // way most of this object's other fields do.
-    custom_name: '',
+    // rbr-rally-creator-web#64: client-side-only nickname, per the
+    // maintainer's own comment on the issue (superseding an earlier
+    // generic-UX-consult pass). Confirmed via two independent sources (the
+    // discovery schema's field list AND the raw captured DOM's 14 real
+    // controls on the stage step) that rallysimfans.hu has no per-stage
+    // custom-name mechanism at all -- so this can only ever be a local
+    // planning label, never sent to the site. Follows the exact precedent of
+    // `_uid` (also client-only, also stripped before submission in
+    // RallyBuilder's handleCreateRally): underscore-prefixed to mark it as
+    // never reaching the backend, shown always rather than gated on the
+    // unrelated hidden_stage_name checkbox. Stored unconditionally here so
+    // it's a stable field on every stage config rather than something that
+    // pops in/out of the object shape.
+    _label: '',
   };
 }
 
 // Used by the brick "Duplicate" action -- same config values as an existing
 // stage, but a fresh _uid so it's a genuinely new brick rather than an alias
-// for the one it was copied from. custom_name is deliberately carried over
-// here (unlike createStageConfigFromPrevious's explicit reset) -- "Duplicate"
-// means "make another copy of this exact stage", and a cover name is part of
+// for the one it was copied from. _label is deliberately carried over here
+// (unlike createStageConfigFromPrevious's explicit reset) -- "Duplicate"
+// means "make another copy of this exact stage", and a nickname is part of
 // that stage's identity the same way its surface/tyre/service config is.
 // It's on the user to rename the copy if they don't want a shared label; the
 // alternative (silently blanking it) would be a surprising exception to
@@ -155,12 +159,12 @@ export function createStageConfigFromPrevious(previousStageConfig) {
     ...previousStageConfig,
     _uid: generateUid(),
     stage_id: null,
-    // rbr-rally-creator-web#64: a cover name is a label for one specific
+    // rbr-rally-creator-web#64: a nickname is a label for one specific
     // physical stage, not a config preference like surface age/tyre that
     // makes sense to reuse -- carrying it forward here (the way stage_id
     // itself explicitly isn't) would just seed a brand-new, not-yet-assigned
     // stage with a confusing duplicate of the previous one's name.
-    custom_name: '',
+    _label: '',
   };
 }
 

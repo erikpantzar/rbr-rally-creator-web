@@ -21,6 +21,7 @@ import {
   CLAMP_LEG_LEAD_MINUTES,
 } from '../../lib/rallyPlan.js';
 import { loadRallyDraft, saveRallyDraft, clearRallyDraft } from '../../lib/rallyDraft.js';
+import { saveRally } from '../../lib/rallyStorage.js';
 import { RallyBasicsForm } from '../RallyBasicsForm/RallyBasicsForm.jsx';
 import { CarGroupPicker } from '../CarGroupPicker/CarGroupPicker.jsx';
 import { RoadBook } from '../RoadBook/RoadBook.jsx';
@@ -48,6 +49,13 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
   const [carGroups, setCarGroups] = useState([]);
   const [cars, setCars] = useState([]);
   const [rallyOptions, setRallyOptions] = useState(null);
+
+  // Track which saved rally (if any) is currently being edited. When you click
+  // "Save", currentRallyId is set to that rally's id. If you then modify fields
+  // and click "Save" again, it updates the same rally. To create a NEW rally,
+  // click "New Rally" which resets currentRallyId to null.
+  const [currentRallyId, setCurrentRallyId] = useState(null);
+  const [savedNotice, setSavedNotice] = useState(false);
 
   const [rallyBasics, setRallyBasics] = useState({
     rally_name: '',
@@ -141,6 +149,13 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
 
     fetchData();
   }, [baseUrl]);
+
+  // Fade out the "Saved!" notice after 2 seconds
+  useEffect(() => {
+    if (!savedNotice) return undefined;
+    const timeout = setTimeout(() => setSavedNotice(false), 2000);
+    return () => clearTimeout(timeout);
+  }, [savedNotice]);
 
   // rallyBasics.stages used to be a manual number input that drove
   // stagePlan's length (pre-seeding that many empty slots). Per
@@ -306,6 +321,39 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
     const interval = setInterval(() => forceLegTimeRecheck((n) => n + 1), 30 * 1000);
     return () => clearInterval(interval);
   }, [loading, job?.status]);
+
+  // Save this rally to the history/list. If currentRallyId is already set
+  // (from a previous save), this updates that rally in place. Otherwise, it
+  // creates a new rally entry. Either way, setSavedNotice displays "Saved!"
+  // briefly to give the user feedback.
+  function handleSaveRally() {
+    const payload = { rallyBasics, carGroupIds, stagePlan, legSchedule };
+    const id = saveRally(currentRallyId, rallyBasics.rally_name, payload);
+    setCurrentRallyId(id);
+    setSavedNotice(true);
+  }
+
+  // Start a new rally from scratch, resetting currentRallyId so the next save
+  // creates a fresh entry rather than updating the previous one.
+  function handleNewRally() {
+    setCurrentRallyId(null);
+    setRallyBasics({
+      rally_name: '',
+      description: '',
+      damage_id: '2',
+      stages: 2,
+      legs: 1,
+      pacenotes_options: 'Normal Pacenotes',
+      hidden_stage_name: false,
+      road_side_service: 'no',
+      password1: '',
+      password2: '',
+    });
+    setCarGroupIds([]);
+    setStagePlan([]);
+    setLegSchedule([createDefaultLegConfig(0)]);
+    clearRallyDraft();
+  }
 
   async function handleCreateRally() {
     // Pre-submit validation (rally name, car groups, stage count, leg/stage
@@ -572,6 +620,24 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
             <ReadinessBanner problems={readinessProblems} />
 
             <div className={styles.actions}>
+              <button
+                type="button"
+                className={styles.saveButton}
+                onClick={handleSaveRally}
+                disabled={submitting}
+              >
+                {savedNotice ? 'Saved!' : 'Save Rally'}
+              </button>
+
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={handleNewRally}
+                disabled={submitting}
+              >
+                New Rally
+              </button>
+
               <button
                 className={styles.submitButton}
                 onClick={handleCreateRally}

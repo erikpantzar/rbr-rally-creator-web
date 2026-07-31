@@ -100,6 +100,55 @@
   filter: brightness(1.05);
 }
 
+/* Secondary save button (separate from the primary Create Rally button) --
+   outlined to distinguish it as a distinct action: saving keeps your current
+   draft; Create Rally is the terminal action that publishes. */
+.saveButton {
+  padding: 0.75rem 1.5rem;
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.95rem;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.saveButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.saveButton:not(:disabled):hover {
+  filter: brightness(0.95);
+}
+
+/* Tertiary button for "New Rally" -- even lighter than .saveButton so the
+   visual hierarchy is clear: Create Rally (filled) > Save (outlined) > New Rally. */
+.secondaryButton {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font-weight: 600;
+  font-size: 0.95rem;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.secondaryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.secondaryButton:not(:disabled):hover {
+  color: var(--ink);
+}
+
 .testRunLabel {
   display: flex;
   align-items: center;

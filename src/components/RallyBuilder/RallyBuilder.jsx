@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   getStages,
   getCarGroups,
@@ -55,6 +55,10 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
   const [carGroups, setCarGroups] = useState([]);
   const [cars, setCars] = useState([]);
   const [rallyOptions, setRallyOptions] = useState(null);
+
+  // rbr-rally-creator-web#78: handleNewRally focuses this after the reset
+  // renders, so the ref itself never triggers a re-render.
+  const rallyNameInputRef = useRef(null);
 
   // Set the moment a rally opened from history is saved again (see
   // handleSaveRally) -- lets repeat Saves update the same rbr.rallies entry
@@ -468,6 +472,16 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
     setStagePlan([]);
     setLegSchedule([createDefaultLegConfig(0)]);
     clearCurrentDraft();
+
+    // rbr-rally-creator-web#78: the rally name input never unmounts here
+    // (RallyBasicsForm stays mounted, only its value resets), so a ref +
+    // rAF is enough -- no effect/mount timing to coordinate with. rAF
+    // (rather than focusing synchronously) waits for the state updates
+    // above to actually paint before scrolling/focusing.
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      rallyNameInputRef.current?.focus();
+    });
   }
 
   // rbr-rally-creator-web#31: cooperative cancel. DELETE /jobs/:id is only
@@ -674,7 +688,12 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
             component to know about "locked" itself (native fieldset
             disabling cascades to all descendant form controls). */}
         <fieldset className={styles.headerBlock} disabled={locked}>
-          <RallyBasicsForm value={rallyBasics} onChange={setRallyBasics} options={rallyOptions} />
+          <RallyBasicsForm
+            value={rallyBasics}
+            onChange={setRallyBasics}
+            options={rallyOptions}
+            rallyNameInputRef={rallyNameInputRef}
+          />
 
           <CarGroupPicker
             carGroups={carGroups}

@@ -90,9 +90,19 @@ function StagePicker({ stages, selectedStageId, onSelect }) {
             className={[styles.pickerCard, stage.id === selectedStageId ? styles.pickerCardSelected : ''].join(' ')}
             onClick={() => onSelect(stage.id)}
           >
-            <span className={styles.pickerCardName}>{stage.name}</span>
-            <span className={styles.pickerCardMeta}>
-              {stage.country} &middot; {stage.surface} &middot; {stage.length}
+            {/* Fixed-size box regardless of whether imageUrl is present (rbr-rally-creator-service#15)
+                so the grid doesn't reflow as thumbnails load in, and so stages without one (older
+                catalog entries, or before the backend fix ships) still line up with ones that have it. */}
+            <span className={styles.pickerCardThumb}>
+              {stage.imageUrl && (
+                <img src={stage.imageUrl} alt="" loading="lazy" className={styles.pickerCardThumbImg} />
+              )}
+            </span>
+            <span className={styles.pickerCardBody}>
+              <span className={styles.pickerCardName}>{stage.name}</span>
+              <span className={styles.pickerCardMeta}>
+                {stage.country} &middot; {stage.surface} &middot; {stage.length}
+              </span>
             </span>
           </button>
         ))}

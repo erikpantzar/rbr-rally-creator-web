@@ -362,10 +362,10 @@
 
 .pickerCard {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.15rem;
-  padding: 0.5rem 0.65rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 0;
@@ -381,6 +381,35 @@
 .pickerCardSelected {
   border-color: var(--accent);
   background: var(--accent-soft-bg);
+}
+
+/* Fixed 48x48 box so the grid holds its shape whether or not a given stage
+   has an imageUrl (rbr-rally-creator-service#15) and while lazy-loaded
+   images are still in flight -- no layout shift either way. Square rather
+   than a landscape crop: at this size (a glance, not a preview) matching
+   the card's own squarish footprint reads calmer than an odd sliver. */
+.pickerCardThumb {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.pickerCardThumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pickerCardBody {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-width: 0;
 }
 
 .pickerCardName {

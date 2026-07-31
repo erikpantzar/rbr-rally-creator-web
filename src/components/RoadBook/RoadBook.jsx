@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, DragOverlay, PointerSensor, closestCenter, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import {
@@ -13,6 +13,8 @@ import {
 } from '../../lib/rallyPlan.js';
 import { StageBrick } from '../StageBrick/StageBrick.jsx';
 import { StageConfigModal } from '../StageConfigModal/StageConfigModal.jsx';
+import { ServiceConfigModal } from '../ServiceConfigModal/ServiceConfigModal.jsx';
+import { ServiceBlock } from '../ServiceBlock/ServiceBlock.jsx';
 import { Toast } from '../Toast/Toast.jsx';
 import styles from './RoadBook.module.css';
 
@@ -104,6 +106,13 @@ export function RoadBook({
 }) {
   const [activeDrag, setActiveDrag] = useState(null);
   const [modalState, setModalState] = useState(null); // { mode, legIndex, uid?, initialValue }
+  // rbr-rally-creator-web#80: which stage's ServiceConfigModal (if any) is
+  // open -- { uid, stageNumber, isLastStage }. Entirely separate from
+  // modalState above (StageConfigModal and ServiceConfigModal are sibling
+  // modals per the final design, never shown at once from the same click),
+  // but both can coexist if ServiceConfigModal was opened *from* the
+  // "Service" summary button inside an already-open StageConfigModal.
+  const [serviceModalState, setServiceModalState] = useState(null);
   // Single in-flight undo slot, shared by stage-delete and leg-remove (the
   // Toast below is one fixed-position element -- two independent pending
   // states could in theory both be "live" and would render on top of each
@@ -483,6 +492,37 @@ export function RoadBook({
     closeModal();
   }
 
+  // rbr-rally-creator-web#80: opens ServiceConfigModal scoped to one stage
+  // -- `uid` is implicit from whichever brick/block the user clicked, never
+  // asked for via a picker inside the modal itself. isLastStage reuses the
+  // exact same "is this the rally's true final stage" check StageConfigModal
+  // already gets passed (see willBeLastStage above), so the disabled
+  // business rule matches wherever this is opened from.
+  function openServiceModal(uid) {
+    const stageIndex = stagePlan.findIndex((s) => s._uid === uid);
+    setServiceModalState({
+      uid,
+      stageNumber: stageIndex + 1,
+      isLastStage: uid === stagePlan[stagePlan.length - 1]?._uid,
+    });
+  }
+
+  function closeServiceModal() {
+    setServiceModalState(null);
+  }
+
+  // Same underlying state update StageConfigModal's save already makes
+  // (write service_time/nummechanics/mechanicsSkill onto the target stage's
+  // stagePlan entry) -- just triggered from this separate entry point
+  // instead of the full stage-edit form.
+  function handleServiceModalSave(serviceFields) {
+    if (!serviceModalState) return;
+    onStagePlanChange(
+      stagePlan.map((s) => (s._uid === serviceModalState.uid ? { ...s, ...serviceFields } : s))
+    );
+    closeServiceModal();
+  }
+
   // Locked/read-only path: once a job has succeeded there is nothing left
   // to add/edit/reorder/delete (per DESIGN_SPEC.md's "Created / locked"
   // state), so this skips DndContext/SortableContext/modal/toast entirely
@@ -516,15 +556,28 @@ export function RoadBook({
                 {legStages.map((stageConfig, i) => {
                   const absoluteIndex = startIndex + i;
                   const catalogStage = stageConfig.stage_id ? stageByCatalogId.get(stageConfig.stage_id) : null;
+                  const isRallyLastStage = absoluteIndex === stagePlan.length - 1;
                   return (
-                    <StageBrick
-                      key={stageConfig._uid}
-                      uid={stageConfig._uid}
-                      stage={catalogStage}
-                      value={stageConfig}
-                      stageNumber={absoluteIndex + 1}
-                      locked
-                    />
+                    <Fragment key={stageConfig._uid}>
+                      <StageBrick
+                        uid={stageConfig._uid}
+                        stage={catalogStage}
+                        value={stageConfig}
+                        stageNumber={absoluteIndex + 1}
+                        locked
+                      />
+                      {/* rbr-rally-creator-web#80: locked rallies are still
+                          read-only for service, same as everything else on
+                          this path -- shown so the road book still reads
+                          the full service rhythm at a glance, but with no
+                          click handler/affordance since there's nothing
+                          left to edit. */}
+                      {!isRallyLastStage && (
+                        <div className={styles.serviceBlockWrap}>
+                          <ServiceBlock serviceTime={stageConfig.service_time} disabled />
+                        </div>
+                      )}
+                    </Fragment>
                   );
                 })}
               </div>
@@ -648,31 +701,56 @@ export function RoadBook({
                   {legStages.map((stageConfig, i) => {
                     const absoluteIndex = startIndex + i;
                     const catalogStage = stageConfig.stage_id ? stageByCatalogId.get(stageConfig.stage_id) : null;
+                    // rbr-rally-creator-web#80: only the rally's true final
+                    // stage overall gets no service block, matching the
+                    // site's own isLastStage-driven disable behavior --
+                    // every other stage in every leg gets one, including
+                    // the last stage of a non-final leg.
+                    const isRallyLastStage = absoluteIndex === stagePlan.length - 1;
                     return (
-                      <StageBrick
-                        key={stageConfig._uid}
-                        uid={stageConfig._uid}
-                        stage={catalogStage}
-                        value={stageConfig}
-                        stageNumber={absoluteIndex + 1}
-                        isFirst={i === 0}
-                        isLast={i === legStages.length - 1}
-                        onEdit={() => openEditModal(legIndex, stageConfig._uid)}
-                        onDuplicate={() => openDuplicateModal(legIndex, stageConfig._uid)}
-                        onDelete={() => handleDeleteStage(legIndex, i, stageConfig)}
-                        onMoveUp={() => {
-                          if (i === 0) return;
-                          const newContainers = containers.map((c) => [...c]);
-                          newContainers[legIndex] = arrayMove(newContainers[legIndex], i, i - 1);
-                          onStagePlanChange(rebuildStagePlanFromContainers(newContainers));
-                        }}
-                        onMoveDown={() => {
-                          if (i === legStages.length - 1) return;
-                          const newContainers = containers.map((c) => [...c]);
-                          newContainers[legIndex] = arrayMove(newContainers[legIndex], i, i + 1);
-                          onStagePlanChange(rebuildStagePlanFromContainers(newContainers));
-                        }}
-                      />
+                      // Fragment, NOT a sortable wrapper -- StageBrick
+                      // itself is still the only sortable item here (its own
+                      // useSortable id is stageConfig._uid, exactly what
+                      // `containers[legIndex]` above lists), so dnd-kit only
+                      // ever sees the bricks as drag sources/targets. The
+                      // ServiceBlock rendered alongside it is a plain
+                      // button, absent from `containers` entirely, so
+                      // closestCenter collision detection and
+                      // handleDragEnd's over.data.current.type checks never
+                      // see it as a drop target either.
+                      <Fragment key={stageConfig._uid}>
+                        <StageBrick
+                          uid={stageConfig._uid}
+                          stage={catalogStage}
+                          value={stageConfig}
+                          stageNumber={absoluteIndex + 1}
+                          isFirst={i === 0}
+                          isLast={i === legStages.length - 1}
+                          onEdit={() => openEditModal(legIndex, stageConfig._uid)}
+                          onDuplicate={() => openDuplicateModal(legIndex, stageConfig._uid)}
+                          onDelete={() => handleDeleteStage(legIndex, i, stageConfig)}
+                          onMoveUp={() => {
+                            if (i === 0) return;
+                            const newContainers = containers.map((c) => [...c]);
+                            newContainers[legIndex] = arrayMove(newContainers[legIndex], i, i - 1);
+                            onStagePlanChange(rebuildStagePlanFromContainers(newContainers));
+                          }}
+                          onMoveDown={() => {
+                            if (i === legStages.length - 1) return;
+                            const newContainers = containers.map((c) => [...c]);
+                            newContainers[legIndex] = arrayMove(newContainers[legIndex], i, i + 1);
+                            onStagePlanChange(rebuildStagePlanFromContainers(newContainers));
+                          }}
+                        />
+                        {!isRallyLastStage && (
+                          <div className={styles.serviceBlockWrap}>
+                            <ServiceBlock
+                              serviceTime={stageConfig.service_time}
+                              onClick={() => openServiceModal(stageConfig._uid)}
+                            />
+                          </div>
+                        )}
+                      </Fragment>
                     );
                   })}
 
@@ -758,6 +836,22 @@ export function RoadBook({
           stageNumber={modalState.stageNumber}
           onSave={handleModalSave}
           onCancel={closeModal}
+        />
+      )}
+
+      {/* rbr-rally-creator-web#80: opened from a leg-row ServiceBlock click
+          (openServiceModal above) -- entirely separate from modalState/
+          StageConfigModal above. No stage picker inside it; `uid` (and thus
+          which stagePlan entry gets written back to) is fixed at open time
+          by whichever block was clicked. */}
+      {serviceModalState && (
+        <ServiceConfigModal
+          value={stageByUid.get(serviceModalState.uid)}
+          options={options}
+          stageNumber={serviceModalState.stageNumber}
+          isLastStage={serviceModalState.isLastStage}
+          onSave={handleServiceModalSave}
+          onCancel={closeServiceModal}
         />
       )}
 

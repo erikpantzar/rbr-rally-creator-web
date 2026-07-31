@@ -42,6 +42,24 @@ export function cloneStageConfigWithNewUid(stageConfig) {
   return { ...stageConfig, _uid: generateUid() };
 }
 
+// Seeds a brand-new "+ Add stage" slot from the most recently added/edited
+// stage already in the plan (rbr-rally-creator-web#5), instead of the
+// generic hardcoded defaults -- carrying forward surface age/wetness/
+// weather/tyre/service/mechanics settings makes it much faster to build a
+// rally with consistent config across stages, rather than re-entering the
+// same values on every stage. Like createDefaultStageConfig, the new slot
+// still starts unassigned (stage_id: null) -- only the config fields carry
+// over, not the previous stage's catalog assignment. Falls back to the
+// generic defaults when there is no previous stage yet (empty plan).
+export function createStageConfigFromPrevious(previousStageConfig) {
+  if (!previousStageConfig) return createDefaultStageConfig();
+  return {
+    ...previousStageConfig,
+    _uid: generateUid(),
+    stage_id: null,
+  };
+}
+
 // stage_count is the manual (non-drag) leg-boundary control: how many of
 // the rally's stages fall in this leg. start_stage_no is derived from it
 // (see computeLegStageRanges) rather than stored directly, so it can never

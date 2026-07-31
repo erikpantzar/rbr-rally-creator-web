@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, DragOverlay, PointerSensor, closestCenter, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
-import { computeLegStageRanges, createDefaultStageConfig, cloneStageConfigWithNewUid } from '../../lib/rallyPlan.js';
+import { computeLegStageRanges, createStageConfigFromPrevious, cloneStageConfigWithNewUid } from '../../lib/rallyPlan.js';
 import { StageBrick } from '../StageBrick/StageBrick.jsx';
 import { StageConfigModal } from '../StageConfigModal/StageConfigModal.jsx';
 import { Toast } from '../Toast/Toast.jsx';
@@ -203,11 +203,21 @@ export function RoadBook({
   }
 
   function openAddModal(legIndex) {
+    // Seed from whichever stage will end up immediately before this new one
+    // once it's inserted -- the last brick already in this leg, or (if this
+    // leg is still empty) the last brick of the leg before it -- rather
+    // than the generic hardcoded defaults. That's a closer match for
+    // "persist the one you made before" than always using the plan's global
+    // last stage, which could otherwise carry forward a value (e.g. service
+    // forced to "No Service" because it *was* the rally's last stage) onto
+    // a new stage being inserted earlier in the book. See
+    // createStageConfigFromPrevious in rallyPlan.js (rbr-rally-creator-web#5).
+    const { endIndex } = legRanges[legIndex];
     setModalState({
       mode: 'add',
       legIndex,
       uid: null,
-      initialValue: createDefaultStageConfig(),
+      initialValue: createStageConfigFromPrevious(stagePlan[endIndex - 1]),
       willBeLastStage: isLastLegPosition(legIndex),
     });
   }

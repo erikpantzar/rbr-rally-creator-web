@@ -89,6 +89,34 @@
   gap: 0.5rem 1rem;
 }
 
+/* "Remove leg" (rbr-rally-creator-web#29) -- sits at the end of .legHeader's
+   flex row (margin-left: auto pushes it past the open/close/super-rally
+   inputs), styled like StageBrick's small text controlButton rather than a
+   boxed button, since this is a per-row utility action, not a primary CTA.
+   Danger colors only show up on hover, matching StageBrick's .deleteButton
+   -- no need to look alarming when it's just sitting there. */
+.legRemoveButton {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-family: inherit;
+  padding: 0.2rem 0.5rem;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.legRemoveButton:hover:not(:disabled) {
+  color: var(--danger-fg);
+  background: var(--danger-bg);
+}
+
+.legRemoveButton:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .legFieldLabel {
   display: flex;
   align-items: baseline;

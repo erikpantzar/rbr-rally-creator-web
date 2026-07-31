@@ -23,6 +23,18 @@ import { JobProgress } from '../JobProgress/JobProgress.jsx';
 import { ReadinessBanner } from '../ReadinessBanner/ReadinessBanner.jsx';
 import styles from './RallyBuilder.module.css';
 
+// Matches index.html's <title> -- used as the "at rest" tab title that the
+// progress/blink effect below always restores once it's done doing its
+// thing (job finished + tab refocused, or the component unmounts mid-job).
+const BASE_TITLE = 'RBR Rally Creator';
+
+const TERMINAL_JOB_STATUSES = new Set([
+  'succeeded',
+  'succeeded_dry_run',
+  'succeeded_unconfirmed',
+  'failed',
+]);
+
 export function RallyBuilder({ baseUrl, credentialsSaved }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -179,6 +191,61 @@ export function RallyBuilder({ baseUrl, credentialsSaved }) {
 
     return () => clearInterval(interval);
   }, [jobId, baseUrl]);
+
+  // rbr-rally-creator-web#17: reflect job progress in the browser tab title
+  // so the user can switch to another tab instead of babysitting this one.
+  // While queued/running, the title shows a live percentage; once the job
+  // reaches a terminal state (success, dry-run success, unconfirmed, or
+  // failure alike -- the user still wants to know it's done even if it
+  // didn't fully succeed) the title blinks between a "finished" message and
+  // the normal title until the user comes back to the tab (visibilitychange
+  // / focus), or a fallback timeout gives up waiting for that.
+  useEffect(() => {
+    if (!job) return undefined;
+
+    if (job.status === 'queued' || job.status === 'running') {
+      const { stepIndex = 0, stepCount = 1 } = job.progress || {};
+      const percent = stepCount > 0 ? Math.round((stepIndex / stepCount) * 100) : 0;
+      document.title = `${percent}% - ${BASE_TITLE}`;
+      return () => {
+        document.title = BASE_TITLE;
+      };
+    }
+
+    if (TERMINAL_JOB_STATUSES.has(job.status)) {
+      const doneTitle = job.status === 'failed' ? '❌ Rally job failed' : '✅ Rally created!';
+
+      let blinkOn = true;
+      document.title = doneTitle;
+      const blinkInterval = setInterval(() => {
+        blinkOn = !blinkOn;
+        document.title = blinkOn ? doneTitle : BASE_TITLE;
+      }, 800);
+
+      const stopBlinking = () => {
+        clearInterval(blinkInterval);
+        clearTimeout(fallbackTimeout);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('focus', stopBlinking);
+        document.title = BASE_TITLE;
+      };
+
+      function handleVisibilityChange() {
+        if (!document.hidden) stopBlinking();
+      }
+
+      // Fallback in case the user never comes back to this tab -- don't
+      // blink forever.
+      const fallbackTimeout = setTimeout(stopBlinking, 2 * 60 * 1000);
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('focus', stopBlinking);
+
+      return stopBlinking;
+    }
+
+    return undefined;
+  }, [job]);
 
   // Persist the in-progress build to localStorage as the user edits it
   // (rbr-rally-creator-web#6), debounced so a burst of keystrokes/drags

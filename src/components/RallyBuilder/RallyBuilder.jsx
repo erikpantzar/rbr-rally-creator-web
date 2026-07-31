@@ -417,6 +417,32 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
     setSavedNotice(true);
   }
 
+  // Starts a brand-new, blank rally without leaving this screen. The key
+  // part is resetting currentRallyId to null: the next Save after this
+  // creates a fresh rbr.rallies entry instead of overwriting whatever was
+  // open before (handleSaveRally upserts by currentRallyId). Also clears
+  // currentDraft so a stray refresh right after clicking this doesn't
+  // resurrect the rally that was just abandoned.
+  function handleNewRally() {
+    setCurrentRallyId(null);
+    setRallyBasics({
+      rally_name: '',
+      description: '',
+      damage_id: '2',
+      stages: 2,
+      legs: 1,
+      pacenotes_options: 'Normal Pacenotes',
+      hidden_stage_name: false,
+      road_side_service: 'no',
+      password1: '',
+      password2: '',
+    });
+    setCarGroupIds([]);
+    setStagePlan([]);
+    setLegSchedule([createDefaultLegConfig(0)]);
+    clearCurrentDraft();
+  }
+
   // rbr-rally-creator-web#31: cooperative cancel. DELETE /jobs/:id is only
   // ever a snapshot of what the service knew at that instant -- a queued
   // job cancels immediately, but a running job just has the request noted
@@ -633,6 +659,15 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
                 disabled={submitting}
               >
                 {savedNotice ? 'Saved!' : 'Save'}
+              </button>
+
+              <button
+                type="button"
+                className={styles.saveButton}
+                onClick={handleNewRally}
+                disabled={submitting}
+              >
+                New Rally
               </button>
 
               <button

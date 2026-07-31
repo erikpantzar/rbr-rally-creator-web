@@ -4,21 +4,78 @@
   gap: 0.75rem;
 }
 
-.container h3 {
-  margin: 0;
-  font-size: 0.75rem;
-  color: var(--ink-soft);
+.openRallyLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.openRallyLabel input {
+  margin: 0;
+  cursor: pointer;
+}
+
+.openRallyLabel input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Same disclosure treatment as JobProgress.module.css's .details/.details
+   summary (the "Debug snippet" toggle), extended with a bordered card and
+   a summary line that also carries the live selected-count text. */
+.details {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.summaryTitle {
+  font-weight: 600;
+  text-decoration: underline;
+  color: var(--ink);
+}
+
+.summaryMeta {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.summaryMetaActive {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sectionBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  cursor: auto;
 }
 
 .checkboxList {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem 1.25rem;
-  padding: 0.5rem 0;
-  border-bottom: 1px dashed var(--border);
+  padding: 0.25rem 0 0;
 }
 
 .checkboxLabel {

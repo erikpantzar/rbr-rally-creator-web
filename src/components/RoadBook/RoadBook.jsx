@@ -6,6 +6,8 @@ import {
   createStageConfigFromPrevious,
   cloneStageConfigWithNewUid,
   toDatetimeLocalValue,
+  formatKm,
+  sumStagePlanKm,
   MAX_LEG_SPAN_DAYS,
 } from '../../lib/rallyPlan.js';
 import { StageBrick } from '../StageBrick/StageBrick.jsx';
@@ -138,6 +140,11 @@ export function RoadBook({
 
   const stageByCatalogId = useMemo(() => new Map(stages.map((s) => [s.id, s])), [stages]);
   const stageByUid = useMemo(() => new Map(stagePlan.map((s) => [s._uid, s])), [stagePlan]);
+
+  // Whole-rally km total (rbr-rally-creator-web#18) -- same sumStagePlanKm
+  // helper each leg header below uses, just over the full stagePlan rather
+  // than one leg's slice of it.
+  const rallyTotalKm = sumStagePlanKm(stagePlan, stageByCatalogId);
 
   const legRanges = computeLegStageRanges(legSchedule);
   const containers = legRanges.map(({ startIndex, endIndex }) => stagePlan.slice(startIndex, endIndex).map((s) => s._uid));
@@ -298,13 +305,15 @@ export function RoadBook({
         {legRanges.map(({ startIndex, endIndex, startStageNo }, legIndex) => {
           const legStages = stagePlan.slice(startIndex, endIndex);
           const leg = legSchedule[legIndex];
+          const legTotalKm = sumStagePlanKm(legStages, stageByCatalogId);
 
           return (
             <div key={legIndex} className={styles.legGroup}>
               <div className={styles.legHeader}>
                 <h4>
                   Leg {legIndex + 1} <span className={styles.legStartStage}>(starts at stage {startStageNo})</span>{' '}
-                  <span className={styles.legStageCount}>{legStages.length} stage{legStages.length === 1 ? '' : 's'}</span>
+                  <span className={styles.legStageCount}>{legStages.length} stage{legStages.length === 1 ? '' : 's'}</span>{' '}
+                  <span className={styles.legKmTotal}>{formatKm(legTotalKm)}</span>
                 </h4>
                 <div className={styles.legInputsLocked}>
                   <span>Open: {leg.open_time || '—'}</span>
@@ -332,6 +341,11 @@ export function RoadBook({
             </div>
           );
         })}
+
+        <div className={styles.rallyTotal}>
+          <span className={styles.rallyTotalLabel}>Rally total</span>
+          <span className={styles.rallyTotalValue}>{formatKm(rallyTotalKm)}</span>
+        </div>
       </div>
     );
   }
@@ -348,13 +362,15 @@ export function RoadBook({
         {legRanges.map(({ startIndex, endIndex, startStageNo }, legIndex) => {
           const legStages = stagePlan.slice(startIndex, endIndex);
           const leg = legSchedule[legIndex];
+          const legTotalKm = sumStagePlanKm(legStages, stageByCatalogId);
 
           return (
             <div key={legIndex} className={styles.legGroup}>
               <div className={styles.legHeader}>
                 <h4>
                   Leg {legIndex + 1} <span className={styles.legStartStage}>(starts at stage {startStageNo})</span>{' '}
-                  <span className={styles.legStageCount}>{legStages.length} stage{legStages.length === 1 ? '' : 's'}</span>
+                  <span className={styles.legStageCount}>{legStages.length} stage{legStages.length === 1 ? '' : 's'}</span>{' '}
+                  <span className={styles.legKmTotal}>{formatKm(legTotalKm)}</span>
                 </h4>
                 <div className={styles.legInputs}>
                   <input
@@ -427,6 +443,16 @@ export function RoadBook({
             </div>
           );
         })}
+
+        {/* Whole-rally km total (rbr-rally-creator-web#18), sitting above
+            "+ Add Leg" as its own line -- keeps both visible/usable rather
+            than one crowding out the other, and reads naturally as "the
+            leg list is done, here's its grand total, and here's how to add
+            more to it." */}
+        <div className={styles.rallyTotal}>
+          <span className={styles.rallyTotalLabel}>Rally total</span>
+          <span className={styles.rallyTotalValue}>{formatKm(rallyTotalKm)}</span>
+        </div>
 
         {/* Legs are additive too, per rbr-rally-creator-web#15's "Lego
             bits" model -- appended one at a time here rather than pre-sized

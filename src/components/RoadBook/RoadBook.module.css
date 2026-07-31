@@ -71,6 +71,17 @@
   letter-spacing: 0.03em;
 }
 
+/* Per-leg km total (rbr-rally-creator-web#18) -- same text-badge treatment
+   as .legStageCount right next to it (mono, accent color, uppercase-ish
+   scale) since it's the same kind of "derived summary fact about this leg"
+   rather than something that needs its own visual weight class. */
+.legKmTotal {
+  font-weight: 500;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+}
+
 .legInputs {
   display: flex;
   flex-wrap: wrap;
@@ -166,6 +177,32 @@
   font-size: 0.8rem;
   font-style: italic;
   white-space: nowrap;
+}
+
+/* Whole-rally km total (rbr-rally-creator-web#18) -- sits above "+ Add Leg"
+   as its own full-width line, echoing the document-header weight (bold ink
+   label + mono accent value) rather than the dashed-outline "button" look
+   of the add-leg/add-stage affordances below it, so it reads as a summary
+   fact about the document rather than another interactive control. */
+.rallyTotal {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.6rem 0.1rem;
+  margin-top: 0.5rem;
+  border-top: 2px solid var(--ink);
+  font-size: 0.95rem;
+}
+
+.rallyTotalLabel {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.rallyTotalValue {
+  font-weight: 600;
+  color: var(--accent);
+  font-family: var(--font-mono);
 }
 
 /* "+ Add Leg", per rbr-rally-creator-web#15 -- same dashed-outline visual

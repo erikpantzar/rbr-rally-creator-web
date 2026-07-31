@@ -164,3 +164,37 @@ export function getServiceTier(serviceTime) {
   if (SERVICE_TIERS.full.times.includes(serviceTime)) return SERVICE_TIERS.full;
   return SERVICE_TIERS.none;
 }
+
+// Parses the numeric km out of a catalog stage's `length` field (e.g.
+// "13.4 km" -> 13.4), for rbr-rally-creator-web#18's per-leg/rally km
+// totals. `stage` is the full catalog entry looked up via stageByCatalogId
+// (see RoadBook) -- it's null/undefined when a stage brick hasn't had a
+// stage_id assigned yet, and `length` could in principle be an unrecognized
+// format, so this returns 0 rather than throwing in either case; callers
+// summing across a leg/rally then just treat that brick as contributing
+// nothing yet, instead of the whole total blowing up.
+export function parseStageKm(stage) {
+  const raw = stage?.length;
+  if (typeof raw !== 'string') return 0;
+  const match = raw.match(/[\d.]+/);
+  if (!match) return 0;
+  const value = parseFloat(match[0]);
+  return Number.isFinite(value) ? value : 0;
+}
+
+// Sums parsed km across a slice of stagePlan entries, given the
+// catalog-id -> catalog-stage lookup map (RoadBook's stageByCatalogId).
+// Shared by both a single leg's total and the whole rally's grand total --
+// same math, just a different slice of stagePlan.
+export function sumStagePlanKm(stagePlanSlice, stageByCatalogId) {
+  return stagePlanSlice.reduce((total, stageConfig) => {
+    const catalogStage = stageConfig.stage_id ? stageByCatalogId.get(stageConfig.stage_id) : null;
+    return total + parseStageKm(catalogStage);
+  }, 0);
+}
+
+// Renders a parsed km number back into the catalog's own display style
+// (e.g. 13.4 -> "13.4 km") so that format only lives in one place.
+export function formatKm(km) {
+  return `${km.toFixed(1)} km`;
+}

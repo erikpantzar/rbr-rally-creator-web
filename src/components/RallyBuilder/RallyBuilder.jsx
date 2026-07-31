@@ -15,6 +15,7 @@ import {
   cloneStageConfigWithNewUid,
   toDatetimeLocalValue,
   isLegOpenTimeTooSoon,
+  clampLegTimes,
   MAX_LEG_SPAN_DAYS,
   MAX_LEGS,
   MIN_LEG_LEAD_MINUTES,
@@ -31,6 +32,7 @@ import { CarGroupPicker } from '../CarGroupPicker/CarGroupPicker.jsx';
 import { RoadBook } from '../RoadBook/RoadBook.jsx';
 import { JobProgress } from '../JobProgress/JobProgress.jsx';
 import { ReadinessBanner } from '../ReadinessBanner/ReadinessBanner.jsx';
+import { Toast } from '../Toast/Toast.jsx';
 import styles from './RallyBuilder.module.css';
 
 // Matches index.html's <title> -- used as the "at rest" tab title that the
@@ -61,6 +63,15 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
   // (see its `key={activeRally?.id ?? 'new'}` remount trick below).
   const [currentRallyId, setCurrentRallyId] = useState(initialRallyId ?? null);
   const [savedNotice, setSavedNotice] = useState(false);
+
+  // rbr-rally-creator-web#63: brief confirmation Toast after
+  // handleFixStaleStartTimes runs -- the readiness banner's own problem line
+  // disappearing is feedback in itself, but someone who just fixed several
+  // legs at once (see legsOpeningTooSoon) might not immediately register
+  // that the banner changed, so this reinforces it. No undo action, unlike
+  // RoadBook's stage/leg-delete Toasts -- there's nothing destructive to
+  // undo here, just a one-way forward time shift.
+  const [fixTimesToastVisible, setFixTimesToastVisible] = useState(false);
 
   const [rallyBasics, setRallyBasics] = useState({
     rally_name: '',
@@ -329,6 +340,15 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
     return () => clearTimeout(timeout);
   }, [savedNotice]);
 
+  // Auto-dismiss the "Start times fixed" Toast, same pattern as savedNotice
+  // above -- Toast also has its own manual × dismiss (onDismiss below), this
+  // is just the timed fallback.
+  useEffect(() => {
+    if (!fixTimesToastVisible) return undefined;
+    const timeout = setTimeout(() => setFixTimesToastVisible(false), 3000);
+    return () => clearTimeout(timeout);
+  }, [fixTimesToastVisible]);
+
   // rbr-rally-creator-web#40: "does any leg's open_time now fall inside the
   // backend's minimum lead time" (see isLegOpenTimeTooSoon below) is unlike
   // every other readinessProblems check -- it can flip from false to true
@@ -544,9 +564,21 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
   if (legsOpeningTooSoon.length > 0) {
     const legWord = legsOpeningTooSoon.length === 1 ? 'Leg' : 'Legs';
     const verbWord = legsOpeningTooSoon.length === 1 ? 'opens' : 'open';
-    readinessProblems.push(
-      `${legWord} ${legsOpeningTooSoon.join(', ')} ${verbWord} in less than ${MIN_LEG_LEAD_MINUTES} minutes (or already in the past) — rallysimfans.hu will automatically push it out to ${CLAMP_LEG_LEAD_MINUTES} minutes from now and shift the close time to match, so update the start time here if you want control over the exact time.`
-    );
+    // Unlike every other push above, this problem has a one-click fix --
+    // widened to the richer { message, action } shape ReadinessBanner now
+    // accepts, so the "Fix start time(s)" button renders inline on this
+    // specific problem line instead of as a standalone button below the
+    // whole banner.
+    readinessProblems.push({
+      message: `${legWord} ${legsOpeningTooSoon.join(', ')} ${verbWord} in less than ${MIN_LEG_LEAD_MINUTES} minutes (or already in the past) — rallysimfans.hu will automatically push it out to ${CLAMP_LEG_LEAD_MINUTES} minutes from now and shift the close time to match, so update the start time here if you want control over the exact time.`,
+      action: {
+        label:
+          legsOpeningTooSoon.length === 1
+            ? `Fix Leg ${legsOpeningTooSoon[0]}'s start time`
+            : 'Fix start times',
+        onClick: handleFixStaleStartTimes,
+      },
+    });
   }
 
   // The site itself caps a leg's open->close window at 7 days; this app
@@ -570,6 +602,28 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
 
     newLegs[legIndex] = updatedLeg;
     setLegSchedule(newLegs);
+  }
+
+  // rbr-rally-creator-web#63: one-click remedy for the "leg opens too soon"
+  // readiness problem below (see legsOpeningTooSoon) -- instead of the user
+  // hunting down which leg(s) are stale and manually retyping both fields,
+  // push every too-soon leg's open_time out to CLAMP_LEG_LEAD_MINUTES from
+  // Stockholm's current wall-clock "now" (the same lead the backend's own
+  // safety-net clamp uses, rbr-rally-creator-service#11), and shift
+  // close_time by the exact same delta so the leg's originally-intended
+  // duration survives. The actual clamp-and-shift math itself lives in
+  // rallyPlan.js's clampLegTimes (mirroring the backend's own
+  // normalizeLegTimes) -- this just applies it to every affected leg and
+  // leaves the rest untouched.
+  function handleFixStaleStartTimes() {
+    const newLegs = legSchedule.map((leg, i) => {
+      if (!legsOpeningTooSoon.includes(i + 1)) return leg;
+      const { open_time, close_time } = clampLegTimes(leg.open_time, leg.close_time);
+      return { ...leg, open_time, close_time };
+    });
+
+    setLegSchedule(newLegs);
+    setFixTimesToastVisible(true);
   }
 
   // Per rbr-rally-creator-web#15: legs are now "Lego bits" too -- appended
@@ -710,6 +764,13 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
             cancelRequested={cancelRequested || job.cancellationRequested}
           />
         </div>
+      )}
+
+      {fixTimesToastVisible && (
+        <Toast
+          message="Start times fixed"
+          onDismiss={() => setFixTimesToastVisible(false)}
+        />
       )}
     </div>
   );

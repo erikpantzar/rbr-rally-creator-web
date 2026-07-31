@@ -586,19 +586,33 @@ export function RoadBook({
                   )}
                 </div>
                 <div className={styles.legInputs}>
-                  <input
-                    type="datetime-local"
-                    placeholder="Open time"
-                    value={leg.open_time}
-                    onChange={(e) => onLegFieldChange(legIndex, 'open_time', e.target.value)}
-                  />
-                  <input
-                    type="datetime-local"
-                    placeholder="Close time"
-                    value={leg.close_time}
-                    max={maxCloseTimeFor(leg.open_time)}
-                    onChange={(e) => onLegFieldChange(legIndex, 'close_time', e.target.value)}
-                  />
+                  {/* rbr-rally-creator-web#63: rallysimfans.hu itself
+                      schedules on Europe/Stockholm time regardless of where
+                      the browser viewing this app is -- a user outside
+                      Sweden would otherwise have no reason to know that
+                      "now" for these fields isn't their own wall clock (see
+                      stockholmNow()/isLegOpenTimeTooSoon in rallyPlan.js).
+                      Reuses the existing muted uppercase .legFieldLabel
+                      convention rather than introducing a new label style. */}
+                  <label className={styles.legFieldLabel}>
+                    Open (Stockholm time)
+                    <input
+                      type="datetime-local"
+                      placeholder="Open time"
+                      value={leg.open_time}
+                      onChange={(e) => onLegFieldChange(legIndex, 'open_time', e.target.value)}
+                    />
+                  </label>
+                  <label className={styles.legFieldLabel}>
+                    Close (Stockholm time)
+                    <input
+                      type="datetime-local"
+                      placeholder="Close time"
+                      value={leg.close_time}
+                      max={maxCloseTimeFor(leg.open_time)}
+                      onChange={(e) => onLegFieldChange(legIndex, 'close_time', e.target.value)}
+                    />
+                  </label>
                   {/* rbr-rally-creator-web#61: options.superRally only ever
                       has two entries in practice ('disabled'/'150%'), so a
                       dropdown was overkill for a plain either/or choice --

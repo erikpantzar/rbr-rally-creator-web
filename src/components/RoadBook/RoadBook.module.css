@@ -89,22 +89,26 @@
   gap: 0.5rem 1rem;
 }
 
-/* "Remove leg" (rbr-rally-creator-web#29) -- sits at the end of .legHeader's
-   flex row (margin-left: auto pushes it past the open/close/super-rally
-   inputs), styled like StageBrick's small text controlButton rather than a
-   boxed button, since this is a per-row utility action, not a primary CTA.
-   Danger colors only show up on hover, matching StageBrick's .deleteButton
-   -- no need to look alarming when it's just sitting there. */
+/* "Remove leg" (rbr-rally-creator-web#29, restyled in #34) -- sits right
+   after the "Leg N" heading (see .legRemoveWrap below) rather than at the
+   far end of .legHeader's flex row past the open/close/super-rally inputs,
+   so it reads as "this leg's control" instead of a stray action floating
+   at the row's edge. Compact "x" icon button, mirroring StageBrick's
+   .deleteButton/"x" pattern for visual consistency with the other per-item
+   delete affordance in this app, rather than a text label -- the aria-label/
+   title carry the "which leg" info that used to be spelled out in the
+   button's own text. Danger colors only show up on hover, matching
+   StageBrick's .deleteButton -- no need to look alarming when it's just
+   sitting there. */
 .legRemoveButton {
   border: none;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
-  font-size: 0.78rem;
+  font-size: 1rem;
+  line-height: 1;
   font-family: inherit;
-  padding: 0.2rem 0.5rem;
-  margin-left: auto;
-  white-space: nowrap;
+  padding: 0.15rem 0.45rem;
 }
 
 .legRemoveButton:hover:not(:disabled) {
@@ -115,6 +119,79 @@
 .legRemoveButton:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+/* Anchors the remove button and its confirmation bubble together --
+   position: relative gives .legRemoveBubble below a positioning context
+   right at the button, rather than relative to .legHeader (which would
+   put it in the wrong spot once other header content wraps). */
+.legRemoveWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Inline "context bubble" (rbr-rally-creator-web#34) that replaces the old
+   window.confirm for the has-stages leg-removal case -- same design
+   language as StageConfigModal's .restoredNotice (inline notice + action
+   button) and Toast's floating action, just anchored to the remove button
+   instead of full-width or fixed-to-viewport, since this is a per-row
+   confirmation rather than a page- or app-level notice. */
+.legRemoveBubble {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 17rem;
+  padding: 0.75rem;
+  background: var(--card);
+  border: 1px solid var(--accent);
+  box-shadow: 0 10px 28px oklch(0% 0 0 / 0.22);
+}
+
+.legRemoveBubbleText {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--ink);
+}
+
+.legRemoveBubbleActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.legRemoveBubbleCancel,
+.legRemoveBubbleConfirm {
+  border-radius: 0;
+  font-size: 0.8rem;
+  font-family: inherit;
+  padding: 0.35rem 0.6rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.legRemoveBubbleCancel {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--ink);
+}
+
+.legRemoveBubbleCancel:hover {
+  border-color: var(--accent);
+}
+
+.legRemoveBubbleConfirm {
+  border: 1px solid var(--danger-fg);
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  font-weight: 600;
+}
+
+.legRemoveBubbleConfirm:hover {
+  filter: brightness(1.05);
 }
 
 .legFieldLabel {

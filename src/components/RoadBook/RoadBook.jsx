@@ -49,6 +49,34 @@ function LegDropContainer({ legIndex, children }) {
   );
 }
 
+// rbr-rally-creator-web#34: inline "context bubble" that replaces
+// window.confirm for the has-stages leg-removal case. Anchored to the
+// leg's remove button via .legRemoveWrap (position: relative in the CSS),
+// in the same spirit as StageConfigModal's .restoredNotice and Toast's
+// floating action -- a small, self-contained inline notice with explicit
+// action buttons, not a heavyweight modal/dialog system. Purely
+// presentational: RoadBook still owns the actual merge-direction decision
+// (previous leg by default, next as fallback), this just shows it and
+// waits for an explicit yes/no.
+function LegRemoveConfirmBubble({ legIndex, stageCount, targetLegIndex, onConfirm, onCancel }) {
+  return (
+    <div className={styles.legRemoveBubble} role="dialog" aria-label={`Remove Leg ${legIndex + 1}?`}>
+      <p className={styles.legRemoveBubbleText}>
+        Leg {legIndex + 1} has {stageCount} stage{stageCount === 1 ? '' : 's'}. Move{' '}
+        {stageCount === 1 ? 'it' : 'them'} into Leg {targetLegIndex + 1} and remove Leg {legIndex + 1}?
+      </p>
+      <div className={styles.legRemoveBubbleActions}>
+        <button type="button" className={styles.legRemoveBubbleCancel} onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="button" className={styles.legRemoveBubbleConfirm} onClick={onConfirm}>
+          Move stages &amp; remove
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Owns the DndContext for the road book. Per DESIGN_SPEC.md's "Lego bits"
 // model, the road book is no longer a fixed grid of rallyBasics.stages
 // slots you drag catalog cards onto -- it's an additive list of bricks, one
@@ -84,6 +112,12 @@ export function RoadBook({
   const [pendingUndo, setPendingUndo] = useState(null);
   const undoTimerRef = useRef(null);
 
+  // rbr-rally-creator-web#34: which leg's remove-confirmation bubble (if
+  // any) is currently open -- { legIndex, stageCount, targetLegIndex,
+  // direction }. Only one at a time, same "single pending thing" shape as
+  // pendingUndo above. null means no bubble is showing.
+  const [removeConfirm, setRemoveConfirm] = useState(null);
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   useEffect(() => {
@@ -91,6 +125,26 @@ export function RoadBook({
       if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
     };
   }, []);
+
+  // If the leg count changes out from under an open confirmation bubble
+  // (e.g. a leg was added/removed by some other path while it was up), the
+  // captured legIndex/targetLegIndex could now point at the wrong row --
+  // simplest safe response is to just close it rather than let a stale
+  // confirm act on the wrong leg.
+  useEffect(() => {
+    setRemoveConfirm(null);
+  }, [legSchedule.length]);
+
+  // Escape closes the bubble too, matching StageConfigModal's Escape-closes
+  // convention elsewhere in this app.
+  useEffect(() => {
+    if (!removeConfirm) return;
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') setRemoveConfirm(null);
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [removeConfirm]);
 
   function clearPendingUndo() {
     if (undoTimerRef.current) {
@@ -133,7 +187,7 @@ export function RoadBook({
   // is enough -- the merged leg's wider range now covers exactly the same
   // (already-contiguous) stagePlan slice both legs used to split between
   // them. stagePlan itself never moves.
-  function handleRemoveLeg(legIndex) {
+  function handleRemoveLegClick(legIndex) {
     const leg = legSchedule[legIndex];
     const stageCount = leg.stage_count || 0;
 
@@ -153,22 +207,30 @@ export function RoadBook({
     }
 
     // Default direction is the previous leg per the issue; falls back to
-    // the next leg when removing the first leg (no previous exists).
+    // the next leg when removing the first leg (no previous exists). Rather
+    // than acting immediately (the old window.confirm path), stash the
+    // decision and open the inline confirmation bubble -- handleConfirmRemoveLeg
+    // below performs the actual merge once the user explicitly agrees.
     const targetLegIndex = hasPrevious ? legIndex - 1 : legIndex + 1;
     const direction = hasPrevious ? 'previous' : 'next';
 
-    const confirmed = window.confirm(
-      `Leg ${legIndex + 1} has ${stageCount} stage${stageCount === 1 ? '' : 's'}. Move ${
-        stageCount === 1 ? 'it' : 'them'
-      } into the ${direction} leg (Leg ${targetLegIndex + 1}) and remove Leg ${legIndex + 1}?`
-    );
-    if (!confirmed) return;
+    setRemoveConfirm({ legIndex, stageCount, targetLegIndex, direction });
+  }
+
+  function handleConfirmRemoveLeg() {
+    if (!removeConfirm) return;
+    const { legIndex, targetLegIndex, stageCount } = removeConfirm;
 
     const nextLegSchedule = legSchedule
       .map((l, i) => (i === targetLegIndex ? { ...l, stage_count: (l.stage_count || 0) + stageCount } : l))
       .filter((_, i) => i !== legIndex);
 
     onLegScheduleChange(nextLegSchedule);
+    setRemoveConfirm(null);
+  }
+
+  function handleCancelRemoveLeg() {
+    setRemoveConfirm(null);
   }
 
   function handleUndoDelete() {
@@ -425,6 +487,36 @@ export function RoadBook({
                   <span className={styles.legStageCount}>{legStages.length} stage{legStages.length === 1 ? '' : 's'}</span>{' '}
                   <span className={styles.legKmTotal}>{formatKm(legTotalKm)}</span>
                 </h4>
+                {/* rbr-rally-creator-web#34: sits right next to the "Leg N"
+                    heading (rather than at the far right of the header row,
+                    past the open/close/super-rally inputs, per #29's
+                    original placement) so it visually reads as "this leg's
+                    remove control" instead of a stray action floating at the
+                    end of the row. #29: the only leg in the rally can't be
+                    removed -- a rally needs at least one -- so the control
+                    is disabled rather than hidden, which would otherwise
+                    read as "gone" instead of "not applicable right now". */}
+                <div className={styles.legRemoveWrap}>
+                  <button
+                    type="button"
+                    className={styles.legRemoveButton}
+                    disabled={legSchedule.length <= 1}
+                    aria-label={legSchedule.length <= 1 ? `Can't remove Leg ${legIndex + 1} -- it's the only leg` : `Remove Leg ${legIndex + 1}`}
+                    title={legSchedule.length <= 1 ? "Can't remove the only leg" : `Remove Leg ${legIndex + 1}`}
+                    onClick={() => handleRemoveLegClick(legIndex)}
+                  >
+                    ×
+                  </button>
+                  {removeConfirm?.legIndex === legIndex && (
+                    <LegRemoveConfirmBubble
+                      legIndex={removeConfirm.legIndex}
+                      stageCount={removeConfirm.stageCount}
+                      targetLegIndex={removeConfirm.targetLegIndex}
+                      onConfirm={handleConfirmRemoveLeg}
+                      onCancel={handleCancelRemoveLeg}
+                    />
+                  )}
+                </div>
                 <div className={styles.legInputs}>
                   <input
                     type="datetime-local"
@@ -447,19 +539,6 @@ export function RoadBook({
                     ))}
                   </select>
                 </div>
-                {/* rbr-rally-creator-web#29: the only leg in the rally can't be
-                    removed -- a rally needs at least one -- so the control is
-                    disabled rather than hidden, which would otherwise read as
-                    "gone" instead of "not applicable right now". */}
-                <button
-                  type="button"
-                  className={styles.legRemoveButton}
-                  disabled={legSchedule.length <= 1}
-                  title={legSchedule.length <= 1 ? "Can't remove the only leg" : 'Remove this leg'}
-                  onClick={() => handleRemoveLeg(legIndex)}
-                >
-                  Remove leg
-                </button>
               </div>
 
               <SortableContext items={containers[legIndex]} strategy={horizontalListSortingStrategy}>
@@ -527,9 +606,9 @@ export function RoadBook({
             A new leg starts empty (0 stages); RallyBuilder's
             readinessProblems flags it as not publishable until it has at
             least one. Legs are removable too (rbr-rally-creator-web#29,
-            #15's flagged follow-up) via each leg's "Remove leg" button
-            above -- see handleRemoveLeg for the empty-vs-has-stages/
-            merge-direction logic. */}
+            #15's flagged follow-up, polished in #34) via each leg's "x"
+            button above -- see handleRemoveLegClick for the
+            empty-vs-has-stages/merge-direction logic. */}
         {/* rbr-rally-creator-web#37: the real site's wizard tops out at 6
             legs (confirmed against the backend's discovery capture) and a
             companion backend PR is enforcing that server-side -- disabling
@@ -543,6 +622,7 @@ export function RoadBook({
           disabled={legSchedule.length >= MAX_LEGS}
           title={legSchedule.length >= MAX_LEGS ? `Rallies can have at most ${MAX_LEGS} legs` : undefined}
         >
+
           + Add Leg
         </button>
       </div>

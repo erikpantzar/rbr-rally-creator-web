@@ -216,6 +216,25 @@
   font-family: inherit;
 }
 
+/* rbr-rally-creator-web#61: Super Rally toggle button -- same field chrome
+   as the open/close time inputs it sits beside (border/padding/font), plus
+   a pointer cursor and hover feedback since it's a click-to-flip control
+   rather than a static field. */
+.superRallyToggle {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.superRallyToggle:hover {
+  border-color: var(--accent);
+}
+
 /* Locked equivalent of .legInputs -- plain text, no field chrome, since
    there's nothing left to edit once a job has succeeded (DESIGN_SPEC.md's
    "Created / locked" state: "render as plain text instead" for leg

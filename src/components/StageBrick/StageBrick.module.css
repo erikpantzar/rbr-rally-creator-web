@@ -8,6 +8,12 @@
   border-radius: 0;
   border-left: 4px solid var(--accent);
   flex-shrink: 0;
+  cursor: grab;
+  touch-action: none;
+}
+
+.brick:active {
+  cursor: grabbing;
 }
 
 .brick.dragging {
@@ -39,7 +45,6 @@
   opacity: 1;
 }
 
-.dragHandle,
 .controlButton {
   border: none;
   background: transparent;
@@ -50,16 +55,7 @@
   padding: 0.2rem 0.3rem;
   border-radius: 0;
   font-family: inherit;
-}
-
-.dragHandle {
-  cursor: grab;
-  touch-action: none;
-  margin-right: auto;
-}
-
-.dragHandle:active {
-  cursor: grabbing;
+  margin-left: auto;
 }
 
 .controlButton:hover:not(:disabled) {
@@ -97,6 +93,12 @@
   color: var(--muted);
 }
 
+/* rbr-rally-creator-web#97: --accent/--accent-ink (white-on-amber) reads as
+   low-contrast at this badge's small size, especially in dark mode where
+   --accent lightens to 78% L under white text -- --ink/--bg sit at opposite
+   ends of each theme's own lightness scale, so pairing them here guarantees
+   a strong badge/text split in both themes rather than tuning one more
+   amber shade by hand. */
 .surfaceGlyph {
   display: inline-flex;
   align-items: center;
@@ -104,8 +106,8 @@
   width: 1.4rem;
   height: 1.4rem;
   border-radius: 0;
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--ink);
+  color: var(--bg);
   font-weight: 700;
   font-size: 0.75rem;
 }

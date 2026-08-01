@@ -76,11 +76,19 @@
   font-family: var(--font-mono);
 }
 
+/* rbr-rally-creator-web#94: Open/Close/Super Rally read as one connected
+   row of leg-scheduling controls -- wrapping mid-row (the old flex-wrap:
+   wrap) broke that up onto multiple lines as soon as the row got a little
+   tight. nowrap keeps all three together; overflow-x lets the row scroll
+   horizontally as a last resort on very narrow viewports instead of
+   crushing the datetime-local inputs below their browser-enforced minimum
+   width. */
 .legInputs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: baseline;
   gap: 0.5rem 1rem;
+  overflow-x: auto;
 }
 
 /* "Remove leg" (rbr-rally-creator-web#29, restyled in #34) -- sits right
@@ -192,6 +200,7 @@
   display: flex;
   align-items: baseline;
   gap: 0.4rem;
+  flex-shrink: 0;
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--ink-soft);
@@ -223,10 +232,22 @@
   font-size: 0.85rem;
   font-family: inherit;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .superRallyToggle:hover {
   border-color: var(--accent);
+}
+
+/* rbr-rally-creator-web#94: --info-border/--info-fg (the same blue used for
+   service blocks) rather than --accent (this app's amber) -- an explicit
+   "blue outline while active" ask, distinct from the toggle's own amber
+   hover feedback above. */
+.superRallyActive {
+  border-color: var(--info-border);
+  color: var(--info-fg);
+  outline: 2px solid var(--info-border);
+  outline-offset: 1px;
 }
 
 /* Locked equivalent of .legInputs -- plain text, no field chrome, since
@@ -265,21 +286,19 @@
   outline-offset: 4px;
 }
 
-/* rbr-rally-creator-web#80: a service block sits as its own full-width row
-   directly under the leg's wrapped stage line -- flex-basis: 100% (see
-   ServiceBlock.module.css's .bar) forces it to break onto its own line in
-   .stagesList's flex-wrap layout, spanning the full leg-row width rather
-   than sitting boxed to one brick's width. Rendered as a sibling of the
+/* A service block sits inline right after its stage brick, flowing in
+   .stagesList's flex-wrap row exactly like the bricks do -- wraps onto the
+   next line as a pair with its stage once the row runs out of width, rather
+   than always spanning the full leg-row width. Rendered as a sibling of the
    StageBricks in .stagesList's flex flow (not nested inside a per-brick
-   wrapper), so it reads as "a bar under this row of the leg" rather than
-   "attached to one particular brick" -- matching the "first-class visual
-   peer to the stage bricks" ask. Plain fragment/child, not a sortable item:
-   dnd-kit only ever attaches to the StageBrick via its own useSortable id,
-   and this is absent from `containers`, so it's never a drag source or
-   drop target. */
+   wrapper). Plain fragment/child, not a sortable item: dnd-kit only ever
+   attaches to the StageBrick via its own useSortable id, and this is absent
+   from `containers`, so it's never a drag source or drop target -- dragging
+   a StageBrick carries its ServiceBlock along implicitly since they move
+   together in stagePlan. */
 .serviceBlockWrap {
-  flex-basis: 100%;
-  width: 100%;
+  display: flex;
+  align-self: stretch;
 }
 
 /* Matches a real StageBrick's rendered height by stretching to fill the
@@ -407,25 +426,3 @@
   background: var(--accent-soft-bg);
 }
 
-.dragPreview {
-  padding: 0.6rem 0.85rem;
-  background: var(--card);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius);
-  box-shadow: 0 10px 28px oklch(0% 0 0 / 0.22);
-  min-width: 12rem;
-}
-
-.dragPreviewName {
-  margin: 0;
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--ink);
-}
-
-.dragPreviewMeta {
-  margin: 0.15rem 0 0;
-  font-size: 0.78rem;
-  color: var(--muted);
-  text-transform: capitalize;
-}

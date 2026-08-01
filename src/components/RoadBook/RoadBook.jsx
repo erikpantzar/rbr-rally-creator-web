@@ -4,10 +4,10 @@ import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-
 import {
   computeLegStageRanges,
   createStageConfigFromPrevious,
-  cloneStageConfigWithNewUid,
   toDatetimeLocalValue,
   formatKm,
   sumStagePlanKm,
+  getServiceTier,
   MAX_LEG_SPAN_DAYS,
   MAX_LEGS,
 } from '../../lib/rallyPlan.js';
@@ -342,8 +342,60 @@ export function RoadBook({
   const legRanges = computeLegStageRanges(legSchedule);
   const containers = legRanges.map(({ startIndex, endIndex }) => stagePlan.slice(startIndex, endIndex).map((s) => s._uid));
 
+  // rbr-rally-creator-web#96: service blocks are independently sortable, not
+  // just implicit passengers on their stage. A service block has no
+  // identity of its own in stagePlan (it's a few fields *on* a stage entry),
+  // so an assigned one is addressed by a derived id, `service:<stageUid>`,
+  // meaning "the service block currently assigned to this stage."
+  // SERVICE_ID_PREFIX and the two helpers below are the only place that
+  // encoding lives.
+  const SERVICE_ID_PREFIX = 'service:';
+  const serviceSortableId = (stageUid) => `${SERVICE_ID_PREFIX}${stageUid}`;
+  const stageUidFromServiceSortableId = (id) =>
+    typeof id === 'string' && id.startsWith(SERVICE_ID_PREFIX) ? id.slice(SERVICE_ID_PREFIX.length) : null;
+
+  function isServiceAssigned(stageConfig) {
+    return getServiceTier(stageConfig.service_time).key !== 'none';
+  }
+
+  // rbr-rally-creator-web#97: the last assignable (non-rally-final) stage in
+  // a leg that doesn't have a service assigned yet -- what the leg's single
+  // "+ Add service" button targets. null when every assignable stage in the
+  // leg already has one (or there's no assignable stage at all), in which
+  // case the button isn't rendered for that leg.
+  function lastUnassignedServiceStageUid(legIndex) {
+    const { startIndex, endIndex } = legRanges[legIndex];
+    for (let absoluteIndex = endIndex - 1; absoluteIndex >= startIndex; absoluteIndex--) {
+      if (absoluteIndex === stagePlan.length - 1) continue; // rally's true last stage: never assignable
+      const stageConfig = stagePlan[absoluteIndex];
+      if (!isServiceAssigned(stageConfig)) return stageConfig._uid;
+    }
+    return null;
+  }
+
+  // Per-leg flat sequence dnd-kit sorts: each stage uid, followed by its
+  // service token if (and only if) it currently has one assigned. The
+  // rally's true last stage never gets a service token slot at all, per the
+  // existing business rule (no stage left to service before). The "+ Add
+  // service" button is a plain click target now (see ServiceConfigModal's
+  // opener below), not part of the sortable sequence.
+  const legSequences = containers.map((uids, legIndex) => {
+    const { startIndex } = legRanges[legIndex];
+    return uids.flatMap((uid, i) => {
+      const absoluteIndex = startIndex + i;
+      const isRallyLastStage = absoluteIndex === stagePlan.length - 1;
+      const stageConfig = stageByUid.get(uid);
+      if (isRallyLastStage) return [uid];
+      return isServiceAssigned(stageConfig) ? [uid, serviceSortableId(uid)] : [uid];
+    });
+  });
+
   function findContainerOfUid(uid) {
     return containers.findIndex((c) => c.includes(uid));
+  }
+
+  function findLegOfSequenceId(id) {
+    return legSequences.findIndex((seq) => seq.includes(id));
   }
 
   function rebuildStagePlanFromContainers(newContainers) {
@@ -352,19 +404,91 @@ export function RoadBook({
 
   function handleDragStart(event) {
     const uid = event.active.id;
+    const draggedServiceOf = stageUidFromServiceSortableId(uid);
+    if (draggedServiceOf) {
+      const stagePlanEntry = stageByUid.get(draggedServiceOf);
+      setActiveDrag({ type: 'service', value: stagePlanEntry, uid });
+      return;
+    }
     const stagePlanEntry = stageByUid.get(uid);
     const catalogStage = stagePlanEntry?.stage_id ? stageByCatalogId.get(stagePlanEntry.stage_id) : null;
-    setActiveDrag({ stage: catalogStage, uid });
+    const stageNumber = stagePlan.findIndex((s) => s._uid === uid) + 1;
+    setActiveDrag({ type: 'stage', stage: catalogStage, value: stagePlanEntry, stageNumber, uid });
   }
 
   function handleDragCancel() {
     setActiveDrag(null);
   }
 
+  // Moving an already-assigned service block to a different stage: doesn't
+  // reorder stagePlan itself -- stagePlan's stage order is untouched.
+  // Instead, the service *fields* land on whichever stage ends up
+  // immediately before the drop position, and the stage it was dragged away
+  // from reverts to "No Service" -- matching the earlier decision that a
+  // service block belongs to "the stage that follows it after drop", not a
+  // free-floating item.
+  function handleServiceDragEnd(sourceStageUid, draggedSequenceId, over) {
+    let destLegIndex;
+    let destSequence;
+    let destIndexInSequence;
+
+    if (over.data.current?.type === 'stage-brick' || over.data.current?.type === 'service-block') {
+      const overId = over.id;
+      destLegIndex = findLegOfSequenceId(overId);
+      if (destLegIndex === -1) return;
+      destSequence = legSequences[destLegIndex];
+      destIndexInSequence = destSequence.indexOf(overId);
+    } else if (over.data.current?.type === 'leg-container') {
+      destLegIndex = over.data.current.legIndex;
+      destSequence = legSequences[destLegIndex];
+      destIndexInSequence = destSequence.length;
+    } else {
+      return;
+    }
+
+    // Simulate the drop: remove the dragged token from its current slot,
+    // insert it at the target position, then read off whichever stage token
+    // now sits immediately before it -- that's the new owner.
+    const withoutSource = destSequence.filter((id) => id !== draggedSequenceId);
+    const clampedIndex = Math.min(destIndexInSequence, withoutSource.length);
+    const reordered = [...withoutSource.slice(0, clampedIndex), draggedSequenceId, ...withoutSource.slice(clampedIndex)];
+    const droppedAt = reordered.indexOf(draggedSequenceId);
+    const precedingId = droppedAt > 0 ? reordered[droppedAt - 1] : null;
+    const targetStageUid = precedingId && !stageUidFromServiceSortableId(precedingId) ? precedingId : null;
+
+    if (!targetStageUid || targetStageUid === sourceStageUid) return; // no real target, or dropped back in place
+
+    const { service_time, nummechanics, mechanicsSkill } = stageByUid.get(sourceStageUid);
+
+    onStagePlanChange(
+      stagePlan.map((s) => {
+        if (s._uid === targetStageUid) return { ...s, service_time, nummechanics, mechanicsSkill };
+        if (s._uid === sourceStageUid) {
+          return { ...s, service_time: 'No Service', nummechanics: 'No Service', mechanicsSkill: 'No Service' };
+        }
+        return s;
+      })
+    );
+  }
+
+  function handleClearService(stageUid) {
+    onStagePlanChange(
+      stagePlan.map((s) =>
+        s._uid === stageUid ? { ...s, service_time: 'No Service', nummechanics: 'No Service', mechanicsSkill: 'No Service' } : s
+      )
+    );
+  }
+
   function handleDragEnd(event) {
     const { active, over } = event;
     setActiveDrag(null);
     if (!over) return;
+
+    const draggedServiceOf = stageUidFromServiceSortableId(active.id);
+    if (draggedServiceOf) {
+      handleServiceDragEnd(draggedServiceOf, active.id, over);
+      return;
+    }
 
     const sourceUid = active.id;
     const sourceLegIndex = findContainerOfUid(sourceUid);
@@ -379,6 +503,15 @@ export function RoadBook({
       destLegIndex = findContainerOfUid(overUid);
       if (destLegIndex === -1) return;
       destIndexInContainer = containers[destLegIndex].indexOf(overUid);
+    } else if (over.data.current?.type === 'service-block') {
+      // Dropping a stage brick onto a service token: treat it the same as
+      // dropping onto that token's owning stage brick, so a stage can still
+      // be moved to "right after" a given position even if the pointer
+      // lands on the service block instead of the stage.
+      const overStageUid = stageUidFromServiceSortableId(over.id);
+      destLegIndex = findContainerOfUid(overStageUid);
+      if (destLegIndex === -1) return;
+      destIndexInContainer = containers[destLegIndex].indexOf(overStageUid) + 1;
     } else if (over.data.current?.type === 'leg-container') {
       destLegIndex = over.data.current.legIndex;
       destIndexInContainer = containers[destLegIndex].length;
@@ -455,18 +588,6 @@ export function RoadBook({
     });
   }
 
-  function openDuplicateModal(legIndex, uid) {
-    const { endIndex } = legRanges[legIndex];
-    setModalState({
-      mode: 'duplicate',
-      legIndex,
-      uid: null,
-      initialValue: cloneStageConfigWithNewUid(stageByUid.get(uid)),
-      willBeLastStage: isLastLegPosition(legIndex),
-      stageNumber: endIndex + 1,
-    });
-  }
-
   function closeModal() {
     setModalState(null);
   }
@@ -477,11 +598,11 @@ export function RoadBook({
     if (modalState.mode === 'edit') {
       onStagePlanChange(stagePlan.map((s) => (s._uid === modalState.uid ? config : s)));
     } else {
-      // 'add' or 'duplicate': append as a brand-new brick at the end of the
-      // target leg's slice of stagePlan, and grow that leg's stage_count by
-      // one to match -- the road book has no fixed slot count to fill into
-      // (per DESIGN_SPEC.md's additive "Lego bits" model), so a new brick
-      // always means the plan (and its owning leg) get one longer.
+      // 'add': append as a brand-new brick at the end of the target leg's
+      // slice of stagePlan, and grow that leg's stage_count by one to match
+      // -- the road book has no fixed slot count to fill into (per
+      // DESIGN_SPEC.md's additive "Lego bits" model), so a new brick always
+      // means the plan (and its owning leg) get one longer.
       const { endIndex } = legRanges[modalState.legIndex];
       const nextStagePlan = [...stagePlan.slice(0, endIndex), config, ...stagePlan.slice(endIndex)];
       onStagePlanChange(nextStagePlan);
@@ -567,13 +688,15 @@ export function RoadBook({
                         stageNumber={absoluteIndex + 1}
                         locked
                       />
-                      {/* rbr-rally-creator-web#80: locked rallies are still
-                          read-only for service, same as everything else on
-                          this path -- shown so the road book still reads
-                          the full service rhythm at a glance, but with no
-                          click handler/affordance since there's nothing
-                          left to edit. */}
-                      {!isRallyLastStage && (
+                      {/* rbr-rally-creator-web#80/#97: locked rallies are
+                          still read-only for service, same as everything
+                          else on this path -- shown so the road book still
+                          reads the full service rhythm at a glance, but
+                          with no click handler/affordance since there's
+                          nothing left to edit. Only rendered when actually
+                          assigned, matching the editable path's "no
+                          always-present placeholder per stage" rule. */}
+                      {!isRallyLastStage && isServiceAssigned(stageConfig) && (
                         <div className={styles.serviceBlockWrap}>
                           <ServiceBlock serviceTime={stageConfig.service_time} disabled />
                         </div>
@@ -656,7 +779,7 @@ export function RoadBook({
                       Reuses the existing muted uppercase .legFieldLabel
                       convention rather than introducing a new label style. */}
                   <label className={styles.legFieldLabel}>
-                    Open (Stockholm time)
+                    Open
                     <input
                       type="datetime-local"
                       placeholder="Open time"
@@ -665,7 +788,7 @@ export function RoadBook({
                     />
                   </label>
                   <label className={styles.legFieldLabel}>
-                    Close (Stockholm time)
+                    Close
                     <input
                       type="datetime-local"
                       placeholder="Close time"
@@ -682,10 +805,16 @@ export function RoadBook({
                       options.superRally.length (cycling to the *next* entry,
                       wrapping around) rather than hardcoding the two known
                       literal strings, so this keeps working even if that
-                      option list ever changes shape. */}
+                      option list ever changes shape. rbr-rally-creator-web#94:
+                      .superRallyActive (keyed off super_rally !== 'disabled',
+                      not the exact '150%' string) gives the toggle a blue
+                      outline while active, so its state reads at a glance
+                      instead of only via the button's text label. */}
                   <button
                     type="button"
-                    className={styles.superRallyToggle}
+                    className={[styles.superRallyToggle, leg.super_rally !== 'disabled' ? styles.superRallyActive : '']
+                      .filter(Boolean)
+                      .join(' ')}
                     onClick={() => {
                       const currentIndex = options.superRally.indexOf(leg.super_rally);
                       const nextIndex = (currentIndex + 1 + options.superRally.length) % options.superRally.length;
@@ -697,63 +826,68 @@ export function RoadBook({
                 </div>
               </div>
 
-              <SortableContext items={containers[legIndex]} strategy={horizontalListSortingStrategy}>
+              <SortableContext items={legSequences[legIndex]} strategy={horizontalListSortingStrategy}>
                 <LegDropContainer legIndex={legIndex}>
                   {legStages.map((stageConfig, i) => {
                     const absoluteIndex = startIndex + i;
                     const catalogStage = stageConfig.stage_id ? stageByCatalogId.get(stageConfig.stage_id) : null;
                     // rbr-rally-creator-web#80: only the rally's true final
                     // stage overall gets no service block, matching the
-                    // site's own isLastStage-driven disable behavior --
-                    // every other stage in every leg gets one, including
-                    // the last stage of a non-final leg.
+                    // site's own isLastStage-driven disable behavior.
+                    // rbr-rally-creator-web#97: among the other stages, a
+                    // block only renders inline once it's actually assigned
+                    // -- an unassigned stage shows nothing, since assignment
+                    // now happens by dragging the leg's single +Add slot in,
+                    // not via an always-present per-stage placeholder.
                     const isRallyLastStage = absoluteIndex === stagePlan.length - 1;
+                    const showServiceBlock = !isRallyLastStage && isServiceAssigned(stageConfig);
                     return (
-                      // Fragment, NOT a sortable wrapper -- StageBrick
-                      // itself is still the only sortable item here (its own
-                      // useSortable id is stageConfig._uid, exactly what
-                      // `containers[legIndex]` above lists), so dnd-kit only
-                      // ever sees the bricks as drag sources/targets. The
-                      // ServiceBlock rendered alongside it is a plain
-                      // button, absent from `containers` entirely, so
-                      // closestCenter collision detection and
-                      // handleDragEnd's over.data.current.type checks never
-                      // see it as a drop target either.
+                      // Fragment, not a sortable wrapper itself -- StageBrick
+                      // and ServiceBlock each carry their own useSortable id
+                      // (stageConfig._uid, and serviceSortableId(uid)
+                      // respectively), both listed in `legSequences[legIndex]`
+                      // above, so dnd-kit sees them as two independent drag
+                      // sources/drop targets rather than one paired unit.
                       <Fragment key={stageConfig._uid}>
                         <StageBrick
                           uid={stageConfig._uid}
                           stage={catalogStage}
                           value={stageConfig}
                           stageNumber={absoluteIndex + 1}
-                          isFirst={i === 0}
-                          isLast={i === legStages.length - 1}
                           onEdit={() => openEditModal(legIndex, stageConfig._uid)}
-                          onDuplicate={() => openDuplicateModal(legIndex, stageConfig._uid)}
                           onDelete={() => handleDeleteStage(legIndex, i, stageConfig)}
-                          onMoveUp={() => {
-                            if (i === 0) return;
-                            const newContainers = containers.map((c) => [...c]);
-                            newContainers[legIndex] = arrayMove(newContainers[legIndex], i, i - 1);
-                            onStagePlanChange(rebuildStagePlanFromContainers(newContainers));
-                          }}
-                          onMoveDown={() => {
-                            if (i === legStages.length - 1) return;
-                            const newContainers = containers.map((c) => [...c]);
-                            newContainers[legIndex] = arrayMove(newContainers[legIndex], i, i + 1);
-                            onStagePlanChange(rebuildStagePlanFromContainers(newContainers));
-                          }}
                         />
-                        {!isRallyLastStage && (
+                        {showServiceBlock && (
                           <div className={styles.serviceBlockWrap}>
                             <ServiceBlock
                               serviceTime={stageConfig.service_time}
+                              sortableId={serviceSortableId(stageConfig._uid)}
                               onClick={() => openServiceModal(stageConfig._uid)}
+                              onClear={() => handleClearService(stageConfig._uid)}
                             />
                           </div>
                         )}
                       </Fragment>
                     );
                   })}
+
+                  {/* rbr-rally-creator-web#97: the leg's one always-present
+                      "+ Add service" slot, at the very end of the row --
+                      clicking it opens ServiceConfigModal directly, scoped
+                      to the leg's last stage that doesn't have one assigned
+                      yet (lastUnassignedServiceStageUid). Omitted once every
+                      assignable stage in the leg already has a service (or
+                      there's no assignable stage at all) -- nothing left for
+                      it to target. */}
+                  {(() => {
+                    const targetUid = lastUnassignedServiceStageUid(legIndex);
+                    if (!targetUid) return null;
+                    return (
+                      <div className={styles.serviceBlockWrap}>
+                        <ServiceBlock serviceTime="No Service" onClick={() => openServiceModal(targetUid)} />
+                      </div>
+                    );
+                  })()}
 
                   <button
                     type="button"
@@ -814,17 +948,22 @@ export function RoadBook({
         </button>
       </div>
 
+      {/* rbr-rally-creator-web#96: the dragged item's overlay is the real
+          StageBrick/ServiceBlock itself (via the same `locked`-style plain
+          rendering StageBrick already has for the read-only road book, and
+          ServiceBlock's non-sortable mode when sortableId is omitted) --
+          guarantees the floating preview matches the source block's shape
+          and size exactly, rather than a bespoke box that has to be kept in
+          sync by hand. */}
       <DragOverlay>
-        {activeDrag ? (
-          <div className={styles.dragPreview}>
-            <p className={styles.dragPreviewName}>{activeDrag.stage?.name ?? 'Stage'}</p>
-            {activeDrag.stage && (
-              <p className={styles.dragPreviewMeta}>
-                {activeDrag.stage.country} &middot; {activeDrag.stage.surface} &middot; {activeDrag.stage.length}
-              </p>
-            )}
+        {activeDrag?.type === 'stage' && (
+          <StageBrick uid={activeDrag.uid} stage={activeDrag.stage} value={activeDrag.value} stageNumber={activeDrag.stageNumber} locked />
+        )}
+        {activeDrag?.type === 'service' && (
+          <div className={styles.serviceBlockWrap}>
+            <ServiceBlock serviceTime={activeDrag.value?.service_time} />
           </div>
-        ) : null}
+        )}
       </DragOverlay>
 
       {modalState && (

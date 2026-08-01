@@ -47,21 +47,21 @@ function getStageNames(stage, label) {
 // to reorder within a leg or across a leg boundary -- RoadBook still owns
 // the DndContext and the actual reordering/leg-count math on drop.
 //
-// Delete/up/down/duplicate controls live in a single `.controls` wrapper,
-// hidden at rest and revealed on :hover/:focus-within of the brick root (see
-// StageBrick.module.css) -- purely a CSS concern, no JSX branching needed.
+// Delete is the only remaining control, hidden at rest and revealed on
+// :hover/:focus-within of the brick root (see StageBrick.module.css) --
+// purely a CSS concern, no JSX branching needed. The rest of the brick's
+// surface is both the drag source (dnd-kit listeners/attributes live on the
+// root itself, not a separate handle) and the click-to-edit target --
+// PointerSensor's activationConstraint (distance: 6, see RoadBook.jsx) is
+// what tells a plain click from a drag apart, so onEdit only fires when the
+// pointer didn't move far enough to count as a drag.
 export function StageBrick({
   uid,
   stage,
   value,
   stageNumber,
-  isFirst,
-  isLast,
   onEdit,
-  onDuplicate,
   onDelete,
-  onMoveUp,
-  onMoveDown,
   locked = false,
 }) {
   // Sortable hook is called unconditionally (Rules of Hooks) even though
@@ -69,8 +69,10 @@ export function StageBrick({
   // never actually need drag wiring, but the hook itself is cheap and this
   // keeps StageBrick a single component rather than needing a second one
   // just to dodge a conditional hook call.
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver, setActivatorNodeRef } =
-    useSortable({ id: uid, data: { type: 'stage-brick' } });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } = useSortable({
+    id: uid,
+    data: { type: 'stage-brick' },
+  });
 
   // Locked bricks render a plain, flat summary -- per DESIGN_SPEC.md's
   // "Created / locked" state ("bricks render in a plain locked/summary
@@ -113,45 +115,8 @@ export function StageBrick({
   const brickNames = getStageNames(stage, value._label);
 
   return (
-    <div ref={setNodeRef} style={style} className={rootClassName}>
+    <div ref={setNodeRef} style={style} className={rootClassName} {...listeners} {...attributes}>
       <div className={styles.controls}>
-        <button
-          type="button"
-          className={styles.dragHandle}
-          ref={setActivatorNodeRef}
-          {...listeners}
-          {...attributes}
-          aria-label={`Drag stage ${stageNumber}`}
-        >
-          ⠿
-        </button>
-        <button
-          type="button"
-          className={styles.controlButton}
-          onClick={stopAndRun(onMoveUp)}
-          disabled={isFirst}
-          aria-label={`Move stage ${stageNumber} up`}
-        >
-          ↑
-        </button>
-        <button
-          type="button"
-          className={styles.controlButton}
-          onClick={stopAndRun(onMoveDown)}
-          disabled={isLast}
-          aria-label={`Move stage ${stageNumber} down`}
-        >
-          ↓
-        </button>
-        <button
-          type="button"
-          className={styles.controlButton}
-          onClick={stopAndRun(onDuplicate)}
-          aria-label={`Duplicate stage ${stageNumber}`}
-          title="Duplicate"
-        >
-          ⧉
-        </button>
         <button
           type="button"
           className={[styles.controlButton, styles.deleteButton].join(' ')}

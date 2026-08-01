@@ -26,6 +26,15 @@
   opacity: 0.55;
 }
 
+.block.dragging {
+  opacity: 0.5;
+}
+
+.block.dropTarget {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .active {
   background: var(--info-bg);
   color: var(--info-fg);
@@ -47,14 +56,53 @@
   font-size: 0.85em;
 }
 
-/* Full-width bar sitting after a stage brick in the leg row -- a first-class
-   visual peer to the bricks (rbr-rally-creator-web#80's explicit ask), not
-   wrapped inline with them. */
+/* Matches StageBrick's .deleteButton -- hidden at rest, revealed on hover of
+   the block, positioned so it doesn't fight with the block's own drag
+   listeners (a separate element with its own onClick/onKeyDown, stopping
+   propagation before it reaches the draggable button beneath it). */
+.clearButton {
+  margin-left: auto;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0;
+  color: var(--info-fg);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  cursor: pointer;
+}
+
+.block:hover .clearButton,
+.clearButton:focus-visible {
+  opacity: 1;
+}
+
+.clearButton:hover {
+  color: var(--danger-fg);
+  background: var(--danger-bg);
+}
+
+/* Compact block sitting inline after its stage brick, flowing in the same
+   wrapped leg row rather than breaking onto its own full-width line -- a
+   first-class visual peer to the bricks that moves and wraps alongside them. */
 .bar {
-  width: 100%;
+  flex-direction: column;
   justify-content: center;
+  align-items: flex-start;
+  min-width: 7rem;
   padding: 0.5rem 0.75rem;
   font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+/* Only assigned blocks (sortableId set) actually drag -- the leg's "+ Add
+   service" button is click-only, so it keeps .block's plain pointer cursor
+   instead of implying it can be dragged. */
+.bar.draggable {
+  cursor: grab;
+  touch-action: none;
+}
+
+.bar.draggable:active:not(:disabled) {
+  cursor: grabbing;
 }
 
 /* Compact inline button for StageConfigModal's "Service" form-group --

@@ -13,10 +13,9 @@ import {
   computeLegStageRanges,
   normalizeLastStageService,
   cloneStageConfigWithNewUid,
-  toDatetimeLocalValue,
   isLegOpenTimeTooSoon,
   clampLegTimes,
-  MAX_LEG_SPAN_DAYS,
+  applyLegFieldChange,
   MAX_LEGS,
   MIN_LEG_LEAD_MINUTES,
   CLAMP_LEG_LEAD_MINUTES,
@@ -615,27 +614,12 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
     });
   }
 
-  // The site itself caps a leg's open->close window at 7 days; this app
-  // enforces 6 to stay safely inside that limit. Whichever date field just
-  // changed, clamp close_time back down if it now exceeds open_time + 6
-  // days, rather than only warning after the fact.
+  // rbr-rally-creator-web#89: the actual validation/cascade rules live in
+  // applyLegFieldChange (rallyPlan.js) so they're plain, testable data
+  // transforms over legSchedule -- this handler is just "apply the edit,
+  // commit the result".
   function handleLegFieldChange(legIndex, field, value) {
-    const newLegs = [...legSchedule];
-    let updatedLeg = { ...newLegs[legIndex], [field]: value };
-
-    if ((field === 'open_time' || field === 'close_time') && updatedLeg.open_time && updatedLeg.close_time) {
-      const openDate = new Date(updatedLeg.open_time);
-      const closeDate = new Date(updatedLeg.close_time);
-      const maxCloseDate = new Date(openDate);
-      maxCloseDate.setDate(maxCloseDate.getDate() + MAX_LEG_SPAN_DAYS);
-
-      if (closeDate > maxCloseDate) {
-        updatedLeg = { ...updatedLeg, close_time: toDatetimeLocalValue(maxCloseDate) };
-      }
-    }
-
-    newLegs[legIndex] = updatedLeg;
-    setLegSchedule(newLegs);
+    setLegSchedule(applyLegFieldChange(legSchedule, legIndex, field, value));
   }
 
   // rbr-rally-creator-web#63: one-click remedy for the "leg opens too soon"

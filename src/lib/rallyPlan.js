@@ -240,6 +240,78 @@ export function clampLegTimes(openTime, closeTime, now = stockholmNow()) {
   };
 }
 
+// rbr-rally-creator-web#89: applies a manual edit to one leg's open_time/
+// close_time field, then two validation rules the issue asks for:
+//
+//  1. Own-leg consistency -- if the edited leg's open_time now lands at or
+//     after its own close_time, snap close_time to exactly open_time + 7
+//     days (the site's own max open->close window, see MAX_LEG_SPAN_DAYS's
+//     comment) rather than leaving an inverted/zero-length window on screen.
+//     This only fires from an open_time edit -- a close_time edit that's
+//     simply earlier than open_time is caught by the pre-existing "clamp
+//     close_time back down if it exceeds open_time + N days" behavior
+//     RallyBuilder already had; this rule covers the other direction (open
+//     pushed past a close_time that didn't move).
+//
+//  2. Cascade -- legs are meant to run in order, one after another. If this
+//     edit leaves the edited leg's open_time at or after the *next* leg's
+//     open_time, every following leg's chronological position is no longer
+//     meaningful (they were scheduled assuming this leg still ended where it
+//     used to). Rather than trying to guess a new schedule for them, every
+//     leg after the edited one is set to exactly the edited leg's new
+//     open_time/close_time -- the same "start together" reset the issue
+//     text describes ("update all the legs that come after ... to be exact
+//     the same as the leg we changed, start and close").
+//
+// Pure function over the whole legSchedule array so RallyBuilder's handler
+// stays a thin "call this, setLegSchedule the result" wrapper.
+export function applyLegFieldChange(legSchedule, legIndex, field, value) {
+  const newLegs = [...legSchedule];
+  let updatedLeg = { ...newLegs[legIndex], [field]: value };
+
+  if (field === 'open_time' && updatedLeg.open_time && updatedLeg.close_time) {
+    const openDate = new Date(updatedLeg.open_time);
+    const closeDate = new Date(updatedLeg.close_time);
+    if (!Number.isNaN(openDate.getTime()) && !Number.isNaN(closeDate.getTime()) && openDate >= closeDate) {
+      const newCloseDate = new Date(openDate);
+      newCloseDate.setDate(newCloseDate.getDate() + 7);
+      updatedLeg = { ...updatedLeg, close_time: toDatetimeLocalValue(newCloseDate) };
+    }
+  }
+
+  if ((field === 'open_time' || field === 'close_time') && updatedLeg.open_time && updatedLeg.close_time) {
+    const openDate = new Date(updatedLeg.open_time);
+    const closeDate = new Date(updatedLeg.close_time);
+    const maxCloseDate = new Date(openDate);
+    maxCloseDate.setDate(maxCloseDate.getDate() + MAX_LEG_SPAN_DAYS);
+
+    if (!Number.isNaN(closeDate.getTime()) && closeDate > maxCloseDate) {
+      updatedLeg = { ...updatedLeg, close_time: toDatetimeLocalValue(maxCloseDate) };
+    }
+  }
+
+  newLegs[legIndex] = updatedLeg;
+
+  const nextLeg = newLegs[legIndex + 1];
+  const editedOpenDate = new Date(updatedLeg.open_time);
+  const nextOpenDate = nextLeg ? new Date(nextLeg.open_time) : null;
+  const cascadeNeeded =
+    nextLeg &&
+    updatedLeg.open_time &&
+    !Number.isNaN(editedOpenDate.getTime()) &&
+    nextOpenDate &&
+    !Number.isNaN(nextOpenDate.getTime()) &&
+    editedOpenDate >= nextOpenDate;
+
+  if (cascadeNeeded) {
+    for (let i = legIndex + 1; i < newLegs.length; i += 1) {
+      newLegs[i] = { ...newLegs[i], open_time: updatedLeg.open_time, close_time: updatedLeg.close_time };
+    }
+  }
+
+  return newLegs;
+}
+
 // Seeds a brand-new "+ Add stage" slot from the most recently added/edited
 // stage already in the plan (rbr-rally-creator-web#5), instead of the
 // generic hardcoded defaults -- carrying forward surface age/wetness/

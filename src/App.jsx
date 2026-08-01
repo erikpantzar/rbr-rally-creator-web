@@ -5,6 +5,7 @@ import { CredentialForm } from './components/CredentialForm/CredentialForm.jsx';
 import { CredentialStatus } from './components/CredentialStatus/CredentialStatus.jsx';
 import { RallyBuilder } from './components/RallyBuilder/RallyBuilder.jsx';
 import { RallySidebar } from './components/RallySidebar/RallySidebar.jsx';
+import { StockholmClock } from './components/StockholmClock/StockholmClock.jsx';
 import styles from './App.module.css';
 
 // Only this top-level component touches fetch/localStorage -- everything
@@ -107,9 +108,7 @@ function App() {
           </a>
         </div>
         <div className={styles.headerActions}>
-          {credState.status === 'saved' && (
-            <CredentialStatus username={credState.username} onClear={handleClearCredentials} />
-          )}
+          <StockholmClock />
         </div>
       </header>
 
@@ -119,7 +118,7 @@ function App() {
           {credState.status === 'unsaved' ? (
             <CredentialForm onSubmit={handleSaveCredentials} submitting={saving} error={saveError} />
           ) : (
-            <p className={styles.muted}>Signed in as {credState.username}.</p>
+            <CredentialStatus username={credState.username} onClear={handleClearCredentials} />
           )}
         </section>
       )}

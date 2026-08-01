@@ -779,18 +779,20 @@ export function RoadBook({
                       Reuses the existing muted uppercase .legFieldLabel
                       convention rather than introducing a new label style. */}
                   <label className={styles.legFieldLabel}>
-                    Open
+                    <span className={styles.legFieldLabelText}>Open</span>
                     <input
                       type="datetime-local"
+                      className={styles.legTimeInputOpen}
                       placeholder="Open time"
                       value={leg.open_time}
                       onChange={(e) => onLegFieldChange(legIndex, 'open_time', e.target.value)}
                     />
                   </label>
                   <label className={styles.legFieldLabel}>
-                    Close
+                    <span className={styles.legFieldLabelText}>Close</span>
                     <input
                       type="datetime-local"
+                      className={styles.legTimeInputClose}
                       placeholder="Close time"
                       value={leg.close_time}
                       max={maxCloseTimeFor(leg.open_time)}

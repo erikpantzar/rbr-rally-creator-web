@@ -208,6 +208,25 @@
   letter-spacing: 0.03em;
 }
 
+/* rbr-rally-creator-web#94: visually hidden, not removed -- the datetime
+   inputs' own browser-native chrome doesn't say "open" or "close" on its
+   own, so a screen reader (and any other non-visual UA) still needs this
+   text even though sighted users no longer see it (the green/red outline
+   below carries that distinction visually instead). Standard
+   clip/clip-path visually-hidden recipe, not display:none, so it stays in
+   the accessibility tree and tab order. */
+.legFieldLabelText {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .legInputs input,
 .legInputs select {
   padding: 0.4rem 0.6rem;
@@ -215,8 +234,23 @@
   border-radius: 0;
   background: var(--bg);
   color: var(--ink);
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   font-family: inherit;
+}
+
+/* rbr-rally-creator-web#94: subtle green/red outline distinguishes Open
+   from Close now that their text labels are visually hidden above --
+   --success-fg/--danger-fg are already the app's established green/red
+   pair (see tokens.css), just applied to border-color here instead of a
+   filled background, to keep it "subtle" rather than a loud status chip.
+   Selector matches .legInputs input's specificity (two compound selectors)
+   so it wins without needing !important. */
+.legInputs input.legTimeInputOpen {
+  border-color: var(--success-fg);
+}
+
+.legInputs input.legTimeInputClose {
+  border-color: var(--danger-fg);
 }
 
 /* rbr-rally-creator-web#61: Super Rally toggle button -- same field chrome

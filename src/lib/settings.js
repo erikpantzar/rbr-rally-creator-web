@@ -30,3 +30,19 @@ export function setBaseUrl(url) {
 export function hasBaseUrl() {
   return Boolean(getBaseUrl());
 }
+
+// rbr-rally-creator-web#100: whether StagePicker renders stage thumbnails at
+// all -- a plain display preference, same "sticks in localStorage, not a
+// secret" reasoning as baseUrl above. Defaults to on (thumbnails were never
+// optional before this), so an unset key must read as `true`, not the usual
+// falsy-default -- hence the explicit !== 'false' check rather than a
+// Boolean(...) coercion.
+const THUMBNAILS_KEY = 'rbr.stageThumbnailsEnabled';
+
+export function getStageThumbnailsEnabled() {
+  return localStorage.getItem(THUMBNAILS_KEY) !== 'false';
+}
+
+export function setStageThumbnailsEnabled(enabled) {
+  localStorage.setItem(THUMBNAILS_KEY, String(enabled));
+}

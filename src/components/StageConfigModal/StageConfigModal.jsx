@@ -4,7 +4,14 @@ import { ServiceConfigModal } from '../ServiceConfigModal/ServiceConfigModal.jsx
 import { loadStageConfigDraft, saveStageConfigDraft, clearStageConfigDraft } from '../../lib/stageConfigDraft.js';
 import { getDefaultTyreForSurface, getWetTyreForSurface } from '../../lib/rallyPlan.js';
 import { loadStagePickerFilters, saveStagePickerFilters } from '../../lib/stagePickerFilters.js';
+import { getStageThumbnailsEnabled, setStageThumbnailsEnabled } from '../../lib/settings.js';
 import styles from './StageConfigModal.module.css';
+
+// rbr-rally-creator-web#100: how long a card must be hovered before the
+// larger preview appears -- long enough that just sweeping the pointer
+// across the grid to scan names doesn't pop up a preview per card, short
+// enough that pausing on one still feels responsive.
+const THUMBNAIL_PREVIEW_DELAY_MS = 500;
 
 // In-modal stage picker. DESIGN_SPEC.md leaves open whether this reuses
 // StageCatalogPanel's internals or gets its own simpler list -- StageCatalogPanel's
@@ -19,11 +26,74 @@ import styles from './StageConfigModal.module.css';
 function StagePicker({ stages, selectedStageId, onSelect }) {
   const [nameFilter, setNameFilter] = useState('');
   const saved = useMemo(() => loadStagePickerFilters() ?? {}, []);
-  const [country, setCountry] = useState(saved.country ?? '');
-  const [surface, setSurface] = useState(saved.surface ?? '');
+  // rbr-rally-creator-web#99: editing an already-picked stage should show
+  // the picker already scoped to it (and its siblings) instead of whatever
+  // filter happened to be left over from a previous, unrelated pick --
+  // takes priority over the persisted filters, but only on this initial
+  // mount (opening the modal fresh each time, per StageConfigModal's own
+  // per-open mount/unmount), not on every selection change within an
+  // already-open picker.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initialStage = useMemo(() => stages.find((s) => s.id === selectedStageId) ?? null, []);
+  const [country, setCountry] = useState(initialStage?.country ?? saved.country ?? '');
+  const [surface, setSurface] = useState(initialStage?.surface ?? saved.surface ?? '');
 
   const countries = useMemo(() => [...new Set(stages.map((s) => s.country))].sort(), [stages]);
   const surfaces = useMemo(() => [...new Set(stages.map((s) => s.surface))].sort(), [stages]);
+
+  // rbr-rally-creator-web#100: thumbnails are an optional, persisted display
+  // setting -- lazy useState initializer reads localStorage once on mount,
+  // same pattern as everywhere else in this file (loadStagePickerFilters
+  // above).
+  const [thumbnailsEnabled, setThumbnailsEnabled] = useState(() => getStageThumbnailsEnabled());
+
+  function handleToggleThumbnails(enabled) {
+    setThumbnailsEnabled(enabled);
+    setStageThumbnailsEnabled(enabled);
+  }
+
+  // rbr-rally-creator-web#100: hover-preview -- a larger version of the
+  // thumbnail floating near the cursor, after a pause (not immediately) so
+  // sweeping across the grid doesn't flash a preview per card. `hoverStage`
+  // is null when nothing's being previewed; timer + latest pointer position
+  // live in refs since neither needs to trigger a render on their own (only
+  // the eventual setHoverStage/setHoverPos calls do).
+  const [hoverStage, setHoverStage] = useState(null);
+  const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
+  const hoverTimerRef = useRef(null);
+
+  function handleCardMouseEnter(stage, e) {
+    setHoverPos({ x: e.clientX, y: e.clientY });
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    if (!stage.imageUrl) return;
+    hoverTimerRef.current = setTimeout(() => {
+      hoverTimerRef.current = null;
+      setHoverStage(stage);
+    }, THUMBNAIL_PREVIEW_DELAY_MS);
+  }
+
+  function handleCardMouseMove(e) {
+    setHoverPos({ x: e.clientX, y: e.clientY });
+  }
+
+  function handleCardMouseLeave() {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    setHoverStage(null);
+  }
+
+  // The delay timer is per-hover, not tied to component lifetime, but a
+  // still-pending one needs clearing if the picker itself unmounts mid-delay
+  // (e.g. the user clicks a card, closing the modal, while a preview was
+  // about to appear) -- otherwise it'd fire setHoverStage on an unmounted
+  // component.
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    };
+  }, []);
 
   // Stale-value guard: if the restored filter value isn't in the current catalog,
   // reset it to '' to avoid a permanently-empty stage list if the catalog changes.
@@ -79,9 +149,19 @@ function StagePicker({ stages, selectedStageId, onSelect }) {
         </select>
       </div>
 
-      <p className={styles.pickerCount}>
-        {filteredStages.length} of {stages.length} stages
-      </p>
+      <div className={styles.pickerToolbar}>
+        <p className={styles.pickerCount}>
+          {filteredStages.length} of {stages.length} stages
+        </p>
+        <label className={styles.pickerThumbnailToggle}>
+          <input
+            type="checkbox"
+            checked={thumbnailsEnabled}
+            onChange={(e) => handleToggleThumbnails(e.target.checked)}
+          />
+          Show thumbnails
+        </label>
+      </div>
 
       <div className={styles.pickerList}>
         {filteredStages.map((stage) => (
@@ -90,15 +170,22 @@ function StagePicker({ stages, selectedStageId, onSelect }) {
             key={stage.id}
             className={[styles.pickerCard, stage.id === selectedStageId ? styles.pickerCardSelected : ''].join(' ')}
             onClick={() => onSelect(stage.id)}
+            onMouseEnter={(e) => handleCardMouseEnter(stage, e)}
+            onMouseMove={handleCardMouseMove}
+            onMouseLeave={handleCardMouseLeave}
           >
             {/* Fixed-size box regardless of whether imageUrl is present (rbr-rally-creator-service#15)
                 so the grid doesn't reflow as thumbnails load in, and so stages without one (older
-                catalog entries, or before the backend fix ships) still line up with ones that have it. */}
-            <span className={styles.pickerCardThumb}>
-              {stage.imageUrl && (
-                <img src={stage.imageUrl} alt="" loading="lazy" className={styles.pickerCardThumbImg} />
-              )}
-            </span>
+                catalog entries, or before the backend fix ships) still line up with ones that have it.
+                Hidden outright (not just the <img>) when thumbnailsEnabled is off, per #100's ask for
+                an optional toggle -- no empty box taking up card width once thumbnails are off. */}
+            {thumbnailsEnabled && (
+              <span className={styles.pickerCardThumb}>
+                {stage.imageUrl && (
+                  <img src={stage.imageUrl} alt="" loading="lazy" className={styles.pickerCardThumbImg} />
+                )}
+              </span>
+            )}
             <span className={styles.pickerCardBody}>
               <span className={styles.pickerCardName}>{stage.name}</span>
               <span className={styles.pickerCardMeta}>
@@ -109,6 +196,24 @@ function StagePicker({ stages, selectedStageId, onSelect }) {
         ))}
         {filteredStages.length === 0 && <p className={styles.pickerEmpty}>No stages match this filter.</p>}
       </div>
+
+      {/* rbr-rally-creator-web#100: larger floating preview, positioned next
+          to the cursor rather than anchored to the card -- simplest way to
+          keep it near the pointer regardless of where in the (possibly
+          scrolled) grid the hovered card sits. Rendered outside .pickerList
+          so its own layout never affects the grid it floats over; fixed
+          positioning means viewport coordinates (clientX/clientY) are the
+          right coordinate space, no scroll-offset math needed. Suppressed
+          entirely when thumbnails are toggled off -- nothing to preview. */}
+      {thumbnailsEnabled && hoverStage && (
+        <div
+          className={styles.pickerHoverPreview}
+          style={{ left: hoverPos.x + 20, top: hoverPos.y + 20 }}
+          aria-hidden="true"
+        >
+          <img src={hoverStage.imageUrl} alt="" />
+        </div>
+      )}
     </div>
   );
 }

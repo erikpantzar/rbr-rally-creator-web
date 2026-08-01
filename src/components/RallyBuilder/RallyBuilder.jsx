@@ -47,7 +47,7 @@ const TERMINAL_JOB_STATUSES = new Set([
   'cancelled',
 ]);
 
-export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initialRallyId }) {
+export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stages, setStages] = useState([]);
@@ -58,13 +58,6 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
   // rbr-rally-creator-web#78: handleNewRally focuses this after the reset
   // renders, so the ref itself never triggers a re-render.
   const rallyNameInputRef = useRef(null);
-
-  // Set the moment a rally opened from history is saved again (see
-  // handleSaveRally) -- lets repeat Saves update the same rbr.rallies entry
-  // in place instead of creating a new one each time. Seeded from
-  // initialRallyId when App.jsx opened this builder for an existing rally
-  // (see its `key={activeRally?.id ?? 'new'}` remount trick below).
-  const [currentRallyId, setCurrentRallyId] = useState(initialRallyId ?? null);
   const [savedNotice, setSavedNotice] = useState(false);
 
   // rbr-rally-creator-web#63: brief confirmation Toast after
@@ -182,10 +175,10 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
     }
 
     fetchData();
-    // initialPayload/initialRallyId are only ever meaningful on first mount
-    // -- App.jsx forces a fresh RallyBuilder instance (via `key`) whenever
-    // activeRally changes, rather than expecting this same instance to react
-    // to a later change of those props.
+    // initialPayload is only ever meaningful on first mount -- App.jsx
+    // forces a fresh RallyBuilder instance (via `key`) whenever activeRally
+    // changes, rather than expecting this same instance to react to a later
+    // change of that prop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseUrl]);
 
@@ -436,26 +429,25 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
     }
   }
 
-  // rbr-rally-creator-web#46: explicit, named save into the rbr.rallies
+  // rbr-rally-creator-web#98: explicit, named save into the rbr.rallies
   // history list -- distinct from the automatic currentDraft autosave
   // above. Keeps _uid on stagePlan entries (unlike handleCreateRally's
   // submit payload) since this is for reopening later in this same editor,
   // where dnd-kit still needs that identity; it never goes over the wire.
+  // Always passes a fresh id (never the id of whatever's currently open) so
+  // every press of Save adds a brand-new, separately-timestamped snapshot
+  // to history rather than overwriting the last one -- each Save is its own
+  // point-in-time copy you can come back to individually.
   function handleSaveRally() {
     const payload = { rallyBasics, carGroupIds, stagePlan, legSchedule };
-    const id = saveRally(currentRallyId, rallyBasics.rally_name, payload);
-    setCurrentRallyId(id);
+    saveRally(null, rallyBasics.rally_name, payload);
     setSavedNotice(true);
   }
 
-  // Starts a brand-new, blank rally without leaving this screen. The key
-  // part is resetting currentRallyId to null: the next Save after this
-  // creates a fresh rbr.rallies entry instead of overwriting whatever was
-  // open before (handleSaveRally upserts by currentRallyId). Also clears
-  // currentDraft so a stray refresh right after clicking this doesn't
-  // resurrect the rally that was just abandoned.
+  // Starts a brand-new, blank rally without leaving this screen. Also
+  // clears currentDraft so a stray refresh right after clicking this
+  // doesn't resurrect the rally that was just abandoned.
   function handleNewRally() {
-    setCurrentRallyId(null);
     setRallyBasics({
       rally_name: '',
       description: '',
@@ -537,14 +529,6 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
     .map((leg, i) => (isLegOpenTimeTooSoon(leg.open_time) ? i + 1 : null))
     .filter((n) => n !== null);
 
-  // Both password fields are optional (an empty rally has no password), but
-  // if either has been touched they must match -- otherwise the mismatch
-  // would only ever surface later as an opaque backend/site error, if at
-  // all (RallyBasicsForm renders "Password" + "Confirm password" as if this
-  // were already enforced).
-  const passwordMismatch =
-    (rallyBasics.password1 || rallyBasics.password2) && rallyBasics.password1 !== rallyBasics.password2;
-
   const canSubmit =
     !submitting &&
     credentialsSaved &&
@@ -554,8 +538,7 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
     legStagesBalanced &&
     emptyLegNumbers.length === 0 &&
     !tooManyLegs &&
-    legsOpeningTooSoon.length === 0 &&
-    !passwordMismatch;
+    legsOpeningTooSoon.length === 0;
 
   // Every pre-submit problem the old alert()s/.legWarning used to catch,
   // collected into one list for ReadinessBanner. Note: "some stage slots
@@ -576,9 +559,6 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, initia
   }
   if (stagePlan.length === 0) {
     readinessProblems.push('Add at least one stage before creating the rally.');
-  }
-  if (passwordMismatch) {
-    readinessProblems.push('Password and confirm password don\'t match.');
   }
   if (!legStagesBalanced) {
     readinessProblems.push(

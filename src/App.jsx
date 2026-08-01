@@ -136,7 +136,6 @@ function App() {
             baseUrl={baseUrl}
             credentialsSaved={credState.status === 'saved'}
             initialPayload={activeRally?.payload}
-            initialRallyId={activeRally?.id ?? null}
           />
         </section>
       )}

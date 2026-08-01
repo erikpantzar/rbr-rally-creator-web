@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import styles from './RallyBasicsForm.module.css';
 
 // road_side_service comes back from the service as plain value strings
@@ -7,8 +8,22 @@ function roadSideServiceLabel(value) {
 }
 
 export function RallyBasicsForm({ value, onChange, options, rallyNameInputRef }) {
+  const [passwordVisible, setPasswordVisible] = useState(false);
+
   function handleChange(field, fieldValue) {
     onChange({ ...value, [field]: fieldValue });
+  }
+
+  // rbr-rally-creator-web#98: one visible field for the user, but
+  // rallysimfans.hu's own rally-creation page has two password inputs
+  // (password1/password2, a plain "confirm" pair) -- the backend service
+  // fills both by name when it drives that page (see
+  // rbr-rally-creator-service's rallyWizard.js), so both still need to
+  // carry the same value on our end. Writing password1 and password2
+  // identically here removes the mismatch class of bug entirely rather
+  // than just hiding the second field and hoping they stay in sync.
+  function handlePasswordChange(newPassword) {
+    onChange({ ...value, password1: newPassword, password2: newPassword });
   }
 
   return (
@@ -101,24 +116,24 @@ export function RallyBasicsForm({ value, onChange, options, rallyNameInputRef })
         <p className={styles.passwordNote}>Optional — makes rally private</p>
         <div className={styles.formGroup}>
           <label htmlFor="password1">Password</label>
-          <input
-            id="password1"
-            type="password"
-            value={value.password1}
-            onChange={(e) => handleChange('password1', e.target.value)}
-            placeholder="Optional password"
-          />
-        </div>
-
-        <div className={styles.formGroup}>
-          <label htmlFor="password2">Confirm password</label>
-          <input
-            id="password2"
-            type="password"
-            value={value.password2}
-            onChange={(e) => handleChange('password2', e.target.value)}
-            placeholder="Confirm password"
-          />
+          <div className={styles.passwordRow}>
+            <input
+              id="password1"
+              type={passwordVisible ? 'text' : 'password'}
+              value={value.password1}
+              onChange={(e) => handlePasswordChange(e.target.value)}
+              placeholder="Optional password"
+            />
+            <button
+              type="button"
+              className={styles.toggleVisibility}
+              onClick={() => setPasswordVisible((v) => !v)}
+              aria-label={passwordVisible ? 'Hide password' : 'Show password'}
+              aria-pressed={passwordVisible}
+            >
+              {passwordVisible ? '🙈' : '👁'}
+            </button>
+          </div>
         </div>
       </div>
     </form>

@@ -95,13 +95,3 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
-
-.filterInput {
-  padding: 0.5rem 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 0;
-  background: var(--bg);
-  color: var(--ink);
-  font-size: 0.9rem;
-  font-family: inherit;
-}

@@ -169,7 +169,6 @@
   font-size: 0.85rem;
 }
 
-.formGroup input,
 .formGroup select {
   padding: 0.5rem 0.7rem;
   border: 1px solid var(--border);
@@ -340,14 +339,14 @@
   font-family: inherit;
 }
 
-.pickerFilterInput {
-  padding: 0.5rem 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 0;
+/* Distinct background from the app's ordinary form fields (var(--bg)) --
+   this filter sits inside .picker's own var(--bg) surface, so it needs the
+   lighter var(--card) tone to stay visually separated from it. Nested under
+   .pickerFilters (rather than a bare .pickerFilterInput rule) so this two-
+   class selector reliably outweighs Input's own single-class background
+   rule regardless of CSS module import order. */
+.pickerFilters .pickerFilterInput {
   background: var(--card);
-  color: var(--ink);
-  font-size: 0.85rem;
-  font-family: inherit;
 }
 
 .pickerToolbar {

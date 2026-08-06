@@ -20,22 +20,22 @@
 
 /* Title + description read as the document's own header -- same mono
    family as the rest of the app (index.css sets it globally) but larger
-   and un-boxed, distinct from the ordinary field inputs below them. */
+   and un-boxed, distinct from the ordinary field inputs below them. Layered
+   on top of Input's own base/size styling (its `size="lg"` class already
+   handles font-size/weight/padding) -- this just swaps the full border for
+   a bottom-only rule and drops the background, so the shared glow-on-focus
+   behavior still applies underneath. */
 .form .formGroup:first-child input {
-  font-size: 1.4rem;
-  font-weight: 600;
   padding: 0.25rem 0;
   border: none;
   border-bottom: 1px solid var(--border);
   background: transparent;
-  border-radius: 0;
 }
 
 .form .formGroup:nth-child(2) textarea {
   border: none;
   border-bottom: 1px solid var(--border);
   background: transparent;
-  border-radius: 0;
   padding: 0.25rem 0;
   color: var(--ink-soft);
 }
@@ -44,10 +44,6 @@
   color: var(--danger-fg);
 }
 
-.formGroup input[type="text"],
-.formGroup input[type="password"],
-.formGroup input[type="number"],
-.formGroup textarea,
 .formGroup select {
   padding: 0.5rem 0.7rem;
   border: 1px solid var(--border);
@@ -58,13 +54,6 @@
   font-family: inherit;
 }
 
-.formGroup textarea {
-  resize: vertical;
-  font-family: inherit;
-}
-
-.formGroup input:disabled,
-.formGroup textarea:disabled,
 .formGroup select:disabled {
   opacity: 0.6;
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Input, Textarea } from '../Input/Input.jsx';
 import styles from './RallyBasicsForm.module.css';
 
 // road_side_service comes back from the service as plain value strings
@@ -32,9 +33,10 @@ export function RallyBasicsForm({ value, onChange, options, rallyNameInputRef })
         <label htmlFor="rally-name">
           Rally name <span className={styles.required}>*</span>
         </label>
-        <input
+        <Input
           id="rally-name"
           ref={rallyNameInputRef}
+          size="lg"
           type="text"
           value={value.rally_name}
           onChange={(e) => handleChange('rally_name', e.target.value)}
@@ -44,8 +46,9 @@ export function RallyBasicsForm({ value, onChange, options, rallyNameInputRef })
 
       <div className={styles.formGroup}>
         <label htmlFor="description">Description</label>
-        <textarea
+        <Textarea
           id="description"
+          size="md"
           value={value.description}
           onChange={(e) => handleChange('description', e.target.value)}
           placeholder="Optional description"
@@ -117,8 +120,9 @@ export function RallyBasicsForm({ value, onChange, options, rallyNameInputRef })
         <div className={styles.formGroup}>
           <label htmlFor="password1">Password</label>
           <div className={styles.passwordRow}>
-            <input
+            <Input
               id="password1"
+              size="md"
               type={passwordVisible ? 'text' : 'password'}
               value={value.password1}
               onChange={(e) => handlePasswordChange(e.target.value)}

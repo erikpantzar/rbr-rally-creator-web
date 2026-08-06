@@ -256,10 +256,17 @@
 /* rbr-rally-creator-web#61: Super Rally toggle button -- same field chrome
    as the open/close time inputs it sits beside (border/padding/font), plus
    a pointer cursor and hover feedback since it's a click-to-flip control
-   rather than a static field. */
+   rather than a static field.
+   rbr-rally-creator-web#103: the OFF state carries a static outlined-blue
+   base (--info-fg border, not the default --border) so it reads as
+   "super-rally-related, currently off" even with zero motion -- the pulse
+   below is stripped by index.css's prefers-reduced-motion guard, and OFF
+   (outlined) vs ON (solid fill) must stay distinct without it. Only the
+   editable tree renders this button at all; a locked road book shows the
+   value as plain text, so nothing pulses once the rally is created. */
 .superRallyToggle {
   padding: 0.4rem 0.6rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--info-fg);
   border-radius: 0;
   background: var(--bg);
   color: var(--ink);
@@ -267,21 +274,47 @@
   font-family: inherit;
   cursor: pointer;
   flex-shrink: 0;
+  animation: superRallyPulse 2s ease-in-out infinite;
 }
 
 .superRallyToggle:hover {
   border-color: var(--accent);
 }
 
-/* rbr-rally-creator-web#94: --info-border/--info-fg (the same blue used for
-   service blocks) rather than --accent (this app's amber) -- an explicit
-   "blue outline while active" ask, distinct from the toggle's own amber
-   hover feedback above. */
+/* rbr-rally-creator-web#103: the OFF-state "breathe" -- eases between the
+   outlined base and a soft info-blue wash with a faint outer glow, then
+   back. Deliberately a wash + glow rather than a color flash or opacity
+   blink: it should read as an invitation to try super rally, not an alarm.
+   2s ease-in-out per the design decision on the issue. */
+@keyframes superRallyPulse {
+  0%,
+  100% {
+    background: var(--bg);
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    background: var(--info-bg);
+    box-shadow: 0 0 6px 1px var(--info-border);
+  }
+}
+
+/* rbr-rally-creator-web#94 picked the info-blue (not --accent amber) for the
+   active state; rbr-rally-creator-web#103 upgrades it from a blue outline to
+   a solid --info-fg fill with no animation -- ON is calm and unmistakable,
+   OFF is the state that asks for attention. --info-ink (tokens.css) keeps
+   the label >= 4.5:1 on that fill in both themes. */
 .superRallyActive {
-  border-color: var(--info-border);
-  color: var(--info-fg);
-  outline: 2px solid var(--info-border);
-  outline-offset: 1px;
+  animation: none;
+  background: var(--info-fg);
+  border-color: var(--info-fg);
+  color: var(--info-ink);
+}
+
+/* Matches .superRallyToggle:hover's specificity so the amber hover border
+   never cuts into the solid blue ON state -- #103 wants ON to stay uniformly
+   blue. */
+.superRallyActive:hover {
+  border-color: var(--info-fg);
 }
 
 /* Locked equivalent of .legInputs -- plain text, no field chrome, since

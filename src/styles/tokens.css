@@ -35,6 +35,11 @@
   --info-bg: oklch(94% 0.045 250);
   --info-fg: oklch(48% 0.14 250);
   --info-border: oklch(70% 0.12 250);
+  /* rbr-rally-creator-web#103: text color for solid --info-fg fills (the
+     super rally toggle's ON state) -- --ink alone can't serve both themes on
+     that fill, so this mirrors the --accent/--accent-ink pairing. Contrast
+     against --info-fg: 6.5:1 light, 9.3:1 dark (both >= 4.5:1). */
+  --info-ink: #ffffff;
 
   --radius: 0.75rem;
 
@@ -84,6 +89,7 @@
     --info-bg: oklch(30% 0.05 250);
     --info-fg: oklch(80% 0.1 250);
     --info-border: oklch(55% 0.14 250);
+    --info-ink: oklch(22% 0.03 250);
   }
 }
 :root[data-theme='dark'] {
@@ -92,7 +98,7 @@
   --accent: oklch(78% 0.16 92); --accent-ink: oklch(22% 0.03 92); --accent-soft-bg: oklch(32% 0.06 92); --accent-soft-fg: oklch(85% 0.13 92);
   --danger-bg: oklch(30% 0.06 25); --danger-fg: oklch(80% 0.12 25);
   --success-bg: oklch(30% 0.05 150); --success-fg: oklch(80% 0.1 150);
-  --info-bg: oklch(30% 0.05 250); --info-fg: oklch(80% 0.1 250); --info-border: oklch(55% 0.14 250);
+  --info-bg: oklch(30% 0.05 250); --info-fg: oklch(80% 0.1 250); --info-border: oklch(55% 0.14 250); --info-ink: oklch(22% 0.03 250);
 }
 :root[data-theme='light'] {
   --bg: oklch(97% 0.008 250); --ink: oklch(24% 0.015 250); --ink-soft: oklch(42% 0.015 250);
@@ -100,5 +106,5 @@
   --accent: oklch(58% 0.16 92); --accent-ink: #ffffff; --accent-soft-bg: oklch(93% 0.06 92); --accent-soft-fg: oklch(45% 0.13 92);
   --danger-bg: oklch(95% 0.03 25); --danger-fg: oklch(48% 0.18 25);
   --success-bg: oklch(94% 0.05 150); --success-fg: oklch(45% 0.13 150);
-  --info-bg: oklch(94% 0.045 250); --info-fg: oklch(48% 0.14 250); --info-border: oklch(70% 0.12 250);
+  --info-bg: oklch(94% 0.045 250); --info-fg: oklch(48% 0.14 250); --info-border: oklch(70% 0.12 250); --info-ink: #ffffff;
 }

@@ -844,9 +844,12 @@ export function RoadBook({
                           literal strings, so this keeps working even if that
                           option list ever changes shape. rbr-rally-creator-web#94:
                           .superRallyActive (keyed off super_rally !== 'disabled',
-                          not the exact '150%' string) gives the toggle a blue
-                          outline while active, so its state reads at a glance
-                          instead of only via the button's text label. */}
+                          not the exact '150%' string) marks the toggle as active,
+                          so its state reads at a glance instead of only via the
+                          button's text label. rbr-rally-creator-web#103: the
+                          class pair now carries the full state design -- OFF
+                          pulses on an outlined-blue base, ON is a solid blue
+                          fill (see RoadBook.module.css). */}
                       <button
                         type="button"
                         className={[styles.superRallyToggle, leg.super_rally !== 'disabled' ? styles.superRallyActive : '']

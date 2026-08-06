@@ -812,22 +812,25 @@ export function RoadBook({
                           "now" for these fields isn't their own wall clock (see
                           stockholmNow()/isLegOpenTimeTooSoon in rallyPlan.js).
                           Reuses the existing muted uppercase .legFieldLabel
-                          convention rather than introducing a new label style. */}
+                          convention rather than introducing a new label style.
+                          rbr-rally-creator-web#104: the Open/Close text is
+                          visible again (#94 clip-hid it and leaned on green/red
+                          input borders instead) -- the labels are now what
+                          distinguishes the two fields, since status colors no
+                          longer identify them. */}
                       <label className={styles.legFieldLabel}>
-                        <span className={styles.legFieldLabelText}>Open</span>
+                        <span>Open</span>
                         <input
                           type="datetime-local"
-                          className={styles.legTimeInputOpen}
                           placeholder="Open time"
                           value={leg.open_time}
                           onChange={(e) => onLegFieldChange(legIndex, 'open_time', e.target.value)}
                         />
                       </label>
                       <label className={styles.legFieldLabel}>
-                        <span className={styles.legFieldLabelText}>Close</span>
+                        <span>Close</span>
                         <input
                           type="datetime-local"
-                          className={styles.legTimeInputClose}
                           placeholder="Close time"
                           value={leg.close_time}
                           max={maxCloseTimeFor(leg.open_time)}
@@ -844,9 +847,12 @@ export function RoadBook({
                           literal strings, so this keeps working even if that
                           option list ever changes shape. rbr-rally-creator-web#94:
                           .superRallyActive (keyed off super_rally !== 'disabled',
-                          not the exact '150%' string) gives the toggle a blue
-                          outline while active, so its state reads at a glance
-                          instead of only via the button's text label. */}
+                          not the exact '150%' string) marks the toggle as active,
+                          so its state reads at a glance instead of only via the
+                          button's text label. rbr-rally-creator-web#103: the
+                          class pair now carries the full state design -- OFF
+                          pulses on an outlined-blue base, ON is a solid blue
+                          fill (see RoadBook.module.css). */}
                       <button
                         type="button"
                         className={[styles.superRallyToggle, leg.super_rally !== 'disabled' ? styles.superRallyActive : '']

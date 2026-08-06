@@ -1,0 +1,210 @@
+/* Explore view (rbr-rally-creator-web#106) -- same timing-sheet system as
+   the rest of the app: flat 1px rules, mono type, small-caps section
+   labels, squared corners, semantic tokens only. */
+
+.explore {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.status,
+.placeholder {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.error {
+  margin: 0;
+  color: var(--danger-fg);
+  font-size: 0.85rem;
+}
+
+/* Fixed-height line so hovering on/off the map never shifts the layout
+   below it. */
+.mapReadout {
+  margin: 0;
+  min-height: 1.2em;
+  color: var(--muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Subtle by design (#106: "flag unmatched names rather than dropping
+   silently") -- an informational footnote in the --info voice, not a
+   warning banner. */
+.unmatchedNote {
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--info-border);
+  background: var(--info-bg);
+  color: var(--info-fg);
+  font-size: 0.7rem;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: minmax(11rem, 14rem) 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* The app column is 46rem max; below ~34rem of viewport the two columns
+   crowd each other, so they stack -- list first, since it's the control. */
+@media (max-width: 34rem) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.columnHeading {
+  margin: 0 0 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.countryItems {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+
+.countryButton {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.4rem 0.25rem;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: inherit;
+  font-size: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.countryButton:hover {
+  color: var(--ink);
+  background: var(--accent-soft-bg);
+}
+
+/* Same :focus-visible-only reasoning as Input's glow -- keyboard focus
+   gets an unmistakable ring, mouse clicks don't. */
+.countryButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.countryButton[aria-pressed='true'] {
+  background: var(--accent-soft-bg);
+  color: var(--accent-soft-fg);
+  font-weight: 600;
+}
+
+.countryName {
+  flex: 1;
+}
+
+.countryCount {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.countryButton[aria-pressed='true'] .countryCount {
+  color: inherit;
+}
+
+/* The subtle unmatched flag (#106) -- --info voice, matching the note
+   above the columns. */
+.offMapTag {
+  padding: 0 0.3rem;
+  border: 1px solid var(--info-border);
+  color: var(--info-fg);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.detail {
+  min-width: 0;
+}
+
+.detailHeading {
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--ink);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.facts {
+  margin: 0 0 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.fact {
+  display: grid;
+  grid-template-columns: 6rem 1fr;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.fact dt {
+  color: var(--muted);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  /* Baseline-align the small-caps label with its value. */
+  padding-top: 0.15em;
+}
+
+.fact dd {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ink);
+  overflow-wrap: break-word;
+  min-width: 0;
+}
+
+.weatherMore {
+  color: var(--muted);
+}
+
+.stageList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stageRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.stageName {
+  font-size: 0.78rem;
+  color: var(--ink);
+}
+
+.stageMeta {
+  font-size: 0.7rem;
+  color: var(--muted);
+  white-space: nowrap;
+}

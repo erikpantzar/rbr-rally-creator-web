@@ -23,6 +23,50 @@ button {
   font: inherit;
 }
 
+/* rbr-rally-creator-web#105: section-jump beacon for the readiness banner's
+   problem links. Global (attribute selector, not a .module.css class)
+   because the jump targets live in different components' DOM -- App.jsx's
+   credentials section and RallyBuilder's basics/car-groups/road-book
+   blocks -- and lib/sectionJump.js drives them all through one mechanism.
+
+   [data-jump-target] marks an element as scrollable-to: scroll-margin-top
+   keeps its top edge clear of the viewport edge after scrollIntoView.
+
+   [data-glow] is the transient "you are here" pulse sectionJump.js sets on
+   arrival and removes when the animation ends -- a beacon, not persistent
+   state (per the #105 design decision). The shadow is var(--accent-glow),
+   the exact two-layer glow Input's :focus-visible uses, so "look here"
+   speaks the same visual language in both themes; it blooms twice over ~2s
+   (full glow -> tight ring -> full glow) then fades to nothing. The
+   reduced-motion guard below collapses the animation to a single instant
+   frame, and sectionJump.js additionally skips setting [data-glow] at all
+   under reduced motion. */
+[data-jump-target] {
+  scroll-margin-top: 1.5rem;
+}
+
+[data-glow] {
+  animation: section-glow-pulse 2s ease-in-out;
+}
+
+@keyframes section-glow-pulse {
+  0% {
+    box-shadow: none;
+  }
+  15% {
+    box-shadow: var(--accent-glow);
+  }
+  40% {
+    box-shadow: 0 0 0 3px var(--accent-soft-bg);
+  }
+  65% {
+    box-shadow: var(--accent-glow);
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+
 /* Global reduced-motion guard, shipped ahead of the redesign's planned
    motion work: anyone who has asked their OS for less motion gets
    effectively-instant transitions/animations everywhere, and every future

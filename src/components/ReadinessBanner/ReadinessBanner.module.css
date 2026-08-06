@@ -1,7 +1,5 @@
-/* Rule-separated line, not a boxed/carded warning -- matches the document's
-   "technical timing sheet" language (see .legWarning's old top/bottom rule
-   treatment in RallyBuilder.module.css, and .actions' top rule) rather than
-   introducing a new card/box visual. */
+/* "Ready" stays the quiet rule-separated line it always was -- the calm
+   state should not shout. Only the not-ready state gets the #105 box. */
 .ready {
   margin: 0;
   padding: 0.5rem 0;
@@ -10,11 +8,19 @@
   font-size: 0.85rem;
 }
 
+/* rbr-rally-creator-web#105: the not-ready state is now a filled dark
+   orange panel (--warning-strong-*) instead of the old red rule-separated
+   line -- a deliberate departure from the document's "no boxes" language,
+   because this is the one element that must interrupt the reading flow:
+   it's the answer to "why is Create Rally disabled". Orange, not
+   --danger-fg red, because nothing has *failed* -- the document is just
+   unfinished ("urgent but not error"). Squared corners per the app-wide
+   convention. */
 .notReady {
-  padding: 0.5rem 0;
-  border-top: 1px solid var(--danger-fg);
-  border-bottom: 1px solid var(--danger-fg);
-  color: var(--danger-fg);
+  padding: 0.85rem 1rem;
+  border-radius: 0;
+  background: var(--warning-strong-bg);
+  color: var(--warning-strong-ink);
 }
 
 .heading {
@@ -32,23 +38,56 @@
   line-height: 1.5;
 }
 
+.list li + li {
+  margin-top: 0.25rem;
+}
+
+/* rbr-rally-creator-web#105: the whole problem message is the jump link --
+   a real <button> reset down to underlined panel-ink text, so it reads as
+   "click me to go fix this" without introducing a second color inside the
+   orange box. inherit keeps the list's font-size/line-height; text-align
+   left because button UAs center by default and these are multi-line
+   sentences. */
+.problemLink {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.problemLink:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* Panel-ink outline rather than the accent glow: the focus ring has to be
+   visible against --warning-strong-bg, and the amber --accent-glow would
+   read poorly on orange. */
+.problemLink:focus-visible,
+.problemAction:focus-visible {
+  outline: 2px solid var(--warning-strong-ink);
+  outline-offset: 2px;
+}
+
 /* rbr-rally-creator-web#63: inline one-click fix, attached to the specific
    problem line it resolves (see ReadinessBanner's `action` support) rather
-   than a standalone button below the whole banner -- moved here from what
-   used to be RallyBuilder.module.css's standalone .fixTimesButton, same
-   danger-styled treatment (this problem is the "you're about to hit a
-   silent server-side clamp" kind of urgent) but sized to sit inline after a
-   line of list text instead of as its own block-level button.
-   Border-forward, transparent background rather than a filled --danger-bg
-   -- that token has no dark-mode override (see #58's own correction for the
-   same reason), so a filled block would stay light-pink in dark mode. */
+   than a standalone button below the whole banner. #105: restyled from the
+   old danger-red outline to the panel's own ink -- it sits inside the
+   orange box now, so it borrows the panel's palette instead of pulling
+   --danger-fg (red would contradict the "urgent but not error" framing).
+   Border-forward, transparent background, sized to sit inline after a line
+   of list text instead of as its own block-level button. */
 .problemAction {
   margin-left: 0.6rem;
   padding: 0.15rem 0.5rem;
-  border: 1px solid var(--danger-fg);
+  border: 1px solid var(--warning-strong-ink);
   border-radius: 0;
   background: transparent;
-  color: var(--danger-fg);
+  color: var(--warning-strong-ink);
   font-weight: 600;
   font-size: 0.78rem;
   font-family: inherit;
@@ -59,6 +98,5 @@
 }
 
 .problemAction:hover {
-  background: transparent;
-  filter: brightness(1.05);
+  background: oklch(from var(--warning-strong-ink) l c h / 0.12);
 }

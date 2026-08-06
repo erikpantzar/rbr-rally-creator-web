@@ -1,0 +1,205 @@
+import { useEffect, useMemo, useState } from 'react';
+import { getStages } from '../../lib/rallyApi.js';
+import {
+  aggregateStagesByCountry,
+  annotateWithShapeNames,
+  buildShapeNameIndex,
+} from '../../lib/countryExplore.js';
+import { formatKm } from '../../lib/rallyPlan.js';
+import { WorldMap } from '../WorldMap/WorldMap.jsx';
+import { WORLD_MAP_SHAPES } from '../WorldMap/worldMapShapes.js';
+import styles from './ExploreView.module.css';
+
+// Standalone catalog-browsing view (rbr-rally-creator-web#106): world map
+// first, click a country, see how many stages it has and what conditions
+// they offer. Deliberately read-only and separate from the rally-building
+// flow -- the "browse these stages in the picker" bridge is #106's own
+// explicitly-deferred follow-up, so nothing here touches the builder.
+//
+// Fetches its own copy of the stage catalog via getStages, same
+// owns-its-catalog pattern as RallyBuilder -- the two views never show at
+// the same time (App.jsx swaps them), so sharing one fetch would couple
+// them for no visible benefit.
+
+// Built once at module load: the map's shape names never change at runtime
+// (worldMapShapes.js is vendored, static data), so there's no reason to
+// rebuild the lowercase lookup index per render or per mount.
+const SHAPE_NAME_INDEX = buildShapeNameIndex(WORLD_MAP_SHAPES.map((shape) => shape.name));
+
+export function ExploreView({ baseUrl }) {
+  const [stages, setStages] = useState(null); // null = still loading
+  const [error, setError] = useState(null);
+  const [selectedCountry, setSelectedCountry] = useState(null);
+  const [hoveredCountry, setHoveredCountry] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getStages(baseUrl)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.ok) {
+          setStages(res.data ?? []);
+        } else {
+          setError('Failed to fetch the stage catalog');
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(`Error loading the stage catalog: ${err.message}`);
+      });
+    // Cancellation guard: switching back to the builder unmounts this view;
+    // a late response must not setState on the unmounted instance.
+    return () => {
+      cancelled = true;
+    };
+  }, [baseUrl]);
+
+  // country summaries + which map shape each one highlights (shapeName is
+  // null for catalog countries the vendored map has no shape for -- those
+  // get the "not on map" flag below rather than being dropped, per #106).
+  const summaries = useMemo(
+    () => (stages ? annotateWithShapeNames(aggregateStagesByCountry(stages), SHAPE_NAME_INDEX) : []),
+    [stages]
+  );
+
+  const summariesByShapeName = useMemo(() => {
+    const byShape = new Map();
+    for (const summary of summaries) {
+      if (summary.shapeName) byShape.set(summary.shapeName, summary);
+    }
+    return byShape;
+  }, [summaries]);
+
+  const unmatched = summaries.filter((summary) => !summary.shapeName);
+  const selected = summaries.find((summary) => summary.country === selectedCountry) ?? null;
+  const hovered = summaries.find((summary) => summary.country === hoveredCountry) ?? null;
+
+  if (error) return <p className={styles.error}>{error}</p>;
+  if (!stages) return <p className={styles.status}>Loading stage catalog…</p>;
+  if (summaries.length === 0) return <p className={styles.status}>The stage catalog is empty.</p>;
+
+  return (
+    <div className={styles.explore}>
+      <WorldMap
+        summariesByShapeName={summariesByShapeName}
+        selectedShapeName={selected?.shapeName ?? null}
+        onSelect={setSelectedCountry}
+        onHover={setHoveredCountry}
+      />
+
+      {/* Hover readout under the map instead of a floating tooltip chasing
+          the cursor -- fits the timing-sheet look, and a reserved line
+          can't cover other countries or jitter the layout. aria-hidden:
+          hover state is pointer-only by nature; keyboard/SR users get the
+          same numbers from the country list, which is the real control. */}
+      <p className={styles.mapReadout} aria-hidden="true">
+        {hovered
+          ? `${hovered.country} — ${hovered.stageCount} ${hovered.stageCount === 1 ? 'stage' : 'stages'}`
+          : 'Highlighted countries have stages — click one to inspect'}
+      </p>
+
+      {/* #106: catalog country names the static name->shape mapping can't
+          place on the map are flagged here, subtly, instead of silently
+          missing from the picture -- they remain fully browsable through
+          the list below. */}
+      {unmatched.length > 0 && (
+        <p className={styles.unmatchedNote}>
+          Not on the map: {unmatched.map((summary) => summary.country).join(', ')} — see the
+          country list.
+        </p>
+      )}
+
+      <div className={styles.columns}>
+        {/* The map's keyboard/screen-reader equivalent (#106): same
+            countries, same counts, as real buttons. This list is the
+            primary control; the map is the visual on top of it. */}
+        <nav className={styles.countryList} aria-label="Countries with stages">
+          <h3 className={styles.columnHeading}>Countries</h3>
+          <ul className={styles.countryItems}>
+            {summaries.map((summary) => (
+              <li key={summary.country}>
+                <button
+                  type="button"
+                  className={styles.countryButton}
+                  aria-pressed={summary.country === selectedCountry}
+                  onClick={() => setSelectedCountry(summary.country)}
+                >
+                  <span className={styles.countryName}>{summary.country}</span>
+                  {!summary.shapeName && <span className={styles.offMapTag}>not on map</span>}
+                  <span className={styles.countryCount}>{summary.stageCount}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <section className={styles.detail} aria-live="polite">
+          {selected ? (
+            <CountryDetail summary={selected} />
+          ) : (
+            <p className={styles.placeholder}>Select a country to see its stages and conditions.</p>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+// Detail panel for one country summary. Same file rather than its own
+// component folder -- it renders one prop and has no behavior, the same
+// "local helper, not a shared component" line StageConfigModal draws for
+// its in-modal picker.
+function CountryDetail({ summary }) {
+  const { kmRange } = summary;
+  const distance = kmRange
+    ? kmRange.min === kmRange.max
+      ? formatKm(kmRange.min)
+      : `${formatKm(kmRange.min)} – ${formatKm(kmRange.max)}`
+    : '—';
+  const weatherMore = summary.weatherTotal - summary.weatherSample.length;
+
+  return (
+    <>
+      <h3 className={styles.detailHeading}>{summary.country}</h3>
+      <dl className={styles.facts}>
+        <div className={styles.fact}>
+          <dt>Stages</dt>
+          <dd>{summary.stageCount}</dd>
+        </div>
+        <div className={styles.fact}>
+          <dt>Length</dt>
+          <dd>{distance}</dd>
+        </div>
+        <div className={styles.fact}>
+          <dt>Surfaces</dt>
+          <dd>
+            {summary.surfaces.length > 0
+              ? summary.surfaces.map(({ surface, count }) => `${surface} ×${count}`).join(' · ')
+              : '—'}
+          </dd>
+        </div>
+        <div className={styles.fact}>
+          <dt>Wetness</dt>
+          <dd>{summary.wetnessOptions.length > 0 ? summary.wetnessOptions.join(' · ') : '—'}</dd>
+        </div>
+        <div className={styles.fact}>
+          <dt>Weather</dt>
+          <dd>
+            {summary.weatherSample.length > 0 ? summary.weatherSample.join(' · ') : '—'}
+            {weatherMore > 0 && <span className={styles.weatherMore}> +{weatherMore} more</span>}
+          </dd>
+        </div>
+      </dl>
+
+      <ul className={styles.stageList}>
+        {summary.stages.map((stage) => (
+          <li key={stage.id} className={styles.stageRow}>
+            <span className={styles.stageName}>{stage.name}</span>
+            <span className={styles.stageMeta}>
+              {stage.surface} · {stage.length}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}

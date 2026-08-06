@@ -4,6 +4,7 @@ import { saveCredentials, getCredentialsStatus, clearCredentials } from './lib/a
 import { CredentialForm } from './components/CredentialForm/CredentialForm.jsx';
 import { CredentialStatus } from './components/CredentialStatus/CredentialStatus.jsx';
 import { RallyBuilder } from './components/RallyBuilder/RallyBuilder.jsx';
+import { ExploreView } from './components/ExploreView/ExploreView.jsx';
 import { SECTION_IDS } from './lib/sectionJump.js';
 import { RallySidebar } from './components/RallySidebar/RallySidebar.jsx';
 import { StockholmClock } from './components/StockholmClock/StockholmClock.jsx';
@@ -46,9 +47,22 @@ function App() {
   // re-reads rallyStorage for free -- no separate refresh plumbing needed.
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // rbr-rally-creator-web#106: which full view the page shows -- the app
+  // has no router on purpose, so this one piece of state is the entire
+  // "navigation" model, same as activeRally/sidebarOpen above. 'explore'
+  // swaps the credentials + builder sections for the standalone Explore
+  // view (world map -> country -> stages/conditions); it does NOT unmount
+  // anything the user can lose work in -- RallyBuilder persists its
+  // in-progress build to rallyStorage's current draft on every change, and
+  // restores it when this flips back to 'builder' and it remounts.
+  const [view, setView] = useState('builder'); // builder | explore
+
   function handleOpenRally(rally) {
     setActiveRally(rally);
     setSidebarOpen(false);
+    // Opening a saved rally is a builder action -- if the user was
+    // exploring, following "Open" must actually show them the rally.
+    setView('builder');
   }
 
   useEffect(() => {
@@ -83,17 +97,36 @@ function App() {
     <div className={styles.page}>
       <header className={styles.header}>
         {/* rbr-rally-creator-web#77: top-left, small and subtle -- secondary
-            to the title/primary actions rather than a competing button, so
-            it sits ahead of .titleGroup styled as a plain text-link. */}
-        <button
-          type="button"
-          className={styles.historyButton}
-          data-active={sidebarOpen}
-          aria-pressed={sidebarOpen}
-          onClick={() => setSidebarOpen(true)}
-        >
-          My Rallies
-        </button>
+            to the title/primary actions rather than competing buttons, so
+            they sit ahead of .titleGroup styled as plain text-links.
+            rbr-rally-creator-web#106 wraps them in .headerNav: the header's
+            space-between distributes its direct children, so the two links
+            must be one flex child to keep the left/center/right rhythm. */}
+        <div className={styles.headerNav}>
+          <button
+            type="button"
+            className={styles.historyButton}
+            data-active={sidebarOpen}
+            aria-pressed={sidebarOpen}
+            onClick={() => setSidebarOpen(true)}
+          >
+            My Rallies
+          </button>
+          {/* rbr-rally-creator-web#106: Explore is the second entry of the
+              same quiet nav row (shared .historyButton styling on purpose --
+              two entries of one nav, not two different controls). Toggle
+              semantics: clicking it while already exploring returns to the
+              builder, since with no router there's otherwise no "back". */}
+          <button
+            type="button"
+            className={styles.historyButton}
+            data-active={view === 'explore'}
+            aria-pressed={view === 'explore'}
+            onClick={() => setView(view === 'explore' ? 'builder' : 'explore')}
+          >
+            Explore
+          </button>
+        </div>
         <div className={styles.titleGroup}>
           <h1>RBR Rally Creator</h1>
           {/* Build-time commit hash (see vite.config.js's __COMMIT_HASH__
@@ -115,11 +148,24 @@ function App() {
         </div>
       </header>
 
-      {baseUrl && (
+      {/* rbr-rally-creator-web#106: full view swap, not a modal/overlay --
+          Explore replaces the credentials + builder sections entirely while
+          active. Credentials deliberately stay builder-only: browsing the
+          public stage catalog needs no rallysimfans.hu account. */}
+      {baseUrl && view === 'explore' && (
+        <section className={styles.section}>
+          <h2>Explore stages by country</h2>
+          <ExploreView baseUrl={baseUrl} />
+        </section>
+      )}
+
+      {baseUrl && view === 'builder' && (
         // rbr-rally-creator-web#105: jump target for the readiness banner's
         // "save your credentials" problem link -- the one target that lives
         // outside RallyBuilder, which is why SECTION_IDS is shared from
         // lib/sectionJump.js instead of being RallyBuilder's private map.
+        // (#106: gated on the builder view -- the banner only renders there,
+        // so a jump can never target a hidden section.)
         <section className={styles.section} id={SECTION_IDS.credentials} data-jump-target="">
           <h2>rallysimfans.hu credentials</h2>
           {credState.status === 'unsaved' ? (
@@ -130,7 +176,7 @@ function App() {
         </section>
       )}
 
-      {baseUrl && (
+      {baseUrl && view === 'builder' && (
         <section className={styles.section}>
           <h2>Create a rally</h2>
           {/* key forces a clean remount whenever the user opens a different

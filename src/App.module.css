@@ -68,6 +68,15 @@
    rbr-rally-creator-web#77: demoted to a small, subtle top-left text link,
    first child in .header (see App.jsx) so flex space-between naturally
    pins it at the start of the row, ahead of the title group. */
+/* rbr-rally-creator-web#106: the two top-left nav text-links (My Rallies,
+   Explore) grouped as one flex child so .header's space-between keeps its
+   pre-#106 left/center/right distribution. */
+.headerNav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .historyButton {
   padding: 0.2rem 0;
   border: none;

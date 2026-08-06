@@ -93,6 +93,30 @@ export function getWetTyreForSurface(surface) {
   return SURFACE_WET_TYRE[surface] ?? null;
 }
 
+// What "picking a stage card" always means to a stage config, regardless of
+// whether that pick is creating a brand-new brick (PickerWorkspace's
+// click-to-add, rbr-rally-creator-web#107 Phase 2, D2) or retargeting an
+// existing one ("Change stage", same doc, R6). Extracted so both call
+// sites share one definition instead of forking it -- previously this logic
+// lived only inline in StageEntryEditor's picker onSelect. Surface-matched
+// tyre default (rbr-rally-creator-web#24) plus a reset of wetness/weather
+// to the new stage's first option, since those option lists are per-stage
+// (discovery/capabilities/stages.json) and a value valid for the old pick
+// may not exist on the new one. Returns a whole new config object so
+// callers can pass the result straight to onChange/onStagePlanChange in one
+// atomic write (R6: stage_id and its dependent fields must never be split
+// across two patches).
+export function applyPickedStageToConfig(config, stage) {
+  const defaultTyre = stage ? getDefaultTyreForSurface(stage.surface) : null;
+  return {
+    ...config,
+    stage_id: stage?.id ?? null,
+    ...(defaultTyre ? { def_tyre_id: defaultTyre } : {}),
+    wetness_id: stage?.wetnessOptions?.[0] ?? '',
+    tracksettings_id: stage?.weatherOptions?.[0] ?? '',
+  };
+}
+
 // datetime-local inputs need "YYYY-MM-DDTHH:mm", in the browser's local
 // time, not toISOString() (which is UTC and includes seconds/Z).
 export function toDatetimeLocalValue(date) {

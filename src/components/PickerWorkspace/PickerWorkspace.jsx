@@ -11,7 +11,7 @@ import {
 import { formatKm, parseStageKm, sumStagePlanKm } from '../../lib/rallyPlan.js';
 import styles from './PickerWorkspace.module.css';
 
-// rbr-rally-creator-web#107, docs/redesign/07-picker-workspace.md Phase 1:
+// rbr-rally-creator-web#107, docs/redesign/07-picker-workspace.md Phase 1/2:
 // the "smarter modal" replacement for the StageConfigModal flow, behind the
 // PICKER_WORKSPACE flag (see lib/settings.js). A takeover Modal holding two
 // panes:
@@ -19,8 +19,10 @@ import styles from './PickerWorkspace.module.css';
 //  - LEFT: the rally itinerary sidebar -- one vertical list of leg headers,
 //    stage rows and assigned-service rows (plan doc D6), always rendering
 //    the COMMITTED stagePlan/legSchedule props, never a local copy, so it
-//    can't disagree with the road book behind it. Navigation-only in this
-//    phase: rows only select; adds/reorder/delete come in later phases.
+//    can't disagree with the road book behind it. Navigation-only: rows
+//    only select; reorder/delete/add-buttons are still later phases (D6,
+//    Phase 4) -- but see Phase 2 below, picker card clicks in the leg
+//    context DO add now, distinct from the sidebar's own rows.
 //  - RIGHT: the detail pane, hosting the Phase-0-extracted controlled
 //    editors keyed per selection (the app's key-remount reset pattern, plan
 //    doc constraint 3) -- StageEntryEditor for a stage, ServiceEntryForm
@@ -48,6 +50,19 @@ import styles from './PickerWorkspace.module.css';
 // `initialSelection` implements D3's open-with-origin-context: RoadBook
 // passes the clicked stage, or the origin leg when opened from
 // "+ Add stage", so the workspace opens looking at what the user clicked.
+//
+// Phase 2 (#107, D2/D4): a leg context's picker card click now really adds
+// -- onAddStage(legIndex, stageId) appends a born-complete brick to the END
+// of that leg (RoadBook's handleAddStageFromWorkspace does the seeding +
+// splice), and the workspace immediately selects the new brick (this file's
+// own choice where the doc left it open, "cheap to change") so "keep
+// adding" stays one click per stage: pick a leg once, then every card click
+// both adds AND leaves you looking at what you just added, filters
+// untouched (StagePicker persists its own filters across mounts). Replacing
+// an EXISTING stage's catalog pick is now a separate, explicit "Change
+// stage" affordance on the stage form itself (StageEntryEditor's
+// pickerMode="affordance", D2) -- the in-form picker no longer re-targets
+// on a bare click the way the Phase 1 stopgap did.
 export function PickerWorkspace({
   stages,
   options,
@@ -57,6 +72,7 @@ export function PickerWorkspace({
   initialSelection,
   onUpdateStage,
   onUpdateService,
+  onAddStage,
   onClose,
 }) {
   const [selection, setSelection] = useState(initialSelection ?? null);
@@ -182,12 +198,12 @@ export function PickerWorkspace({
             <h4 className={styles.paneTitle}>{stageDisplayName(selectedEntry)}</h4>
           </header>
           {/* Plain div, not a <form> -- there is nothing to submit (D1).
-              The in-form StagePicker keeps today's edit-modal semantics in
-              this phase: picking a card re-targets THIS entry's stage_id
-              (live, and atomically with its tyre/wetness/weather defaults
-              in one onChange, which is R6's requirement by construction).
-              D2's click-always-ADDS + the explicit "Change stage"
-              affordance replace this in Phase 2. */}
+              pickerMode="affordance" (Phase 2, D2/R6): the in-form
+              StagePicker no longer re-targets on a bare card click -- that
+              was the Phase 1 stopgap. Replacing this entry's stage is now
+              the explicit "Change stage" affordance StageEntryEditor itself
+              renders; every card click elsewhere in this workspace (the leg
+              context below) always ADDS instead. */}
           <div className={styles.paneForm}>
             <StageEntryEditor
               value={selectedEntry}
@@ -198,6 +214,7 @@ export function PickerWorkspace({
               stageNumber={selectedStageNumber}
               hiddenStageNameEnabled={hiddenStageNameEnabled}
               onEditService={() => setSelection({ type: 'service', uid: resolved.uid })}
+              pickerMode="affordance"
             />
           </div>
         </>
@@ -233,12 +250,19 @@ export function PickerWorkspace({
 
     // Leg context (opened from "+ Add stage", or a leg header click) --
     // plan doc §5 defaults item 1 puts the picker here, scoped as the
-    // leg's future add-target. In THIS phase it's a preview only: the
-    // click-adds wiring (D2/D3/D4, onAddStage into this leg) is Phase 2,
-    // so onSelect is a documented no-op and the note above the picker says
-    // so, rather than cards that silently do nothing.
+    // leg's add-target (D3: sidebar selection is the cursor). Phase 2
+    // (D2/D4): a card click here really adds now -- onAddStage splices a
+    // new brick onto the end of THIS leg and the workspace selects it
+    // (handleAddCardSelect below), so repeated clicks feel like dealing
+    // cards: stay on this leg, click, watch the sidebar grow, keep going.
     const legRow = rows.find((r) => r.type === 'leg' && r.legIndex === resolved.legIndex);
     const legStageCount = legRow ? legRow.endIndex - legRow.startIndex : 0;
+
+    function handleAddCardSelect(stageId) {
+      const newUid = onAddStage(resolved.legIndex, stageId);
+      setSelection({ type: 'stage', uid: newUid });
+    }
+
     return (
       <>
         <header className={styles.paneHeader}>
@@ -247,17 +271,11 @@ export function PickerWorkspace({
             {legStageCount === 0 ? 'Add your first stage' : `${legStageCount} stage${legStageCount === 1 ? '' : 's'} planned`}
           </h4>
         </header>
-        <p className={styles.pickerPhaseNote}>
-          Browsing only for now &mdash; picking a stage here will add it to Leg {resolved.legIndex + 1} in
-          the next phase. Until then, add stages from the road book&rsquo;s &ldquo;+ Add stage&rdquo; button.
+        <p className={styles.addHint}>
+          Pick a stage to add it to the end of Leg {resolved.legIndex + 1}. Filters stay put, so picking
+          again keeps adding here.
         </p>
-        <StagePicker
-          stages={stages}
-          selectedStageId={null}
-          onSelect={() => {
-            // Phase 2 (#107): handleAddStage(legIndex, config) lands here.
-          }}
-        />
+        <StagePicker stages={stages} selectedStageId={null} onSelect={handleAddCardSelect} />
       </>
     );
   }

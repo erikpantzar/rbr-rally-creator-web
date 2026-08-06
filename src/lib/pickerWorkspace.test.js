@@ -5,6 +5,7 @@ import {
   resolveWorkspaceSelection,
   applyStageConfigUpdate,
   applyServiceFieldsUpdate,
+  applyAddStage,
 } from './pickerWorkspace.js';
 
 // Minimal stagePlan entries -- only the fields these helpers actually read
@@ -128,5 +129,36 @@ describe('applyServiceFieldsUpdate', () => {
       nummechanics: '4 mechanic',
     });
     expect(result[1]).toBe(plan[1]);
+  });
+});
+
+describe('applyAddStage', () => {
+  it('splices the new config onto the end of the target leg and bumps only that leg\'s stage_count (D4)', () => {
+    const plan = [stage('a'), stage('b'), stage('c')];
+    const legs = [leg(2), leg(1)];
+    const newEntry = stage('new');
+    const { stagePlan, legSchedule } = applyAddStage(plan, legs, 0, newEntry);
+
+    expect(stagePlan.map((s) => s._uid)).toEqual(['a', 'b', 'new', 'c']);
+    expect(legSchedule).toEqual([leg(3), leg(1)]);
+    // Inputs untouched.
+    expect(plan.map((s) => s._uid)).toEqual(['a', 'b', 'c']);
+    expect(legs[0].stage_count).toBe(2);
+  });
+
+  it('appends past the end of the last leg when that leg is targeted, growing the plan by one overall', () => {
+    const plan = [stage('a')];
+    const legs = [leg(1)];
+    const { stagePlan, legSchedule } = applyAddStage(plan, legs, 0, stage('b'));
+    expect(stagePlan.map((s) => s._uid)).toEqual(['a', 'b']);
+    expect(legSchedule).toEqual([leg(2)]);
+  });
+
+  it('adding into an earlier leg inserts before later legs\' stages, not at the very end of stagePlan', () => {
+    const plan = [stage('a'), stage('b')]; // leg0: [a], leg1: [b]
+    const legs = [leg(1), leg(1)];
+    const { stagePlan, legSchedule } = applyAddStage(plan, legs, 0, stage('new'));
+    expect(stagePlan.map((s) => s._uid)).toEqual(['a', 'new', 'b']);
+    expect(legSchedule).toEqual([leg(2), leg(1)]);
   });
 });

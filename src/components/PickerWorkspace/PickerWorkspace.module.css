@@ -284,11 +284,11 @@
   gap: 1rem;
 }
 
-/* Leg-context notice: this pane's picker is a preview until Phase 2 wires
-   click-adds (#107) -- said out loud rather than leaving cards that
-   silently do nothing. Accent-soft, not danger/warning: it's a roadmap
-   note, nothing is wrong. */
-.pickerPhaseNote {
+/* Leg-context hint (rbr-rally-creator-web#107 Phase 2, D2): spells out that
+   a card click here adds to this leg, since click-always-adds has no other
+   visual cue on the card itself. Accent-soft, not danger/warning: it's
+   informational, nothing is wrong. */
+.addHint {
   margin: 0 0 1rem;
   padding: 0.6rem 0.8rem;
   border-left: 3px solid var(--accent);

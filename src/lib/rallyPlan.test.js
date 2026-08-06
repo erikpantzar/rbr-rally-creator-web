@@ -7,6 +7,7 @@ import {
   normalizeLastStageService,
   parseStageKm,
   formatKm,
+  applyPickedStageToConfig,
   MAX_LEG_SPAN_DAYS,
   MIN_LEG_LEAD_MINUTES,
   CLAMP_LEG_LEAD_MINUTES,
@@ -166,6 +167,34 @@ describe('parseStageKm / formatKm', () => {
   it('formats km back in the catalog display style with one decimal', () => {
     expect(formatKm(13.4)).toBe('13.4 km');
     expect(formatKm(5)).toBe('5.0 km');
+  });
+});
+
+describe('applyPickedStageToConfig', () => {
+  const config = { _uid: 'u1', stage_id: null, def_tyre_id: 'Gravel Dry', wetness_id: 'wet', tracksettings_id: 'Evening' };
+
+  it('sets stage_id, surface-matched tyre default, and resets wetness/weather to the new stage\'s first option', () => {
+    const stage = { id: 's-tarmac', surface: 'tarmac', wetnessOptions: ['dry', 'damp'], weatherOptions: ['Morning Clear'] };
+    const result = applyPickedStageToConfig(config, stage);
+    expect(result).toMatchObject({
+      stage_id: 's-tarmac',
+      def_tyre_id: 'Tarmac Dry',
+      wetness_id: 'dry',
+      tracksettings_id: 'Morning Clear',
+    });
+    expect(result).not.toBe(config); // no mutation of the input
+    expect(config.stage_id).toBe(null);
+  });
+
+  it('leaves def_tyre_id untouched when the surface has no known default (defensive fallback)', () => {
+    const stage = { id: 's-x', surface: 'lava', wetnessOptions: [], weatherOptions: [] };
+    const result = applyPickedStageToConfig(config, stage);
+    expect(result.def_tyre_id).toBe('Gravel Dry'); // carried over from config, not clobbered
+  });
+
+  it('resolves to a null stage_id and empty wetness/weather for a null stage (defensive)', () => {
+    const result = applyPickedStageToConfig(config, null);
+    expect(result).toMatchObject({ stage_id: null, wetness_id: '', tracksettings_id: '' });
   });
 });
 

@@ -74,3 +74,23 @@
   flex-direction: column;
   gap: 0.35rem;
 }
+
+/* "Change stage" affordance summary row (rbr-rally-creator-web#107 Phase 2,
+   D2/defaults item 2) -- only rendered by StageEntryEditor's 'affordance'
+   pickerMode (PickerWorkspace). Same squared-corner/bordered language as
+   .tyreSuggestion above, kept quieter (no accent background) since this is
+   a neutral "here's the current pick" readout, not a suggestion. */
+.stageSummaryRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0;
+}
+
+.stageSummaryName {
+  font-size: 0.9rem;
+  color: var(--ink);
+}

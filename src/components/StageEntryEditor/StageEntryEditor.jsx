@@ -4,7 +4,7 @@ import { FormGroup } from '../FormGroup/FormGroup.jsx';
 import { Input } from '../Input/Input.jsx';
 import { ServiceBlock } from '../ServiceBlock/ServiceBlock.jsx';
 import { StagePicker } from '../StagePicker/StagePicker.jsx';
-import { getDefaultTyreForSurface, getWetTyreForSurface } from '../../lib/rallyPlan.js';
+import { applyPickedStageToConfig, getWetTyreForSurface } from '../../lib/rallyPlan.js';
 import styles from './StageEntryEditor.module.css';
 
 // The stage-config form body, extracted from StageConfigModal for
@@ -29,6 +29,18 @@ import styles from './StageEntryEditor.module.css';
 //
 // `isLastStage` / `stageNumber` remain plain props for now -- frozen at
 // open time by the modal, derived live by the workspace later (plan doc R5).
+//
+// `pickerMode` (rbr-rally-creator-web#107 Phase 2, D2/R6): the old modal
+// flow keeps its picker always visible, re-targeting `value.stage_id` live
+// on every card click ('inline', the default -- keeps StageConfigModal's
+// flag-off behavior byte-identical, since that's the only caller that
+// doesn't pass this prop). The picker workspace instead only lets a card
+// click ADD a brand-new brick elsewhere (D2: click always adds); replacing
+// THIS entry's stage becomes an explicit "Change stage" affordance
+// ('affordance' mode) that reveals the same StagePicker in a one-shot
+// replace: picking a card there patches stage_id + its dependent tyre/
+// wetness/weather defaults atomically via applyPickedStageToConfig (R6),
+// then collapses back to the summary row.
 export function StageEntryEditor({
   value,
   onChange,
@@ -38,7 +50,14 @@ export function StageEntryEditor({
   stageNumber,
   hiddenStageNameEnabled = false,
   onEditService,
+  pickerMode = 'inline',
 }) {
+  // Only meaningful in 'affordance' mode -- whether the one-shot replace
+  // picker is currently open. Per-mount state is correct here the same way
+  // dismissedWetSuggestion is: a fresh mount (new selected entry) should
+  // start collapsed, not carry over the previous entry's "mid change-stage"
+  // state.
+  const [changingStage, setChangingStage] = useState(false);
   // Whether the wet-tyre suggestion banner (see below) has been explicitly
   // dismissed for the current wetness/stage combo. Reset to false whenever
   // either changes (effect further down) so a fresh trigger of the
@@ -84,33 +103,45 @@ export function StageEntryEditor({
     value.def_tyre_id !== suggestedWetTyre &&
     !dismissedWetSuggestion;
 
+  // Shared by both modes: a card pick always patches stage_id + its
+  // dependent tyre/wetness/weather defaults in one atomic call
+  // (applyPickedStageToConfig, R6) -- never split across two patches, which
+  // would transiently leave a brick without a stage_id.
+  function handlePickStage(id) {
+    const stage = stages.find((s) => s.id === id) ?? null;
+    onChange(applyPickedStageToConfig(value, stage));
+    setChangingStage(false);
+  }
+
   return (
     <>
-      <FormGroup label="Stage">
-        <StagePicker
-          stages={stages}
-          selectedStageId={value.stage_id}
-          onSelect={(id) => {
-            // Default the tyre to match the newly-picked stage's surface
-            // (rbr-rally-creator-web#24) -- a convenience default the user
-            // can still freely change below, not an enforced pairing. No
-            // change if the surface isn't recognised (defensive; every
-            // catalog entry currently has one of tarmac/gravel/snow).
-            const stage = stages.find((s) => s.id === id);
-            const defaultTyre = stage ? getDefaultTyreForSurface(stage.surface) : null;
-            // Wetness/weather option lists are per-stage (see
-            // discovery/capabilities/stages.json on the backend), so a
-            // value valid for the previous stage may not exist on this
-            // one -- reset both to the new stage's first option.
-            patch({
-              stage_id: id,
-              ...(defaultTyre ? { def_tyre_id: defaultTyre } : {}),
-              wetness_id: stage?.wetnessOptions?.[0] ?? '',
-              tracksettings_id: stage?.weatherOptions?.[0] ?? '',
-            });
-          }}
-        />
-      </FormGroup>
+      {pickerMode === 'inline' ? (
+        <FormGroup label="Stage">
+          <StagePicker stages={stages} selectedStageId={value.stage_id} onSelect={handlePickStage} />
+        </FormGroup>
+      ) : (
+        // 'affordance' mode (PickerWorkspace, D2 fallout / defaults item 2):
+        // a card click never silently re-targets this entry any more -- the
+        // picker only appears once "Change stage" is explicitly clicked,
+        // and collapses back to the summary the moment a card is picked.
+        <FormGroup label="Stage">
+          {changingStage ? (
+            <>
+              <StagePicker stages={stages} selectedStageId={value.stage_id} onSelect={handlePickStage} />
+              <Button type="button" variant="secondary" size="sm" onClick={() => setChangingStage(false)}>
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <div className={styles.stageSummaryRow}>
+              <span className={styles.stageSummaryName}>{selectedStage?.name ?? 'No stage picked'}</span>
+              <Button type="button" variant="secondary" size="sm" onClick={() => setChangingStage(true)}>
+                Change stage
+              </Button>
+            </div>
+          )}
+        </FormGroup>
+      )}
 
       {/* rbr-rally-creator-web#64: a purely local planning nickname --
           shown always, not gated on hidden_stage_name (that checkbox

@@ -115,3 +115,24 @@ export function applyStageConfigUpdate(stagePlan, uid, config) {
 export function applyServiceFieldsUpdate(stagePlan, uid, serviceFields) {
   return stagePlan.map((s) => (s._uid === uid ? { ...s, ...serviceFields } : s));
 }
+
+// Phase 2 (#107 D2/D4): splice a brand-new, already-complete brick (built by
+// the caller via createStageConfigFromPrevious + applyPickedStageToConfig,
+// same as today's "+ Add stage" flow) onto the END of the target leg's
+// slice of stagePlan, and grow that leg's stage_count by one to match --
+// the exact same two-array-atomically pattern handleModalSave's old 'add'
+// branch used (RoadBook.jsx, plan doc constraint 1: "both, atomically").
+// Pulled out as pure array math (mirroring applyStageConfigUpdate/
+// applyServiceFieldsUpdate above) so RoadBook's handler stays a one-liner
+// and the splice/bump math is unit-testable without rendering anything.
+// Callers MUST route stagePlan through onStagePlanChange (not hold it) so
+// normalizeLastStageService still runs -- this function never calls it,
+// same contract as its siblings above.
+export function applyAddStage(stagePlan, legSchedule, legIndex, config) {
+  const { endIndex } = computeLegStageRanges(legSchedule)[legIndex];
+  const nextStagePlan = [...stagePlan.slice(0, endIndex), config, ...stagePlan.slice(endIndex)];
+  const nextLegSchedule = legSchedule.map((leg, i) =>
+    i === legIndex ? { ...leg, stage_count: (leg.stage_count || 0) + 1 } : leg
+  );
+  return { stagePlan: nextStagePlan, legSchedule: nextLegSchedule };
+}

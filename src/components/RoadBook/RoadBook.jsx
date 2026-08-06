@@ -4,6 +4,7 @@ import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-
 import {
   computeLegStageRanges,
   createStageConfigFromPrevious,
+  applyPickedStageToConfig,
   toDatetimeLocalValue,
   formatKm,
   sumStagePlanKm,
@@ -11,7 +12,7 @@ import {
   MAX_LEG_SPAN_DAYS,
   MAX_LEGS,
 } from '../../lib/rallyPlan.js';
-import { applyStageConfigUpdate, applyServiceFieldsUpdate } from '../../lib/pickerWorkspace.js';
+import { applyStageConfigUpdate, applyServiceFieldsUpdate, applyAddStage } from '../../lib/pickerWorkspace.js';
 import { getPickerWorkspaceEnabled } from '../../lib/settings.js';
 import { PickerWorkspace } from '../PickerWorkspace/PickerWorkspace.jsx';
 import { StageBrick } from '../StageBrick/StageBrick.jsx';
@@ -691,6 +692,34 @@ export function RoadBook({
     onStagePlanChange(applyServiceFieldsUpdate(stagePlan, uid, serviceFields));
   }
 
+  // Phase 2 (#107, D2/D3/D4): PickerWorkspace's click-to-add. `legIndex` is
+  // the caller's cursor -- the selected entry's leg per D3 -- and `stageId`
+  // is whichever catalog card was clicked; this builds the same
+  // "born-complete" brick handleModalSave's old 'add' branch built (seeded
+  // from the stage that will precede it via createStageConfigFromPrevious,
+  // rbr-rally-creator-web#5, then the picked stage's defaults applied
+  // atomically via applyPickedStageToConfig, R6) and splices it onto the
+  // end of that leg (D4) via applyAddStage. Returns the new brick's _uid so
+  // the workspace can select it immediately (the doc's Phase 2 spec: one
+  // click per stage, no re-navigating to find what you just added).
+  function handleAddStageFromWorkspace(legIndex, stageId) {
+    const { endIndex } = legRanges[legIndex];
+    const seeded = createStageConfigFromPrevious(stagePlan[endIndex - 1]);
+    const stage = stages.find((s) => s.id === stageId) ?? null;
+    const config = applyPickedStageToConfig(seeded, stage);
+
+    const { stagePlan: nextStagePlan, legSchedule: nextLegSchedule } = applyAddStage(
+      stagePlan,
+      legSchedule,
+      legIndex,
+      config
+    );
+    onStagePlanChange(nextStagePlan);
+    onLegScheduleChange(nextLegSchedule);
+
+    return config._uid;
+  }
+
   function handleModalSave(config) {
     if (!modalState) return;
 
@@ -1094,14 +1123,15 @@ export function RoadBook({
         />
       )}
 
-      {/* rbr-rally-creator-web#107 Phase 1: with the PICKER_WORKSPACE flag
+      {/* rbr-rally-creator-web#107 Phase 1/2: with the PICKER_WORKSPACE flag
           on, the exact same openAddModal/openEditModal entry points render
           the workspace instead of StageConfigModal. It's a controlled view
           over the live stagePlan/legSchedule props (plan doc Option C) --
           selection starts from the origin context (D3: the clicked stage,
           or the origin leg for "+ Add stage"), edits flow back LIVE through
-          handleUpdateStage/handleUpdateService (D1), and closing just
-          clears modalState -- nothing pending to save or discard.
+          handleUpdateStage/handleUpdateService (D1), picker-adds flow
+          through handleAddStageFromWorkspace (D2/D4, Phase 2), and closing
+          just clears modalState -- nothing pending to save or discard.
           modalState's frozen initialValue/willBeLastStage/stageNumber are
           deliberately unused here: the workspace derives position facts
           live from the plan (plan doc R5). */}
@@ -1119,6 +1149,7 @@ export function RoadBook({
           }
           onUpdateStage={handleUpdateStage}
           onUpdateService={handleUpdateService}
+          onAddStage={handleAddStageFromWorkspace}
           onClose={closeModal}
         />
       )}

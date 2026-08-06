@@ -41,6 +41,23 @@
      against --info-fg: 6.5:1 light, 9.3:1 dark (both >= 4.5:1). */
   --info-ink: #ffffff;
 
+  /* rbr-rally-creator-web#104: green "constructive" family for actions that
+     build the rally (the road book's add-stage affordances). The pre-1-0
+     audit found --danger-fg moonlighting as a generic "attention" color on
+     things that aren't errors; this ramp is the correct home for that
+     attention. Green over amber (--accent already means brand/interactive)
+     and over cyan (a third blue next to --info and the super-rally outline
+     would blur). Hue 145 deliberately sits beside --success's 150 -- same
+     positive temperature -- but it's a separate pair for the same reason
+     --info isn't --success above: "this action builds" and "operation
+     succeeded" are different meanings that happen to want related colors.
+     Lightness/chroma track the --info-* discipline so the families read as
+     one calibrated set; fg stays >= 4.5:1 on --bg, --card and
+     --highlight-bg in both themes. */
+  --highlight-bg: oklch(94% 0.05 145);
+  --highlight-fg: oklch(46% 0.14 145);
+  --highlight-border: oklch(68% 0.13 145);
+
   --radius: 0.75rem;
 
   --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
@@ -90,6 +107,10 @@
     --info-fg: oklch(80% 0.1 250);
     --info-border: oklch(55% 0.14 250);
     --info-ink: oklch(22% 0.03 250);
+
+    --highlight-bg: oklch(30% 0.05 145);
+    --highlight-fg: oklch(80% 0.12 145);
+    --highlight-border: oklch(56% 0.14 145);
   }
 }
 :root[data-theme='dark'] {
@@ -99,6 +120,7 @@
   --danger-bg: oklch(30% 0.06 25); --danger-fg: oklch(80% 0.12 25);
   --success-bg: oklch(30% 0.05 150); --success-fg: oklch(80% 0.1 150);
   --info-bg: oklch(30% 0.05 250); --info-fg: oklch(80% 0.1 250); --info-border: oklch(55% 0.14 250); --info-ink: oklch(22% 0.03 250);
+  --highlight-bg: oklch(30% 0.05 145); --highlight-fg: oklch(80% 0.12 145); --highlight-border: oklch(56% 0.14 145);
 }
 :root[data-theme='light'] {
   --bg: oklch(97% 0.008 250); --ink: oklch(24% 0.015 250); --ink-soft: oklch(42% 0.015 250);
@@ -107,4 +129,5 @@
   --danger-bg: oklch(95% 0.03 25); --danger-fg: oklch(48% 0.18 25);
   --success-bg: oklch(94% 0.05 150); --success-fg: oklch(45% 0.13 150);
   --info-bg: oklch(94% 0.045 250); --info-fg: oklch(48% 0.14 250); --info-border: oklch(70% 0.12 250); --info-ink: #ffffff;
+  --highlight-bg: oklch(94% 0.05 145); --highlight-fg: oklch(46% 0.14 145); --highlight-border: oklch(68% 0.13 145);
 }

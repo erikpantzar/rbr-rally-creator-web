@@ -27,6 +27,13 @@ async function requestArray(baseUrl, path) {
   return { ok: true, data };
 }
 
+// rbr-rally-creator-web#97: the header's ServiceStatus indicator polls this
+// to show whether the backend (and specifically its Playwright automation,
+// not just the bare HTTP server) is up. Note `ok` here ends up reflecting
+// the service's own `ok` field (via request()'s `{ ok: true, ...data }`
+// spread) when the request succeeds, not just "got an HTTP response".
+export const getHealth = (baseUrl) => request(baseUrl, '/health');
+
 export const getStages = (baseUrl) => requestArray(baseUrl, '/catalog/stages');
 
 export const getCarGroups = (baseUrl) => requestArray(baseUrl, '/catalog/car-groups');

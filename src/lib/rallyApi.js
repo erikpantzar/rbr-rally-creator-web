@@ -1,7 +1,10 @@
 // Thin fetch wrapper for rbr-rally-creator-service's rally endpoints.
 // `credentials: 'include'` is required on every call -- the session lives in
 // a cross-site httpOnly cookie the service sets.
+import { USE_MOCK_API, mockRequest, mockRequestArray } from './mockService.js';
+
 async function request(baseUrl, path, { method = 'GET', body } = {}) {
+  if (USE_MOCK_API) return mockRequest(path, { method, body });
   const res = await fetch(`${baseUrl}${path}`, {
     method,
     credentials: 'include',
@@ -18,6 +21,7 @@ async function request(baseUrl, path, { method = 'GET', body } = {}) {
 // (`{0: ..., 1: ...}`), not a `.stages`/`.carGroups` array. Kept as a
 // separate helper that wraps the array under `.data` instead.
 async function requestArray(baseUrl, path) {
+  if (USE_MOCK_API) return mockRequestArray(path);
   const res = await fetch(`${baseUrl}${path}`, { credentials: 'include' });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));

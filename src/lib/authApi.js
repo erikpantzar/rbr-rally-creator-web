@@ -4,7 +4,10 @@
 // never reads or stores the raw username/password itself. Saving
 // credentials does NOT validate them against rallysimfans.hu -- that only
 // happens later, when a rally-creation job actually runs (not built yet).
+import { USE_MOCK_API, mockRequest } from './mockService.js';
+
 async function request(baseUrl, path, { method = 'GET', body } = {}) {
+  if (USE_MOCK_API) return mockRequest(path, { method, body });
   const res = await fetch(`${baseUrl}${path}`, {
     method,
     credentials: 'include',

@@ -1,4 +1,5 @@
 .brick {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
@@ -25,52 +26,47 @@
   outline-offset: 2px;
 }
 
-/* Hidden in the brick's resting state -- per DESIGN_SPEC.md's UX review
-   ("brick control clutter cuts against the 'scannable at a glance' goal"),
-   drag/move/duplicate/delete only reveal on :hover or :focus-within of the
-   brick root. opacity (not display/visibility) keeps the buttons in the tab
-   order and focusable even while invisible, so a keyboard user tabbing in
-   from the previous brick's body reaches these controls and :focus-within
-   reveals them without ever needing a mouse hover first. */
-.controls {
+/* rbr-rally-creator-web#96: the dragged brick's overlay copy while it's
+   hovering the remove zone -- danger palette lifted straight off
+   .deleteCorner below/the old .deleteButton:hover, so "about to be deleted"
+   reads the same whichever path (drag or click) triggers it. */
+.brick.brickDanger {
+  background: var(--danger-bg);
+  border-left-color: var(--danger-fg);
+}
+
+/* rbr-rally-creator-web#96: a plain cross glyph in the brick's top-right
+   corner, replacing the old button-styled .controls/.controlButton pair.
+   Hidden at rest, same :hover/:focus-within reveal trick .controls used --
+   opacity (not display/visibility) keeps it in the tab order and reachable
+   by keyboard even while invisible. Unlike the old control, it's red from
+   the moment it's revealed rather than needing a second, more precise hover
+   of the control itself -- the issue's "show a red cross" ask. */
+.deleteCorner {
+  position: absolute;
+  top: 0.15rem;
+  right: 0.15rem;
   display: flex;
   align-items: center;
-  gap: 0.2rem;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--danger-fg);
+  background: var(--danger-bg);
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
   opacity: 0;
   transition: opacity 0.12s ease;
 }
 
-.brick:hover .controls,
-.brick:focus-within .controls {
+.brick:hover .deleteCorner,
+.brick:focus-within .deleteCorner {
   opacity: 1;
 }
 
-.controlButton {
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 0.85rem;
-  line-height: 1;
-  padding: 0.2rem 0.3rem;
-  border-radius: 0;
-  font-family: inherit;
-  margin-left: auto;
-}
-
-.controlButton:hover:not(:disabled) {
-  color: var(--ink);
-  background: var(--card);
-}
-
-.controlButton:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.deleteButton:hover:not(:disabled) {
-  color: var(--danger-fg);
-  background: var(--danger-bg);
+.deleteCorner:hover {
+  filter: brightness(1.1);
 }
 
 .body {
@@ -168,4 +164,15 @@
 
 .brickLocked .surfaceGlyph {
   background: var(--muted);
+}
+
+/* rbr-rally-creator-web#96: DragOverlay renders the dragged brick via this
+   `locked` styling (see StageBrick.jsx's comment on why -- it wants the
+   overlay's exact shape/size, not the editable brick's interactive resting
+   style), so the same "hovering the remove zone" danger tint needs its own
+   locked-branch variant rather than relying on .brickDanger, which only
+   applies to the editable-branch's .brick root. */
+.brickLockedDanger {
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-fg);
 }

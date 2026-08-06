@@ -74,6 +74,14 @@ export function StageBrick({
   onDelete,
   locked = false,
   hiddenStageNameEnabled = false,
+  // rbr-rally-creator-web#96 (drag-to-delete): true while this exact brick
+  // is the one currently being dragged over the road book's remove zone --
+  // set by RoadBook from its DndContext-level onDragOver, not derived here,
+  // since a brick can't know on its own whether *it* is the active drag.
+  // Only ever passed to the DragOverlay's copy of this brick (see
+  // RoadBook.jsx) -- the brick still sitting in its row is never the
+  // highlighted one.
+  dangerHighlight = false,
 }) {
   // Sortable hook is called unconditionally (Rules of Hooks) even though
   // its output is only used on the editable path below -- locked bricks
@@ -92,8 +100,11 @@ export function StageBrick({
   // no controls, no click-to-edit.
   if (locked) {
     const lockedNames = getStageNames(stage, value._label, value.hidden_name, hiddenStageNameEnabled);
+    const lockedClassName = [styles.brickLocked, dangerHighlight ? styles.brickLockedDanger : '']
+      .filter(Boolean)
+      .join(' ');
     return (
-      <div className={styles.brickLocked}>
+      <div className={lockedClassName}>
         <span className={styles.stageNumber}>{stageNumber}</span>
         <span className={styles.surfaceGlyph} title={stage?.surface ?? 'Unknown surface'}>
           {surfaceGlyph(stage?.surface)}
@@ -120,7 +131,12 @@ export function StageBrick({
     transition,
   };
 
-  const rootClassName = [styles.brick, isDragging ? styles.dragging : '', isOver ? styles.dropTarget : '']
+  const rootClassName = [
+    styles.brick,
+    isDragging ? styles.dragging : '',
+    isOver ? styles.dropTarget : '',
+    dangerHighlight ? styles.brickDanger : '',
+  ]
     .filter(Boolean)
     .join(' ');
 
@@ -133,19 +149,35 @@ export function StageBrick({
 
   const brickNames = getStageNames(stage, value._label, value.hidden_name, hiddenStageNameEnabled);
 
+  function handleDeleteKeyDown(e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      stopAndRun(onDelete)(e);
+    }
+  }
+
   return (
     <div ref={setNodeRef} style={style} className={rootClassName} {...listeners} {...attributes}>
-      <div className={styles.controls}>
-        <button
-          type="button"
-          className={[styles.controlButton, styles.deleteButton].join(' ')}
-          onClick={stopAndRun(onDelete)}
-          aria-label={`Delete stage ${stageNumber}`}
-          title="Delete"
-        >
-          ×
-        </button>
-      </div>
+      {/* rbr-rally-creator-web#96: a plain cross glyph, not a <button> --
+          the issue asked to remove the button-styled delete affordance in
+          favor of a red cross, while drag-to-delete (via the remove zone,
+          see RoadBook.jsx) becomes the primary removal gesture. Kept
+          clickable/keyboard-operable (role="button", tabIndex, Enter/Space)
+          for anyone who still wants a direct click-to-delete rather than a
+          drag. Same hover/:focus-within reveal trick .controls used to use,
+          except red from the moment it's revealed rather than needing a
+          second, more precise hover of the control itself. */}
+      <span
+        role="button"
+        tabIndex={0}
+        className={styles.deleteCorner}
+        onClick={stopAndRun(onDelete)}
+        onKeyDown={handleDeleteKeyDown}
+        aria-label={`Delete stage ${stageNumber}`}
+        title="Delete"
+      >
+        ×
+      </span>
 
       <button type="button" className={styles.body} onClick={onEdit}>
         <span className={styles.stageNumber}>{stageNumber}</span>

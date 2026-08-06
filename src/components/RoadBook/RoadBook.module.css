@@ -320,6 +320,36 @@
   outline-offset: 4px;
 }
 
+/* rbr-rally-creator-web#96: drag-to-delete zone, one per leg row (see
+   RemoveDropZone in RoadBook.jsx) -- only ever rendered while a stage brick
+   is mid-drag, so no "at rest" style is needed here beyond the subtle
+   dashed-danger-outline look, matching .addStageBrickEmpty's border-forward
+   (not filled) treatment for the same reason: --danger-bg has no dark-mode
+   override, so a filled block would stay light-pink in dark mode. Turns
+   solid/filled on isOver so dropping here reads as an unambiguous "yes,
+   right here" the same instant the dragged brick itself also goes red (see
+   StageBrick.module.css's .brickDanger/.brickLockedDanger). */
+.removeZone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  min-width: 8rem;
+  min-height: 5.5rem;
+  padding: 1rem 1.25rem;
+  flex-shrink: 0;
+  border: 1px dashed var(--danger-fg);
+  color: var(--danger-fg);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.removeZoneOver {
+  background: var(--danger-bg);
+  border-style: solid;
+}
+
 /* A service block sits inline right after its stage brick, flowing in
    .stagesList's flex-wrap row exactly like the bricks do -- wraps onto the
    next line as a pair with its stage once the row runs out of width, rather

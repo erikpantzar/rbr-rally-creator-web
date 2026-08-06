@@ -31,13 +31,14 @@
    --accent-soft-bg already flip via tokens.css's prefers-color-scheme/
    data-theme rules). :focus-visible only, deliberately: the glow is for
    keyboard/assistive focus, not every mouse click (a bare :focus fallback
-   used to sit alongside and made it fire on click -- removed). */
+   used to sit alongside and made it fire on click -- removed).
+   rbr-rally-creator-web#105: the shadow pair itself now lives in
+   tokens.css as --accent-glow, shared with the section-jump beacon
+   (index.css) so both "look here" treatments stay identical. */
 .input:focus-visible {
   outline: none;
   border-color: var(--accent);
-  box-shadow:
-    0 0 0 3px var(--accent-soft-bg),
-    0 0 14px oklch(from var(--accent) l c h / 0.55);
+  box-shadow: var(--accent-glow);
 }
 
 textarea.input {

@@ -26,6 +26,7 @@ import {
   clearCurrentDraft,
   saveRally,
 } from '../../lib/rallyStorage.js';
+import { SECTION_IDS, jumpToSection } from '../../lib/sectionJump.js';
 import { Button } from '../Button/Button.jsx';
 import { RallyBasicsForm } from '../RallyBasicsForm/RallyBasicsForm.jsx';
 import { CarGroupPicker } from '../CarGroupPicker/CarGroupPicker.jsx';
@@ -551,43 +552,72 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload }) {
   // stage_id to be picked before Save is enabled (see
   // StageConfigModal's `disabled={!draft.stage_id}`), so there's no path
   // to a brick without one.
+  //
+  // rbr-rally-creator-web#105: every problem is { message, target, action? }
+  // (ReadinessBanner's normalized shape) -- clicking a problem jumps to the
+  // section that owns it. The explicit problem -> section mapping:
+  //   credentials missing        -> SECTION_IDS.credentials (App.jsx's
+  //                                 credentials section, above this builder)
+  //   rally name missing         -> SECTION_IDS.rallyBasics (RallyBasicsForm)
+  //   no car groups selected     -> SECTION_IDS.carGroups (CarGroupPicker)
+  //   every stage/leg problem    -> SECTION_IDS.roadBook (RoadBook): no
+  //     stages yet, leg/stage counts out of balance, empty legs, too many
+  //     legs, and legs opening too soon are all fixed by editing the road
+  //     book's bricks/legs, so they all point at the same section.
   const readinessProblems = [];
   if (!credentialsSaved) {
-    readinessProblems.push('Save your rallysimfans.hu credentials above before creating a rally.');
+    readinessProblems.push({
+      message: 'Save your rallysimfans.hu credentials above before creating a rally.',
+      target: SECTION_IDS.credentials,
+    });
   }
   if (!rallyBasics.rally_name.trim()) {
-    readinessProblems.push('Rally name is required.');
+    readinessProblems.push({
+      message: 'Rally name is required.',
+      target: SECTION_IDS.rallyBasics,
+    });
   }
   if (carGroupIds.length === 0) {
-    readinessProblems.push('Select at least one car group.');
+    readinessProblems.push({
+      message: 'Select at least one car group.',
+      target: SECTION_IDS.carGroups,
+    });
   }
   if (stagePlan.length === 0) {
-    readinessProblems.push('Add at least one stage before creating the rally.');
+    readinessProblems.push({
+      message: 'Add at least one stage before creating the rally.',
+      target: SECTION_IDS.roadBook,
+    });
   }
   if (!legStagesBalanced) {
-    readinessProblems.push(
-      `Leg stage counts add up to ${assignedStages}, but the rally has ${stagePlan.length} stages — drag a stage across a leg divider to move it into the right leg.`
-    );
+    readinessProblems.push({
+      message: `Leg stage counts add up to ${assignedStages}, but the rally has ${stagePlan.length} stages — drag a stage across a leg divider to move it into the right leg.`,
+      target: SECTION_IDS.roadBook,
+    });
   }
   if (emptyLegNumbers.length > 0) {
     const legWord = emptyLegNumbers.length === 1 ? 'Leg' : 'Legs';
-    readinessProblems.push(
-      `${legWord} ${emptyLegNumbers.join(', ')} ${emptyLegNumbers.length === 1 ? 'has' : 'have'} no stages — add at least one stage to every leg (or remove the empty one).`
-    );
+    readinessProblems.push({
+      message: `${legWord} ${emptyLegNumbers.join(', ')} ${emptyLegNumbers.length === 1 ? 'has' : 'have'} no stages — add at least one stage to every leg (or remove the empty one).`,
+      target: SECTION_IDS.roadBook,
+    });
   }
   if (tooManyLegs) {
-    readinessProblems.push(`Rallies can have at most ${MAX_LEGS} legs — remove ${legSchedule.length - MAX_LEGS} leg${legSchedule.length - MAX_LEGS === 1 ? '' : 's'}.`);
+    readinessProblems.push({
+      message: `Rallies can have at most ${MAX_LEGS} legs — remove ${legSchedule.length - MAX_LEGS} leg${legSchedule.length - MAX_LEGS === 1 ? '' : 's'}.`,
+      target: SECTION_IDS.roadBook,
+    });
   }
   if (legsOpeningTooSoon.length > 0) {
     const legWord = legsOpeningTooSoon.length === 1 ? 'Leg' : 'Legs';
     const verbWord = legsOpeningTooSoon.length === 1 ? 'opens' : 'open';
-    // Unlike every other push above, this problem has a one-click fix --
-    // widened to the richer { message, action } shape ReadinessBanner now
-    // accepts, so the "Fix start time(s)" button renders inline on this
+    // The one problem with a one-click fix (rbr-rally-creator-web#63) --
+    // `action` renders the "Fix start time(s)" button inline on this
     // specific problem line instead of as a standalone button below the
     // whole banner.
     readinessProblems.push({
       message: `${legWord} ${legsOpeningTooSoon.join(', ')} ${verbWord} in less than ${MIN_LEG_LEAD_MINUTES} minutes (or already in the past) — rallysimfans.hu will automatically push it out to ${CLAMP_LEG_LEAD_MINUTES} minutes from now and shift the close time to match, so update the start time here if you want control over the exact time.`,
+      target: SECTION_IDS.roadBook,
       action: {
         label:
           legsOpeningTooSoon.length === 1
@@ -669,22 +699,32 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload }) {
             component to know about "locked" itself (native fieldset
             disabling cascades to all descendant form controls). */}
         <fieldset className={styles.headerBlock} disabled={locked}>
-          <RallyBasicsForm
-            value={rallyBasics}
-            onChange={setRallyBasics}
-            options={rallyOptions}
-            rallyNameInputRef={rallyNameInputRef}
-          />
+          {/* rbr-rally-creator-web#105: id + data-jump-target mark each of
+              the banner's jump destinations (see lib/sectionJump.js's
+              SECTION_IDS and index.css's [data-jump-target]/[data-glow]).
+              Basics and car groups get their own plain wrapper divs -- the
+              fieldset holds both, but "rally name missing" and "no car
+              groups" need to land on (and glow) different spots. */}
+          <div id={SECTION_IDS.rallyBasics} data-jump-target="">
+            <RallyBasicsForm
+              value={rallyBasics}
+              onChange={setRallyBasics}
+              options={rallyOptions}
+              rallyNameInputRef={rallyNameInputRef}
+            />
+          </div>
 
-          <CarGroupPicker
-            carGroups={carGroups}
-            cars={cars}
-            selectedIds={carGroupIds}
-            onChange={setCarGroupIds}
-          />
+          <div id={SECTION_IDS.carGroups} data-jump-target="">
+            <CarGroupPicker
+              carGroups={carGroups}
+              cars={cars}
+              selectedIds={carGroupIds}
+              onChange={setCarGroupIds}
+            />
+          </div>
         </fieldset>
 
-        <div className={styles.stagesSection}>
+        <div className={styles.stagesSection} id={SECTION_IDS.roadBook} data-jump-target="">
           <RoadBook
             stages={stages}
             options={rallyOptions}
@@ -711,7 +751,10 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload }) {
           </div>
         ) : (
           <>
-            <ReadinessBanner problems={readinessProblems} />
+            {/* onJump comes from here rather than the banner importing
+                jumpToSection itself, keeping ReadinessBanner presentational
+                (props in, callbacks out) like everything under components/. */}
+            <ReadinessBanner problems={readinessProblems} onJump={jumpToSection} />
 
             <div className={styles.actions}>
               <button

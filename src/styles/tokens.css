@@ -58,6 +58,27 @@
   --highlight-fg: oklch(46% 0.14 145);
   --highlight-border: oklch(68% 0.13 145);
 
+  /* rbr-rally-creator-web#105: filled "urgent but not an error" pair for the
+     readiness banner -- a dark orange box with light ink, deliberately
+     sitting between --danger-fg's red (hue 25, "something failed") and
+     --accent's amber (hue 92, "interactive/highlighted") at hue 55, so it
+     reads as its own category next to both. Named/shaped like --info-*
+     above: a distinct semantic pair, not a reuse of a nearby one.
+     Contrast-checked (WCAG): 6.8:1 light, 7.2:1 dark -- both >= 4.5:1. */
+  --warning-strong-bg: oklch(48% 0.14 55);
+  --warning-strong-ink: #ffffff;
+
+  /* rbr-rally-creator-web#105: Input's two-layer focus glow (tight
+     --accent-soft-bg ring + wider --accent bloom), promoted to a shared
+     token so the section-jump beacon (index.css) and any future "look
+     here" treatment stay identical to the focus language users already
+     know. Defined once, not per theme block: it only references tokens
+     that themselves flip per theme, and var() resolves at the element
+     using it, so light/dark both come out right from this one line. */
+  --accent-glow:
+    0 0 0 3px var(--accent-soft-bg),
+    0 0 14px oklch(from var(--accent) l c h / 0.55);
+
   --radius: 0.75rem;
 
   --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
@@ -111,6 +132,9 @@
     --highlight-bg: oklch(30% 0.05 145);
     --highlight-fg: oklch(80% 0.12 145);
     --highlight-border: oklch(56% 0.14 145);
+
+    --warning-strong-bg: oklch(44% 0.13 55);
+    --warning-strong-ink: oklch(96% 0.015 55);
   }
 }
 :root[data-theme='dark'] {
@@ -121,6 +145,7 @@
   --success-bg: oklch(30% 0.05 150); --success-fg: oklch(80% 0.1 150);
   --info-bg: oklch(30% 0.05 250); --info-fg: oklch(80% 0.1 250); --info-border: oklch(55% 0.14 250); --info-ink: oklch(22% 0.03 250);
   --highlight-bg: oklch(30% 0.05 145); --highlight-fg: oklch(80% 0.12 145); --highlight-border: oklch(56% 0.14 145);
+  --warning-strong-bg: oklch(44% 0.13 55); --warning-strong-ink: oklch(96% 0.015 55);
 }
 :root[data-theme='light'] {
   --bg: oklch(97% 0.008 250); --ink: oklch(24% 0.015 250); --ink-soft: oklch(42% 0.015 250);
@@ -130,4 +155,5 @@
   --success-bg: oklch(94% 0.05 150); --success-fg: oklch(45% 0.13 150);
   --info-bg: oklch(94% 0.045 250); --info-fg: oklch(48% 0.14 250); --info-border: oklch(70% 0.12 250); --info-ink: #ffffff;
   --highlight-bg: oklch(94% 0.05 145); --highlight-fg: oklch(46% 0.14 145); --highlight-border: oklch(68% 0.13 145);
+  --warning-strong-bg: oklch(48% 0.14 55); --warning-strong-ink: #ffffff;
 }

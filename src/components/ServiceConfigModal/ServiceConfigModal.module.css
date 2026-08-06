@@ -30,43 +30,10 @@
   padding: 1.25rem;
 }
 
-/* Field stacks and their labels/selects come from the shared FormGroup
-   primitive now (the rules were byte-identical with StageConfigModal's). */
+/* The form body's styles (tier row/buttons, disabled note) moved out with
+   the rbr-rally-creator-web#107 Phase 0 extraction -- see
+   ServiceEntryForm.module.css (docs/redesign/07-picker-workspace.md). Only
+   the overlay chrome styles remain here.
 
-.tierRow {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.tierButton {
-  padding: 0.55rem 0.7rem;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--ink);
-  font-size: 0.85rem;
-  font-family: inherit;
-  cursor: pointer;
-  text-align: left;
-}
-
-.tierButton:hover {
-  border-color: var(--info-border);
-}
-
-.tierButtonActive {
-  border-color: var(--info-border);
-  background: var(--info-bg);
-  color: var(--info-fg);
-  font-weight: 600;
-}
-
-.disabledNote {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-/* The Cancel/Save row is FormActions + Button (secondary/primary,
+   The Cancel/Save row is FormActions + Button (secondary/primary,
    size="md") now -- nothing left to style here. */

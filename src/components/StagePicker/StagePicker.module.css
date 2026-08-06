@@ -1,0 +1,191 @@
+/* Extracted verbatim from StageConfigModal.module.css for
+   rbr-rally-creator-web#107 (docs/redesign/07-picker-workspace.md, Phase 0)
+   alongside the StagePicker component itself -- rules unchanged, only the
+   module they hash under. */
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  padding: 0.6rem;
+  background: var(--bg);
+}
+
+/* Row on the wider full-page form instead of always stacking -- there's
+   room for it now that this isn't squeezed into a 32rem dialog. */
+.pickerFilters {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.pickerFilters > * {
+  flex: 1 1 10rem;
+}
+
+/* Two-class (.picker) prefix so this reliably outweighs FormGroup's own
+   single-class `.formGroup select` rule regardless of CSS module injection
+   order -- the whole picker sits inside the "Stage" FormGroup, and these
+   filter selects need their tighter 0.85rem/var(--card) treatment, not the
+   shared field-select look. Same specificity trick as .pickerFilterInput
+   below. */
+.picker .pickerFilters select {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+
+/* Distinct background from the app's ordinary form fields (var(--bg)) --
+   this filter sits inside .picker's own var(--bg) surface, so it needs the
+   lighter var(--card) tone to stay visually separated from it. Nested under
+   .pickerFilters (rather than a bare .pickerFilterInput rule) so this two-
+   class selector reliably outweighs Input's own single-class background
+   rule regardless of CSS module import order. */
+.pickerFilters .pickerFilterInput {
+  background: var(--card);
+}
+
+.pickerToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.pickerCount {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.pickerThumbnailToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pickerThumbnailToggle input {
+  margin: 0;
+  cursor: pointer;
+}
+
+/* rbr-rally-creator-web#100: larger hover preview, floating near the
+   cursor. Fixed positioning (left/top set inline from clientX/clientY) so
+   it tracks the pointer in viewport space regardless of where .pickerList
+   is scrolled; --z-popover sits above StageConfigModal's own .overlay
+   (--z-modal) so it's never hidden behind the picker it floats over, but
+   below ServiceConfigModal's --z-modal-2 so it can't bleed through a modal
+   opened on top. pointer-events: none so the preview itself can never
+   intercept the mousemove/mouseleave it depends on. */
+.pickerHoverPreview {
+  position: fixed;
+  z-index: var(--z-popover);
+  pointer-events: none;
+  width: 16rem;
+  height: 16rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: 0 10px 28px oklch(0% 0 0 / 0.22);
+  overflow: hidden;
+}
+
+.pickerHoverPreview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Grid instead of a single column -- the full-page overlay has enough
+   width for two-up (or more) cards, so the list needs less scrolling to
+   browse the same number of stages. */
+.pickerList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.4rem;
+  max-height: 20rem;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+
+.pickerCard {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.pickerCard:hover {
+  border-color: var(--accent);
+}
+
+.pickerCardSelected {
+  border-color: var(--accent);
+  background: var(--accent-soft-bg);
+}
+
+/* Fixed 48x48 box so the grid holds its shape whether or not a given stage
+   has an imageUrl (rbr-rally-creator-service#15) and while lazy-loaded
+   images are still in flight -- no layout shift either way. Square rather
+   than a landscape crop: at this size (a glance, not a preview) matching
+   the card's own squarish footprint reads calmer than an odd sliver. */
+.pickerCardThumb {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.pickerCardThumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pickerCardBody {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.pickerCardName {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.pickerCardMeta {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: capitalize;
+}
+
+.pickerEmpty {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  padding: 0.5rem;
+}

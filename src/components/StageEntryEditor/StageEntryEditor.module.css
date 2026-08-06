@@ -1,0 +1,76 @@
+/* Extracted verbatim from StageConfigModal.module.css for
+   rbr-rally-creator-web#107 (docs/redesign/07-picker-workspace.md, Phase 0)
+   alongside the form body itself -- rules unchanged, only the module they
+   hash under. The modal keeps its chrome styles (header/back/save,
+   restored-draft notice, .form column); everything a field renders lives
+   here so the workspace pane inherits the identical look. */
+
+/* Field stacks and their labels/selects come from the shared FormGroup
+   primitive (the rules were byte-identical with ServiceConfigModal's). */
+
+/* Quiet footnote under the nickname field (rbr-rally-creator-web#64) --
+   deliberately plain body text in the muted color, not a colored
+   banner/box like .tyreSuggestion or the modal's .restoredNotice: this is
+   a factual disclosure (local-only, never sent to rallysimfans.hu), not
+   flagging a problem or an available action, so it shouldn't read as
+   alarming. */
+.fieldNote {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* Wet-tyre suggestion banner (rbr-rally-creator-web#24) -- sits right under
+   the tyre select it's advising on. Deliberately less prominent than the
+   modal's .restoredNotice (no full-bleed background break-out): this is a
+   soft nudge attached to one field, not a page-level "something happened"
+   notice. */
+.tyreSuggestion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  background: var(--accent-soft-bg);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.tyreSuggestionActions {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.radioGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.radioLabel,
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 400;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.radioLabel input,
+.checkboxLabel input {
+  margin: 0;
+  cursor: pointer;
+}
+
+.checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}

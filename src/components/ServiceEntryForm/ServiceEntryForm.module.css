@@ -1,0 +1,42 @@
+/* Extracted verbatim from ServiceConfigModal.module.css for
+   rbr-rally-creator-web#107 (docs/redesign/07-picker-workspace.md, Phase 0)
+   alongside the form body itself -- rules unchanged, only the module they
+   hash under. The modal keeps its chrome styles (header, .form column). */
+
+/* Field stacks and their labels/selects come from the shared FormGroup
+   primitive (the rules were byte-identical with StageConfigModal's). */
+
+.tierRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.tierButton {
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.tierButton:hover {
+  border-color: var(--info-border);
+}
+
+.tierButtonActive {
+  border-color: var(--info-border);
+  background: var(--info-bg);
+  color: var(--info-fg);
+  font-weight: 600;
+}
+
+.disabledNote {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}

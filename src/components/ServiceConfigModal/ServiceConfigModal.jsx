@@ -1,12 +1,18 @@
 import { useState } from 'react';
 import { Button } from '../Button/Button.jsx';
-import { FormGroup, FormActions } from '../FormGroup/FormGroup.jsx';
+import { FormActions } from '../FormGroup/FormGroup.jsx';
 import { Modal } from '../Modal/Modal.jsx';
-import { SERVICE_TIERS, getServiceTier } from '../../lib/rallyPlan.js';
+import { ServiceEntryForm } from '../ServiceEntryForm/ServiceEntryForm.jsx';
 import styles from './ServiceConfigModal.module.css';
 
 // rbr-rally-creator-web#80: separate sibling modal to StageConfigModal,
 // scoped entirely to one stage's service_time/nummechanics/mechanicsSkill.
+// The form body (tier row + duration/mechanics/skill selects) lives in
+// ServiceEntryForm since rbr-rally-creator-web#107's Phase 0 extraction
+// (docs/redesign/07-picker-workspace.md) -- this component is now only the
+// overlay chrome around it: the centered card, the local draft the
+// controlled form edits, and Save/Cancel. Behavior unchanged.
+//
 // Deliberately has NO stage picker inside it -- which stage it applies to
 // is implicit from where it was opened (the leg-list blue block, or
 // StageConfigModal's own "Service" summary button), passed in here as
@@ -29,29 +35,6 @@ export function ServiceConfigModal({ value, options, stageLabel, stageNumber, is
     nummechanics: value.nummechanics,
     mechanicsSkill: value.mechanicsSkill,
   });
-  const tier = getServiceTier(draft.service_time);
-
-  function patch(fields) {
-    setDraft((prev) => ({ ...prev, ...fields }));
-  }
-
-  function pickTier(tierKey) {
-    const nextTier = SERVICE_TIERS[tierKey];
-    const validTimes = options.serviceTime.filter((t) => nextTier.times.includes(t));
-    const nextServiceTime = validTimes[0] ?? nextTier.times[0];
-
-    if (tierKey === 'none') {
-      patch({ service_time: 'No Service', nummechanics: 'No Service', mechanicsSkill: 'No Service' });
-      return;
-    }
-
-    patch({
-      service_time: nextServiceTime,
-      nummechanics: draft.nummechanics === 'No Service' ? options.mechanicsCount.find((m) => m !== 'No Service') : draft.nummechanics,
-      mechanicsSkill:
-        draft.mechanicsSkill === 'No Service' ? options.mechanicsSkill.find((m) => m !== 'No Service') : draft.mechanicsSkill,
-    });
-  }
 
   function handleSave(e) {
     e.preventDefault();
@@ -68,80 +51,13 @@ export function ServiceConfigModal({ value, options, stageLabel, stageNumber, is
       </div>
 
       <form className={styles.form} onSubmit={handleSave}>
-        {isLastStage ? (
-          <p className={styles.disabledNote}>
-            {disabledReason ?? 'Service is disabled on the rally’s final stage (enforced by the site).'}
-          </p>
-        ) : (
-          <>
-            <FormGroup label="Tier">
-              <div className={styles.tierRow}>
-                {Object.values(SERVICE_TIERS).map((t) => (
-                  <button
-                    key={t.key}
-                    type="button"
-                    className={[styles.tierButton, tier.key === t.key ? styles.tierButtonActive : ''].join(' ')}
-                    onClick={() => pickTier(t.key)}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </FormGroup>
-
-            {tier.key !== 'none' && (
-              <>
-                <FormGroup label="Duration" htmlFor="service-modal-duration">
-                  <select
-                    id="service-modal-duration"
-                    value={draft.service_time}
-                    onChange={(e) => patch({ service_time: e.target.value })}
-                  >
-                    {options.serviceTime
-                      .filter((t) => tier.times.includes(t))
-                      .map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                  </select>
-                </FormGroup>
-
-                <FormGroup label="Mechanics" htmlFor="service-modal-mechanics">
-                  <select
-                    id="service-modal-mechanics"
-                    value={draft.nummechanics}
-                    onChange={(e) => patch({ nummechanics: e.target.value })}
-                  >
-                    {options.mechanicsCount
-                      .filter((m) => m !== 'No Service')
-                      .map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                  </select>
-                </FormGroup>
-
-                <FormGroup label="Skill" htmlFor="service-modal-skill">
-                  <select
-                    id="service-modal-skill"
-                    value={draft.mechanicsSkill}
-                    onChange={(e) => patch({ mechanicsSkill: e.target.value })}
-                  >
-                    {options.mechanicsSkill
-                      .filter((m) => m !== 'No Service')
-                      .map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                  </select>
-                </FormGroup>
-              </>
-            )}
-          </>
-        )}
+        <ServiceEntryForm
+          value={draft}
+          onChange={setDraft}
+          options={options}
+          isLastStage={isLastStage}
+          disabledReason={disabledReason}
+        />
 
         <FormActions>
           <Button type="button" variant="secondary" size="md" onClick={onCancel}>

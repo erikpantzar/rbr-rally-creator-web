@@ -4,6 +4,7 @@ import { saveCredentials, getCredentialsStatus, clearCredentials } from './lib/a
 import { CredentialForm } from './components/CredentialForm/CredentialForm.jsx';
 import { CredentialStatus } from './components/CredentialStatus/CredentialStatus.jsx';
 import { RallyBuilder } from './components/RallyBuilder/RallyBuilder.jsx';
+import { SECTION_IDS } from './lib/sectionJump.js';
 import { RallySidebar } from './components/RallySidebar/RallySidebar.jsx';
 import { StockholmClock } from './components/StockholmClock/StockholmClock.jsx';
 import { ServiceStatus } from './components/ServiceStatus/ServiceStatus.jsx';
@@ -115,7 +116,11 @@ function App() {
       </header>
 
       {baseUrl && (
-        <section className={styles.section}>
+        // rbr-rally-creator-web#105: jump target for the readiness banner's
+        // "save your credentials" problem link -- the one target that lives
+        // outside RallyBuilder, which is why SECTION_IDS is shared from
+        // lib/sectionJump.js instead of being RallyBuilder's private map.
+        <section className={styles.section} id={SECTION_IDS.credentials} data-jump-target="">
           <h2>rallysimfans.hu credentials</h2>
           {credState.status === 'unsaved' ? (
             <CredentialForm onSubmit={handleSaveCredentials} submitting={saving} error={saveError} />

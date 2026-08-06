@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Input } from '../Input/Input.jsx';
 import { ServiceBlock } from '../ServiceBlock/ServiceBlock.jsx';
 import { ServiceConfigModal } from '../ServiceConfigModal/ServiceConfigModal.jsx';
 import { loadStageConfigDraft, saveStageConfigDraft, clearStageConfigDraft } from '../../lib/stageConfigDraft.js';
@@ -124,8 +125,9 @@ function StagePicker({ stages, selectedStageId, onSelect }) {
   return (
     <div className={styles.picker}>
       <div className={styles.pickerFilters}>
-        <input
+        <Input
           type="text"
+          size="sm"
           placeholder="Filter by name..."
           value={nameFilter}
           onChange={(e) => setNameFilter(e.target.value)}
@@ -450,8 +452,9 @@ export function StageConfigModal({
             being something they'd type over blindly. */}
         <div className={styles.formGroup}>
           <label htmlFor="modal-label">Nickname (optional)</label>
-          <input
+          <Input
             id="modal-label"
+            size="md"
             type="text"
             placeholder={stageNumber ? `Stage ${stageNumber}` : 'e.g. Stage 3'}
             value={draft._label ?? ''}
@@ -471,8 +474,9 @@ export function StageConfigModal({
         {hiddenStageNameEnabled && (
           <div className={styles.formGroup}>
             <label htmlFor="modal-hidden-name">Hidden stage name</label>
-            <input
+            <Input
               id="modal-hidden-name"
+              size="md"
               type="text"
               placeholder="Name shown to participants instead of the real stage name"
               value={draft.hidden_name ?? ''}

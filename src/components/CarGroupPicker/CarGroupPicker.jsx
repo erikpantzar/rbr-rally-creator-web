@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Input } from '../Input/Input.jsx';
 import styles from './CarGroupPicker.module.css';
 
 // Builds the live selected-summary text shown in a <summary>, whether the
@@ -154,12 +155,12 @@ export function CarGroupPicker({ carGroups, cars, selectedIds, onChange }) {
         onToggle={setCarsOpen}
         selectedItems={selectedCars}
       >
-        <input
+        <Input
           type="text"
+          size="sm"
           placeholder="Filter by name..."
           value={carFilter}
           onChange={(e) => setCarFilter(e.target.value)}
-          className={styles.filterInput}
         />
         <div className={styles.checkboxList}>
           {filteredCars.map((car) => (

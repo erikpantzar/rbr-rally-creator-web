@@ -1,0 +1,66 @@
+/* Shared reset for every text-entry control in the app (input/textarea/
+   select via the `as` prop) -- border, radius, background/color come from
+   tokens.css so retheming (light/dark, or a future palette swap) needs no
+   changes here. border-radius: 0 matches the app's existing squared-off
+   convention (see e.g. RallyBasicsForm.module.css's inputs) rather than
+   using --radius, which elsewhere is reserved for card-like containers
+   (CarGroupPicker's <details>). */
+.input {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: inherit;
+  transition: box-shadow 150ms ease, border-color 150ms ease;
+}
+
+.input:disabled {
+  opacity: 0.6;
+}
+
+.input::placeholder {
+  color: var(--muted);
+}
+
+/* The "glow": border shifts to --accent and a two-layer box-shadow blooms
+   outward -- a tight solid ring (--accent-soft-bg) plus a softer, wider
+   blur in --accent itself -- so it reads clearly as "this is where you're
+   typing" without needing a dark-mode-specific branch (--accent/
+   --accent-soft-bg already flip via tokens.css's prefers-color-scheme/
+   data-theme rules). :focus-visible is the real target (keyboard/assistive
+   focus); plain :focus is kept alongside for older browsers that don't
+   support :focus-visible at all, not to glow on every mouse click. */
+.input:focus-visible,
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 3px var(--accent-soft-bg),
+    0 0 14px oklch(from var(--accent) l c h / 0.55);
+}
+
+textarea.input {
+  resize: vertical;
+}
+
+/* Size variants -- padding/font-size/radius scale matching what individual
+   components already used locally (0.9rem body text is the app's baseline;
+   1.4rem is RallyBasicsForm's document-header treatment for the rally name
+   field). */
+.sm {
+  padding: 0.35rem 0.55rem;
+  font-size: 0.8rem;
+}
+
+.md {
+  padding: 0.5rem 0.7rem;
+  font-size: 0.9rem;
+}
+
+.lg {
+  padding: 0.6rem 0.85rem;
+  font-size: 1.4rem;
+  font-weight: 600;
+}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Input } from '../Input/Input.jsx';
 import styles from './CredentialForm.module.css';
 
 const ERROR_MESSAGES = {
@@ -23,8 +24,9 @@ export function CredentialForm({ onSubmit, submitting, error }) {
   return (
     <form className={styles.form} onSubmit={handleSubmit}>
       <label htmlFor="rsf-username">rallysimfans.hu username</label>
-      <input
+      <Input
         id="rsf-username"
+        size="md"
         type="text"
         autoComplete="username"
         value={username}
@@ -34,8 +36,9 @@ export function CredentialForm({ onSubmit, submitting, error }) {
 
       <label htmlFor="rsf-password">Password</label>
       <div className={styles.passwordRow}>
-        <input
+        <Input
           id="rsf-password"
+          size="md"
           type={passwordVisible ? 'text' : 'password'}
           autoComplete="current-password"
           value={password}

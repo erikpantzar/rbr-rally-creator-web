@@ -208,25 +208,6 @@
   letter-spacing: 0.03em;
 }
 
-/* rbr-rally-creator-web#94: visually hidden, not removed -- the datetime
-   inputs' own browser-native chrome doesn't say "open" or "close" on its
-   own, so a screen reader (and any other non-visual UA) still needs this
-   text even though sighted users no longer see it (the green/red outline
-   below carries that distinction visually instead). Standard
-   clip/clip-path visually-hidden recipe, not display:none, so it stays in
-   the accessibility tree and tab order. */
-.legFieldLabelText {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
 .legInputs input,
 .legInputs select {
   padding: 0.4rem 0.6rem;
@@ -238,28 +219,29 @@
   font-family: inherit;
 }
 
-/* rbr-rally-creator-web#94: subtle green/red outline distinguishes Open
-   from Close now that their text labels are visually hidden above --
-   --success-fg/--danger-fg are already the app's established green/red
-   pair (see tokens.css), just applied to border-color here instead of a
-   filled background, to keep it "subtle" rather than a loud status chip.
-   Selector matches .legInputs input's specificity (two compound selectors)
-   so it wins without needing !important. */
-.legInputs input.legTimeInputOpen {
-  border-color: var(--success-fg);
-}
-
-.legInputs input.legTimeInputClose {
-  border-color: var(--danger-fg);
-}
+/* rbr-rally-creator-web#104: the #94 green/red borders that used to tell
+   Open from Close are gone, and the Open/Close label text is visible again
+   (#94 had clip-hidden it, keeping it only for screen readers). Borrowing
+   --success-fg/--danger-fg as field *identity* was a status-color misuse:
+   the close input read as permanently invalid and the open one as
+   permanently fine, when neither says anything about the value inside.
+   The restored .legFieldLabel text carries the distinction neutrally, and
+   both inputs keep the standard .legInputs field chrome above. */
 
 /* rbr-rally-creator-web#61: Super Rally toggle button -- same field chrome
    as the open/close time inputs it sits beside (border/padding/font), plus
    a pointer cursor and hover feedback since it's a click-to-flip control
-   rather than a static field. */
+   rather than a static field.
+   rbr-rally-creator-web#103: the OFF state carries a static outlined-blue
+   base (--info-fg border, not the default --border) so it reads as
+   "super-rally-related, currently off" even with zero motion -- the pulse
+   below is stripped by index.css's prefers-reduced-motion guard, and OFF
+   (outlined) vs ON (solid fill) must stay distinct without it. Only the
+   editable tree renders this button at all; a locked road book shows the
+   value as plain text, so nothing pulses once the rally is created. */
 .superRallyToggle {
   padding: 0.4rem 0.6rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--info-fg);
   border-radius: 0;
   background: var(--bg);
   color: var(--ink);
@@ -267,21 +249,47 @@
   font-family: inherit;
   cursor: pointer;
   flex-shrink: 0;
+  animation: superRallyPulse 2s ease-in-out infinite;
 }
 
 .superRallyToggle:hover {
   border-color: var(--accent);
 }
 
-/* rbr-rally-creator-web#94: --info-border/--info-fg (the same blue used for
-   service blocks) rather than --accent (this app's amber) -- an explicit
-   "blue outline while active" ask, distinct from the toggle's own amber
-   hover feedback above. */
+/* rbr-rally-creator-web#103: the OFF-state "breathe" -- eases between the
+   outlined base and a soft info-blue wash with a faint outer glow, then
+   back. Deliberately a wash + glow rather than a color flash or opacity
+   blink: it should read as an invitation to try super rally, not an alarm.
+   2s ease-in-out per the design decision on the issue. */
+@keyframes superRallyPulse {
+  0%,
+  100% {
+    background: var(--bg);
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    background: var(--info-bg);
+    box-shadow: 0 0 6px 1px var(--info-border);
+  }
+}
+
+/* rbr-rally-creator-web#94 picked the info-blue (not --accent amber) for the
+   active state; rbr-rally-creator-web#103 upgrades it from a blue outline to
+   a solid --info-fg fill with no animation -- ON is calm and unmistakable,
+   OFF is the state that asks for attention. --info-ink (tokens.css) keeps
+   the label >= 4.5:1 on that fill in both themes. */
 .superRallyActive {
-  border-color: var(--info-border);
-  color: var(--info-fg);
-  outline: 2px solid var(--info-border);
-  outline-offset: 1px;
+  animation: none;
+  background: var(--info-fg);
+  border-color: var(--info-fg);
+  color: var(--info-ink);
+}
+
+/* Matches .superRallyToggle:hover's specificity so the amber hover border
+   never cuts into the solid blue ON state -- #103 wants ON to stay uniformly
+   blue. */
+.superRallyActive:hover {
+  border-color: var(--info-fg);
 }
 
 /* Locked equivalent of .legInputs -- plain text, no field chrome, since
@@ -323,8 +331,10 @@
 /* rbr-rally-creator-web#96: drag-to-delete zone, one per leg row (see
    RemoveDropZone in RoadBook.jsx) -- only ever rendered while a stage brick
    is mid-drag, so no "at rest" style is needed here beyond the subtle
-   dashed-danger-outline look, matching .addStageBrickEmpty's border-forward
-   (not filled) treatment: at rest this is a hint, not an alarm. Turns
+   dashed-danger-outline look -- border-forward, not filled: at rest this
+   is a hint, not an alarm. (Used to cite .addStageBrickEmpty as the
+   matching treatment; #104 moved that button to the green highlight ramp,
+   so danger border-forward now lives only here and in error states.) Turns
    solid/filled on isOver (--danger-bg now themes correctly in dark mode)
    so dropping here reads as an unambiguous "yes, right here" the same
    instant the dragged brick itself also goes red (see
@@ -392,35 +402,38 @@
   cursor: pointer;
 }
 
+/* rbr-rally-creator-web#104: hover speaks the green highlight ramp rather
+   than the general amber accent -- adding a stage is the canonical
+   "constructive" action (green = "this builds the rally"), and using the
+   same ramp here and in the empty-leg state below means the button never
+   changes meaning between its quiet and prompting states. */
 .addStageBrick:hover {
-  border-color: var(--accent);
-  color: var(--accent-soft-fg);
-  background: var(--accent-soft-bg);
+  border-color: var(--highlight-border);
+  color: var(--highlight-fg);
+  background: var(--highlight-bg);
 }
 
 /* rbr-rally-creator-web#58: when a leg has zero stages, the "+ Add stage"
-   button is the only thing that gets it un-stuck, so it's tinted with the
-   --danger-fg token used elsewhere for "needs attention" accents
-   (.legRemoveButton's hover, .legRemoveBubbleConfirm). Border-forward,
-   transparent background -- matching ReadinessBanner's .notReady treatment
-   -- rather than a filled --danger-bg block, so it reads as a prompt, not
-   an error state.
-   Hover still layers the normal .addStageBrick:hover accent treatment on top
-   since it's a more specific selector combination further down the
-   cascade... concretely, the empty state's own hover rule below keeps the
-   danger tone through hover too, so the highlight doesn't just vanish the
-   moment you aim for the button. */
+   button is the only thing that gets it un-stuck, so it steps up from the
+   quiet dashed default to a solid, colored prompt.
+   rbr-rally-creator-web#104: that prompt now uses the green highlight ramp
+   instead of the --danger-fg it borrowed originally -- the pre-1-0 audit
+   flagged that as a semantic misuse: an empty leg is an invitation to
+   build, not an error, so it shouldn't share a color with delete
+   confirmations and failed jobs. Still border-forward with a transparent
+   background (matching ReadinessBanner's border-forward treatment) so it
+   reads as a prompt, not a filled status chip; hover keeps the green and
+   adds the soft fill, replacing the old brightness() hack. */
 .addStageBrickEmpty {
-  border: 1px solid var(--danger-fg);
+  border: 1px solid var(--highlight-fg);
   background: transparent;
-  color: var(--danger-fg);
+  color: var(--highlight-fg);
 }
 
 .addStageBrickEmpty:hover {
-  border-color: var(--danger-fg);
-  color: var(--danger-fg);
-  background: transparent;
-  filter: brightness(1.05);
+  border-color: var(--highlight-fg);
+  color: var(--highlight-fg);
+  background: var(--highlight-bg);
 }
 
 /* Empty-leg ghost hint, per DESIGN_SPEC.md's UX review note on first-time
@@ -467,7 +480,11 @@
 /* "+ Add Leg", per rbr-rally-creator-web#15 -- same dashed-outline visual
    language as .addStageBrick, but a full-width block below the leg list
    rather than a fixed-width brick inside one, since it's adding a whole new
-   leg rather than a stage within an existing one. */
+   leg rather than a stage within an existing one.
+   rbr-rally-creator-web#104: hover follows .addStageBrick onto the green
+   highlight ramp -- the two add affordances share a visual language, so
+   they must also share the "constructive" color; one hovering amber and
+   the other green would read as two different kinds of action. */
 .addLegButton {
   display: flex;
   align-items: center;
@@ -485,8 +502,8 @@
 }
 
 .addLegButton:hover {
-  border-color: var(--accent);
-  color: var(--accent-soft-fg);
-  background: var(--accent-soft-bg);
+  border-color: var(--highlight-border);
+  color: var(--highlight-fg);
+  background: var(--highlight-bg);
 }
 

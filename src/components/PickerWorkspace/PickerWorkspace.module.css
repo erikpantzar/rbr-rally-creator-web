@@ -1,0 +1,315 @@
+/* PickerWorkspace (rbr-rally-creator-web#107, Phase 1) -- two-pane layout
+   inside Modal's takeover variant. The takeover root is a flex column with
+   its own overflow-y (see Modal.module.css); this component gives it a
+   fixed header bar plus a .body that claims the remaining height and lets
+   the sidebar and the detail pane scroll INDEPENDENTLY -- the whole point
+   of a persistent itinerary is that navigating a long stage form never
+   scrolls the itinerary out of view. */
+
+/* Header: same visual bar as StageConfigModal's (card surface, hairline
+   border) but not sticky -- .body handles its own scrolling below, so the
+   header simply never moves. No Save button lives here, deliberately:
+   edits apply live (plan doc D1) and "Back to rally" is the only exit. */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-shrink: 0;
+  padding: 0.85rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+
+.headerTitle {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* Quiet standing reminder that there is no Save -- the one behavioral
+   surprise for anyone used to the modal flow this replaces. Muted and
+   pushed to the row's far end so it reads as ambient status, not a
+   warning. */
+.headerHint {
+  margin: 0 0 0 auto;
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Copied from StageConfigModal's .backButton (CSS modules don't share
+   rules across components in this app; small chrome like this is repeated
+   rather than promoted to a global class -- same precedent as the two
+   modal headers before the Modal extraction). */
+.backButton {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-family: inherit;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.45rem 0.7rem;
+  border-radius: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.backButton:hover {
+  color: var(--ink);
+  background: var(--accent-soft-bg);
+}
+
+/* min-height: 0 is what actually permits the children to scroll -- without
+   it a long sidebar/form would stretch the flex row past the viewport and
+   scrolling would fall back to the takeover root, moving both panes
+   together. */
+.body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ---- Sidebar: the rally itinerary ------------------------------------ */
+
+/* Timing-sheet column: card surface against the takeover's --bg so the
+   itinerary reads as one continuous printed sheet beside the working
+   area. Width tuned to fit "NN  long stage name  99.9 km" without feeling
+   like a second content column. */
+.sidebar {
+  width: 19rem;
+  flex-shrink: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--card);
+  padding-bottom: 2rem;
+}
+
+/* Every row shares the same left-edge selection rail: a 3px inset border
+   that is transparent at rest and --accent on the selected row
+   (.rowSelected below). Reserving the rail on ALL rows keeps text columns
+   aligned whether or not a row is selected -- no 3px jitter on selection
+   change. */
+.legRow,
+.stageRow,
+.serviceRow {
+  display: flex;
+  align-items: baseline;
+  width: 100%;
+  border: none;
+  border-left: 3px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.legRow:hover,
+.stageRow:hover,
+.serviceRow:hover {
+  background: var(--accent-soft-bg);
+}
+
+/* Leg headers stay pinned while their stages scroll under them -- the same
+   sticky treatment RoadBook's .legHeader uses, for the same "which leg am
+   I in" reason. Also a real button here (leg context is selectable, it's
+   the future add-target per D3), unlike the road book's plain header. */
+.legRow {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  gap: 0.6rem;
+  padding: 0.6rem 0.9rem 0.45rem;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+}
+
+.legRow:hover {
+  background: var(--accent-soft-bg);
+}
+
+.legRowName {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Same text-badge language as RoadBook's .legStageCount/.legKmTotal --
+   mono, accent, small -- so the two views of a leg visibly agree. */
+.legRowMeta {
+  font-weight: 500;
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.legRowMeta:last-child {
+  margin-left: auto;
+}
+
+/* Stage rows: indented under their leg header, number in a fixed mono
+   column like a timing sheet's ordinal, name given the leftover width,
+   km right-aligned. */
+.stageRow {
+  gap: 0.55rem;
+  padding: 0.45rem 0.9rem 0.45rem 1.1rem;
+}
+
+.stageRowNumber {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  min-width: 1.5em;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.stageRowName {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.85rem;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stageRowKm {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+/* Service rows: visually lighter and inset one step further than stage
+   rows, in the service-blue family (--info-*, the road book's established
+   "there's a service stop here" color, see tokens.css) so the itinerary's
+   rhythm of stages-and-stops reads at a glance. */
+.serviceRow {
+  gap: 0.5rem;
+  padding: 0.3rem 0.9rem 0.3rem 2.5rem;
+}
+
+.serviceRow:hover {
+  background: var(--info-bg);
+}
+
+.serviceRowLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--info-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.serviceRowTime {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--info-fg);
+}
+
+/* The accent selection treatment -- rail + soft fill, the app's standard
+   "this is the active thing" language (Input focus, picker card selected). */
+.rowSelected,
+.legRow.rowSelected,
+.serviceRow.rowSelected {
+  border-left-color: var(--accent);
+  background: var(--accent-soft-bg);
+}
+
+.emptyLegHint {
+  margin: 0;
+  padding: 0.35rem 0.9rem 0.5rem 1.1rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ---- Detail pane ------------------------------------------------------ */
+
+.detail {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+/* Same 46rem working column as StageConfigModal's .form so the hosted
+   editors keep their proven measure; generous bottom padding so the last
+   field can always scroll clear of the viewport edge (scaled-down version
+   of the modal's #84 breathing room -- no inline service expansion exists
+   here to need the full 300px). */
+.detailInner {
+  width: 100%;
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 1.5rem;
+  padding-bottom: 8rem;
+}
+
+.paneHeader {
+  margin-bottom: 1.25rem;
+}
+
+.paneKicker {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.paneTitle {
+  margin: 0.2rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* The controlled editors expect the same stacked-FormGroup rhythm
+   StageConfigModal's .form gave them. */
+.paneForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Leg-context notice: this pane's picker is a preview until Phase 2 wires
+   click-adds (#107) -- said out loud rather than leaving cards that
+   silently do nothing. Accent-soft, not danger/warning: it's a roadmap
+   note, nothing is wrong. */
+.pickerPhaseNote {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.8rem;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft-bg);
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+/* Narrow viewports: the plan doc's defaults item 6 defers the real
+   collapsible-drawer treatment past v1 -- until then, stack the itinerary
+   above the pane at a capped height so the workspace stays usable instead
+   of crushing both panes side-by-side. */
+@media (max-width: 800px) {
+  .body {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: auto;
+    max-height: 35vh;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}

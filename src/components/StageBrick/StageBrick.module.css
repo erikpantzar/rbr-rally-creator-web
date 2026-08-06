@@ -130,6 +130,18 @@
   color: var(--muted);
 }
 
+/* rbr-rally-creator-web#95: the real public per-stage name (hidden_name)
+   shown to participants on rallysimfans.hu in place of the real stage name,
+   only meaningful when "Hide stage names" is on -- distinct from the
+   always-local .stageNameSecondary above, so it gets its own italic/accent
+   treatment instead of blending into the muted secondary line. */
+.stageHiddenName {
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-style: italic;
+  color: var(--accent);
+}
+
 .stageMeta {
   font-size: 0.75rem;
   color: var(--muted);

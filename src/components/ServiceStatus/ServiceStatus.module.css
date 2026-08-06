@@ -1,0 +1,29 @@
+.status {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+}
+
+.label {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.dot[data-state='up'] {
+  background: var(--success-fg);
+}
+
+.dot[data-state='down'] {
+  background: var(--danger-fg);
+}

@@ -6,6 +6,7 @@ import { CredentialStatus } from './components/CredentialStatus/CredentialStatus
 import { RallyBuilder } from './components/RallyBuilder/RallyBuilder.jsx';
 import { RallySidebar } from './components/RallySidebar/RallySidebar.jsx';
 import { StockholmClock } from './components/StockholmClock/StockholmClock.jsx';
+import { ServiceStatus } from './components/ServiceStatus/ServiceStatus.jsx';
 import styles from './App.module.css';
 
 // Only this top-level component touches fetch/localStorage -- everything
@@ -108,6 +109,7 @@ function App() {
           </a>
         </div>
         <div className={styles.headerActions}>
+          <ServiceStatus baseUrl={baseUrl} />
           <StockholmClock />
         </div>
       </header>

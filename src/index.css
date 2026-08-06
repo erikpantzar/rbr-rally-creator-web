@@ -45,7 +45,22 @@ button {
   scroll-margin-top: 1.5rem;
 }
 
+/* The pulse is drawn by an ::after overlay inset -12px rather than a
+   box-shadow on the section itself, so the glow ring sits ~12px outside
+   the section's content -- breathing room around the highlight -- without
+   adding real padding that would shift layout. pointer-events: none keeps
+   the overlay from swallowing clicks on anything near the section edge,
+   and position: relative only applies while the transient data-glow attr
+   is present (every jump target is a plain static wrapper, checked). */
 [data-glow] {
+  position: relative;
+}
+
+[data-glow]::after {
+  content: '';
+  position: absolute;
+  inset: -12px;
+  pointer-events: none;
   animation: section-glow-pulse 2s ease-in-out;
 }
 

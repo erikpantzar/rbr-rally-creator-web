@@ -51,6 +51,33 @@ function LegDropContainer({ legIndex, children }) {
   );
 }
 
+// rbr-rally-creator-web#96: drag-to-delete target, rendered at the end of
+// each leg's row (to the right of that leg's stages) -- one per leg rather
+// than a single book-wide zone, so "drag it out to the right" reads as
+// naturally reachable from wherever a brick lives, without a long drag
+// across the whole document. Only mounted while a stage brick is actually
+// being dragged (see the `activeDrag?.type === 'stage'` guard where this is
+// rendered below) -- a drop target nobody can see is just visual clutter
+// the rest of the time, matching .addStageBrick's "not always doing
+// something" treatment for the empty-leg hint. Dropping on it routes
+// through handleDragEnd's `remove-zone` branch, which reuses
+// handleDeleteStage exactly -- no separate removal logic here.
+function RemoveDropZone({ legIndex }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `remove-zone-${legIndex}`,
+    data: { type: 'remove-zone', legIndex },
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      className={[styles.removeZone, isOver ? styles.removeZoneOver : ''].filter(Boolean).join(' ')}
+      aria-hidden="true"
+    >
+      Drop to remove
+    </div>
+  );
+}
+
 // rbr-rally-creator-web#34: inline "context bubble" that replaces
 // window.confirm for the has-stages leg-removal case. Anchored to the
 // leg's remove button via .legRemoveWrap (position: relative in the CSS),
@@ -420,6 +447,24 @@ export function RoadBook({
     setActiveDrag(null);
   }
 
+  // rbr-rally-creator-web#96: tracks whether the pointer is currently over
+  // one of the RemoveDropZones, purely so the DragOverlay's floating brick
+  // can turn red while it's hovering the zone it would delete into if
+  // dropped -- a live "about to remove this" preview, same idea as
+  // .legDropActive/.dropTarget's existing over-state highlighting elsewhere
+  // in this file. Reading `over` off DndContext's own onDragOver (rather
+  // than each RemoveDropZone's individual useDroppable().isOver) keeps this
+  // as a single piece of state regardless of how many remove zones exist
+  // (one per leg), since only one can ever be "the" one being hovered at a
+  // time anyway.
+  function handleDragOver(event) {
+    const overRemoveZone = event.over?.data.current?.type === 'remove-zone';
+    setActiveDrag((prev) => {
+      if (!prev || prev.overRemoveZone === overRemoveZone) return prev;
+      return { ...prev, overRemoveZone };
+    });
+  }
+
   // Moving an already-assigned service block to a different stage: doesn't
   // reorder stagePlan itself -- stagePlan's stage order is untouched.
   // Instead, the service *fields* land on whichever stage ends up
@@ -493,6 +538,20 @@ export function RoadBook({
     const sourceUid = active.id;
     const sourceLegIndex = findContainerOfUid(sourceUid);
     if (sourceLegIndex === -1) return;
+
+    // rbr-rally-creator-web#96: dropping a stage brick on a RemoveDropZone
+    // deletes it -- routed through the exact same handleDeleteStage the
+    // per-brick delete cross uses (undo toast, stage_count decrement, all of
+    // it), rather than duplicating that logic here. indexInLeg is derived
+    // the same way the stage-brick/leg-container branches below derive
+    // destination indices, just against the *source* leg since there's no
+    // destination position for a delete.
+    if (over.data.current?.type === 'remove-zone') {
+      const indexInLeg = containers[sourceLegIndex].indexOf(sourceUid);
+      const stageConfig = stageByUid.get(sourceUid);
+      if (stageConfig) handleDeleteStage(sourceLegIndex, indexInLeg, stageConfig);
+      return;
+    }
 
     let destLegIndex;
     let destIndexInContainer;
@@ -723,6 +782,7 @@ export function RoadBook({
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
@@ -908,6 +968,11 @@ export function RoadBook({
                       Add your first stage &rarr;
                     </p>
                   )}
+
+                  {/* rbr-rally-creator-web#96: only occupies space while a
+                      stage brick is actually being dragged -- see
+                      RemoveDropZone's own comment above for why. */}
+                  {activeDrag?.type === 'stage' && <RemoveDropZone legIndex={legIndex} />}
                 </LegDropContainer>
               </SortableContext>
             </div>
@@ -968,6 +1033,7 @@ export function RoadBook({
             stageNumber={activeDrag.stageNumber}
             locked
             hiddenStageNameEnabled={hiddenStageNameEnabled}
+            dangerHighlight={activeDrag.overRemoveZone}
           />
         )}
         {activeDrag?.type === 'service' && (

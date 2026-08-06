@@ -29,11 +29,10 @@
    blur in --accent itself -- so it reads clearly as "this is where you're
    typing" without needing a dark-mode-specific branch (--accent/
    --accent-soft-bg already flip via tokens.css's prefers-color-scheme/
-   data-theme rules). :focus-visible is the real target (keyboard/assistive
-   focus); plain :focus is kept alongside for older browsers that don't
-   support :focus-visible at all, not to glow on every mouse click. */
-.input:focus-visible,
-.input:focus {
+   data-theme rules). :focus-visible only, deliberately: the glow is for
+   keyboard/assistive focus, not every mouse click (a bare :focus fallback
+   used to sit alongside and made it fire on click -- removed). */
+.input:focus-visible {
   outline: none;
   border-color: var(--accent);
   box-shadow:

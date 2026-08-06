@@ -38,7 +38,12 @@ export function loadStageConfigDraft() {
 }
 
 export function saveStageConfigDraft(saved) {
-  localStorage.setItem(KEY, JSON.stringify(saved));
+  try {
+    localStorage.setItem(KEY, JSON.stringify(saved));
+  } catch {
+    // Best-effort persistence, same reasoning as rallyStorage.js's
+    // setCurrentDraft -- a blocked write must not crash the editor.
+  }
 }
 
 // Called on successful Save and on explicit Cancel/Back -- either way the

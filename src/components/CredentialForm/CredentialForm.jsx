@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { Button } from '../Button/Button.jsx';
 import { Input } from '../Input/Input.jsx';
+import { PasswordInput } from '../PasswordInput/PasswordInput.jsx';
 import styles from './CredentialForm.module.css';
 
 const ERROR_MESSAGES = {
@@ -14,7 +16,6 @@ const ERROR_MESSAGES = {
 export function CredentialForm({ onSubmit, submitting, error }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [passwordVisible, setPasswordVisible] = useState(false);
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -35,33 +36,20 @@ export function CredentialForm({ onSubmit, submitting, error }) {
       />
 
       <label htmlFor="rsf-password">Password</label>
-      <div className={styles.passwordRow}>
-        <Input
-          id="rsf-password"
-          size="md"
-          type={passwordVisible ? 'text' : 'password'}
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          disabled={submitting}
-        />
-        <button
-          type="button"
-          className={styles.toggleVisibility}
-          onClick={() => setPasswordVisible((v) => !v)}
-          disabled={submitting}
-          aria-label={passwordVisible ? 'Hide password' : 'Show password'}
-          aria-pressed={passwordVisible}
-        >
-          {passwordVisible ? '🙈' : '👁'}
-        </button>
-      </div>
+      <PasswordInput
+        id="rsf-password"
+        size="md"
+        autoComplete="current-password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        disabled={submitting}
+      />
 
       {error && <p className={styles.error}>{ERROR_MESSAGES[error] ?? 'Could not save credentials.'}</p>}
 
-      <button type="submit" className={styles.submit} disabled={submitting || !username || !password}>
+      <Button type="submit" variant="primary" className={styles.submit} disabled={submitting || !username || !password}>
         {submitting ? 'Saving…' : 'Save credentials'}
-      </button>
+      </Button>
     </form>
   );
 }

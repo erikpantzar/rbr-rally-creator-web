@@ -1,0 +1,59 @@
+/* Base: only what every extracted copy shared. Deliberately NO
+   padding/font-size here or in the variants -- metrics come from an opt-in
+   size class below, or from the consumer's own className when it kept a
+   one-off historical size (see Button.jsx for why that split avoids CSS
+   module import-order fights). */
+.button {
+  border-radius: 0;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* 0.6 is the normalized disabled opacity -- the per-component copies had
+   drifted (0.5 in the two config modals vs 0.6 everywhere else); this is
+   the one sanctioned visual change of the extraction. */
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Accent-filled primary action (Save/submit/Create Rally). */
+.primary {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.primary:not(:disabled):hover {
+  filter: brightness(1.05);
+}
+
+/* Outlined secondary action (Cancel and the small inline notice buttons) --
+   quiet card-toned outline that only picks up the accent on hover, so it
+   never competes with a primary sitting next to it. */
+.secondary {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--ink);
+}
+
+.secondary:not(:disabled):hover {
+  border-color: var(--accent);
+}
+
+/* The config modals' actions-row metrics (Cancel/Save pairs). */
+.md {
+  padding: 0.55rem 1rem;
+  font-size: 0.9rem;
+}
+
+/* Small inline notice buttons (StageConfigModal's restored-draft and
+   wet-tyre-suggestion actions). nowrap because both sit beside wrapping
+   text in a flex row and their labels must not break mid-word when the row
+   squeezes. */
+.sm {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}

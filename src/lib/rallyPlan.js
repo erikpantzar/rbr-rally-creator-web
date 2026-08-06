@@ -362,16 +362,6 @@ export function createDefaultLegConfig(stageCount = 0) {
   };
 }
 
-// Evenly split `totalStages` across `legCount` legs (remainder stages go to
-// the earliest legs) -- used only to seed/reseed defaults; a user's manual
-// per-leg counts or leg-boundary drags otherwise take over.
-export function distributeStagesEvenly(totalStages, legCount) {
-  if (legCount <= 0) return [];
-  const base = Math.floor(totalStages / legCount);
-  const remainder = totalStages % legCount;
-  return Array.from({ length: legCount }, (_, i) => base + (i < remainder ? 1 : 0));
-}
-
 // Turns each leg's stage_count into an absolute [startIndex, endIndex) slice
 // range over stagePlan, plus the 1-based start_stage_no the backend expects.
 export function computeLegStageRanges(legSchedule) {

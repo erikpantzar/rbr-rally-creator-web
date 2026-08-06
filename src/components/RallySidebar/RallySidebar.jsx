@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useDialogChrome } from '../Modal/useDialogChrome.js';
 import { listRallies, deleteRally } from '../../lib/rallyStorage.js';
 import styles from './RallySidebar.module.css';
 
@@ -33,24 +34,16 @@ export function RallySidebar({ activeRallyId, onOpen, onClose }) {
   // transition actually animates the slide-in instead of the panel just
   // appearing already-open.
   const [visible, setVisible] = useState(false);
-  const panelRef = useRef(null);
+  // Same focus-on-mount + document-level Escape wiring the config modals
+  // use, via Modal's shared hook -- but only the wiring: the panel chrome
+  // itself (scrim, slide-in transform, --z-panel) stays bespoke here, since
+  // this is a docked side panel, not one of Modal's two dialog shapes.
+  const panelRef = useDialogChrome(onClose);
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(raf);
   }, []);
-
-  useEffect(() => {
-    panelRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    function handleKeyDown(e) {
-      if (e.key === 'Escape') onClose();
-    }
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
 
   function handleOpen(rally) {
     onOpen(rally);

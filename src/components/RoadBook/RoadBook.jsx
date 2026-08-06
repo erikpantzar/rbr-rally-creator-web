@@ -24,6 +24,15 @@ import styles from './RoadBook.module.css';
 // replaces whatever was pending, no queue/stack.
 const UNDO_TIMEOUT_MS = 5000;
 
+// Handed to DndContext in place of the real sensors while the road book is
+// locked: with no sensors mounted, no drag can ever start, which is what
+// lets the whole dnd wiring (DndContext/SortableContext/LegDropContainer
+// and every onDrag* handler) stay mounted-but-inert in locked mode instead
+// of being torn out -- see the comment above the render in RoadBook below.
+// Module-level constant rather than a fresh [] per render so DndContext's
+// sensor setup isn't needlessly re-run every time the component renders.
+const NO_SENSORS = [];
+
 // Droppable wrapper around a leg's stage row. Individual StageBricks are
 // themselves sortable/droppable (dnd-kit's useSortable), which handles
 // "drop onto this specific brick" -- this container-level droppable is the
@@ -704,82 +713,34 @@ export function RoadBook({
     closeServiceModal();
   }
 
-  // Locked/read-only path: once a job has succeeded there is nothing left
-  // to add/edit/reorder/delete (per DESIGN_SPEC.md's "Created / locked"
-  // state), so this skips DndContext/SortableContext/modal/toast entirely
-  // rather than mounting all that machinery with every handler a no-op --
-  // simpler to reason about, and it's a plain early return so the normal
-  // editable path below is untouched.
-  if (locked) {
-    return (
-      <div className={styles.book}>
-        {legRanges.map(({ startIndex, endIndex }, legIndex) => {
-          const legStages = stagePlan.slice(startIndex, endIndex);
-          const leg = legSchedule[legIndex];
-          const legTotalKm = sumStagePlanKm(legStages, stageByCatalogId);
-
-          return (
-            <div key={legIndex} className={styles.legGroup}>
-              <div className={styles.legHeader}>
-                <h4>
-                  Leg {legIndex + 1}{' '}
-                  <span className={styles.legStageCount}>{legStages.length} stage{legStages.length === 1 ? '' : 's'}</span>{' '}
-                  <span className={styles.legKmTotal}>{formatKm(legTotalKm)}</span>
-                </h4>
-                <div className={styles.legInputsLocked}>
-                  <span>Open: {leg.open_time || '—'}</span>
-                  <span>Close: {leg.close_time || '—'}</span>
-                  <span>Super Rally: {leg.super_rally}</span>
-                </div>
-              </div>
-
-              <div className={styles.stagesList}>
-                {legStages.map((stageConfig, i) => {
-                  const absoluteIndex = startIndex + i;
-                  const catalogStage = stageConfig.stage_id ? stageByCatalogId.get(stageConfig.stage_id) : null;
-                  const isRallyLastStage = absoluteIndex === stagePlan.length - 1;
-                  return (
-                    <Fragment key={stageConfig._uid}>
-                      <StageBrick
-                        uid={stageConfig._uid}
-                        stage={catalogStage}
-                        value={stageConfig}
-                        stageNumber={absoluteIndex + 1}
-                        locked
-                        hiddenStageNameEnabled={hiddenStageNameEnabled}
-                      />
-                      {/* rbr-rally-creator-web#80/#97: locked rallies are
-                          still read-only for service, same as everything
-                          else on this path -- shown so the road book still
-                          reads the full service rhythm at a glance, but
-                          with no click handler/affordance since there's
-                          nothing left to edit. Only rendered when actually
-                          assigned, matching the editable path's "no
-                          always-present placeholder per stage" rule. */}
-                      {!isRallyLastStage && isServiceAssigned(stageConfig) && (
-                        <div className={styles.serviceBlockWrap}>
-                          <ServiceBlock serviceTime={stageConfig.service_time} disabled />
-                        </div>
-                      )}
-                    </Fragment>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-
-        <div className={styles.rallyTotal}>
-          <span className={styles.rallyTotalLabel}>Rally total</span>
-          <span className={styles.rallyTotalValue}>{formatKm(rallyTotalKm)}</span>
-        </div>
-      </div>
-    );
-  }
-
+  // One render tree serves both the editable road book and the locked/
+  // read-only one (DESIGN_SPEC.md's "Created / locked" state, shown once a
+  // creation job is running or finished). These used to be two separately
+  // hand-maintained copies -- a locked early return plus the full editable
+  // tree -- which meant every visual change had to land twice and drift was
+  // only ever one missed edit away. Now `locked` switches the interactive
+  // affordances off in place instead:
+  //
+  //  - The dnd wiring (DndContext/SortableContext/LegDropContainer and the
+  //    onDrag* handlers) stays mounted in locked mode, with its sensors
+  //    swapped for NO_SENSORS -- no sensors means no drag can ever start,
+  //    so all of it is inert while locked. Keeping it mounted (rather than
+  //    conditionally wrapping) keeps the element tree's shape identical
+  //    across the `locked` flip, which happens live mid-session the moment
+  //    a job starts: if the wrappers came and went, React would unmount and
+  //    remount every brick on the flip. None of these wrappers add visible
+  //    DOM of their own (LegDropContainer renders the same .stagesList div
+  //    the old locked tree wrote by hand), so the locked rendering comes
+  //    out unchanged.
+  //  - Everything that exists only to *edit* the plan -- the leg remove
+  //    button/bubble, the schedule inputs (plain text renders in their
+  //    place, per the spec's "render as plain text instead"), the
+  //    add-stage/add-service/add-leg affordances, remove drop zones,
+  //    DragOverlay, both modals, and the undo toast -- renders only when
+  //    !locked.
   return (
     <DndContext
-      sensors={sensors}
+      sensors={locked ? NO_SENSORS : sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
@@ -800,93 +761,108 @@ export function RoadBook({
                   <span className={styles.legStageCount}>{legStages.length} stage{legStages.length === 1 ? '' : 's'}</span>{' '}
                   <span className={styles.legKmTotal}>{formatKm(legTotalKm)}</span>
                 </h4>
-                {/* rbr-rally-creator-web#34: sits right next to the "Leg N"
-                    heading (rather than at the far right of the header row,
-                    past the open/close/super-rally inputs, per #29's
-                    original placement) so it visually reads as "this leg's
-                    remove control" instead of a stray action floating at the
-                    end of the row. #29: the only leg in the rally can't be
-                    removed -- a rally needs at least one -- so the control
-                    is disabled rather than hidden, which would otherwise
-                    read as "gone" instead of "not applicable right now". */}
-                <div className={styles.legRemoveWrap}>
-                  <button
-                    type="button"
-                    className={styles.legRemoveButton}
-                    disabled={legSchedule.length <= 1}
-                    aria-label={legSchedule.length <= 1 ? `Can't remove Leg ${legIndex + 1} -- it's the only leg` : `Remove Leg ${legIndex + 1}`}
-                    title={legSchedule.length <= 1 ? "Can't remove the only leg" : `Remove Leg ${legIndex + 1}`}
-                    onClick={() => handleRemoveLegClick(legIndex)}
-                  >
-                    ×
-                  </button>
-                  {removeConfirm?.legIndex === legIndex && (
-                    <LegRemoveConfirmBubble
-                      legIndex={removeConfirm.legIndex}
-                      stageCount={removeConfirm.stageCount}
-                      targetLegIndex={removeConfirm.targetLegIndex}
-                      onConfirm={handleConfirmRemoveLeg}
-                      onCancel={handleCancelRemoveLeg}
-                    />
-                  )}
-                </div>
-                <div className={styles.legInputs}>
-                  {/* rbr-rally-creator-web#63: rallysimfans.hu itself
-                      schedules on Europe/Stockholm time regardless of where
-                      the browser viewing this app is -- a user outside
-                      Sweden would otherwise have no reason to know that
-                      "now" for these fields isn't their own wall clock (see
-                      stockholmNow()/isLegOpenTimeTooSoon in rallyPlan.js).
-                      Reuses the existing muted uppercase .legFieldLabel
-                      convention rather than introducing a new label style. */}
-                  <label className={styles.legFieldLabel}>
-                    <span className={styles.legFieldLabelText}>Open</span>
-                    <input
-                      type="datetime-local"
-                      className={styles.legTimeInputOpen}
-                      placeholder="Open time"
-                      value={leg.open_time}
-                      onChange={(e) => onLegFieldChange(legIndex, 'open_time', e.target.value)}
-                    />
-                  </label>
-                  <label className={styles.legFieldLabel}>
-                    <span className={styles.legFieldLabelText}>Close</span>
-                    <input
-                      type="datetime-local"
-                      className={styles.legTimeInputClose}
-                      placeholder="Close time"
-                      value={leg.close_time}
-                      max={maxCloseTimeFor(leg.open_time)}
-                      onChange={(e) => onLegFieldChange(legIndex, 'close_time', e.target.value)}
-                    />
-                  </label>
-                  {/* rbr-rally-creator-web#61: options.superRally only ever
-                      has two entries in practice ('disabled'/'150%'), so a
-                      dropdown was overkill for a plain either/or choice --
-                      a single button that flips to the other value on click
-                      is the more direct control. Written generically against
-                      options.superRally.length (cycling to the *next* entry,
-                      wrapping around) rather than hardcoding the two known
-                      literal strings, so this keeps working even if that
-                      option list ever changes shape. rbr-rally-creator-web#94:
-                      .superRallyActive (keyed off super_rally !== 'disabled',
-                      not the exact '150%' string) gives the toggle a blue
-                      outline while active, so its state reads at a glance
-                      instead of only via the button's text label. */}
-                  <button
-                    type="button"
-                    className={[styles.superRallyToggle, leg.super_rally !== 'disabled' ? styles.superRallyActive : '']
-                      .filter(Boolean)
-                      .join(' ')}
-                    onClick={() => {
-                      const currentIndex = options.superRally.indexOf(leg.super_rally);
-                      const nextIndex = (currentIndex + 1 + options.superRally.length) % options.superRally.length;
-                      onLegFieldChange(legIndex, 'super_rally', options.superRally[nextIndex]);
-                    }}
-                  >
-                    Super Rally: {leg.super_rally}
-                  </button>
-                </div>
+                {locked ? (
+                  /* Locked: the schedule renders as plain text rather than
+                     disabled inputs, per DESIGN_SPEC.md's "Created / locked"
+                     state ("render as plain text instead"), and the leg
+                     remove control disappears entirely -- there's nothing
+                     left to restructure once the job has run. */
+                  <div className={styles.legInputsLocked}>
+                    <span>Open: {leg.open_time || '—'}</span>
+                    <span>Close: {leg.close_time || '—'}</span>
+                    <span>Super Rally: {leg.super_rally}</span>
+                  </div>
+                ) : (
+                  <>
+                    {/* rbr-rally-creator-web#34: sits right next to the "Leg N"
+                        heading (rather than at the far right of the header row,
+                        past the open/close/super-rally inputs, per #29's
+                        original placement) so it visually reads as "this leg's
+                        remove control" instead of a stray action floating at the
+                        end of the row. #29: the only leg in the rally can't be
+                        removed -- a rally needs at least one -- so the control
+                        is disabled rather than hidden, which would otherwise
+                        read as "gone" instead of "not applicable right now". */}
+                    <div className={styles.legRemoveWrap}>
+                      <button
+                        type="button"
+                        className={styles.legRemoveButton}
+                        disabled={legSchedule.length <= 1}
+                        aria-label={legSchedule.length <= 1 ? `Can't remove Leg ${legIndex + 1} -- it's the only leg` : `Remove Leg ${legIndex + 1}`}
+                        title={legSchedule.length <= 1 ? "Can't remove the only leg" : `Remove Leg ${legIndex + 1}`}
+                        onClick={() => handleRemoveLegClick(legIndex)}
+                      >
+                        ×
+                      </button>
+                      {removeConfirm?.legIndex === legIndex && (
+                        <LegRemoveConfirmBubble
+                          legIndex={removeConfirm.legIndex}
+                          stageCount={removeConfirm.stageCount}
+                          targetLegIndex={removeConfirm.targetLegIndex}
+                          onConfirm={handleConfirmRemoveLeg}
+                          onCancel={handleCancelRemoveLeg}
+                        />
+                      )}
+                    </div>
+                    <div className={styles.legInputs}>
+                      {/* rbr-rally-creator-web#63: rallysimfans.hu itself
+                          schedules on Europe/Stockholm time regardless of where
+                          the browser viewing this app is -- a user outside
+                          Sweden would otherwise have no reason to know that
+                          "now" for these fields isn't their own wall clock (see
+                          stockholmNow()/isLegOpenTimeTooSoon in rallyPlan.js).
+                          Reuses the existing muted uppercase .legFieldLabel
+                          convention rather than introducing a new label style. */}
+                      <label className={styles.legFieldLabel}>
+                        <span className={styles.legFieldLabelText}>Open</span>
+                        <input
+                          type="datetime-local"
+                          className={styles.legTimeInputOpen}
+                          placeholder="Open time"
+                          value={leg.open_time}
+                          onChange={(e) => onLegFieldChange(legIndex, 'open_time', e.target.value)}
+                        />
+                      </label>
+                      <label className={styles.legFieldLabel}>
+                        <span className={styles.legFieldLabelText}>Close</span>
+                        <input
+                          type="datetime-local"
+                          className={styles.legTimeInputClose}
+                          placeholder="Close time"
+                          value={leg.close_time}
+                          max={maxCloseTimeFor(leg.open_time)}
+                          onChange={(e) => onLegFieldChange(legIndex, 'close_time', e.target.value)}
+                        />
+                      </label>
+                      {/* rbr-rally-creator-web#61: options.superRally only ever
+                          has two entries in practice ('disabled'/'150%'), so a
+                          dropdown was overkill for a plain either/or choice --
+                          a single button that flips to the other value on click
+                          is the more direct control. Written generically against
+                          options.superRally.length (cycling to the *next* entry,
+                          wrapping around) rather than hardcoding the two known
+                          literal strings, so this keeps working even if that
+                          option list ever changes shape. rbr-rally-creator-web#94:
+                          .superRallyActive (keyed off super_rally !== 'disabled',
+                          not the exact '150%' string) gives the toggle a blue
+                          outline while active, so its state reads at a glance
+                          instead of only via the button's text label. */}
+                      <button
+                        type="button"
+                        className={[styles.superRallyToggle, leg.super_rally !== 'disabled' ? styles.superRallyActive : '']
+                          .filter(Boolean)
+                          .join(' ')}
+                        onClick={() => {
+                          const currentIndex = options.superRally.indexOf(leg.super_rally);
+                          const nextIndex = (currentIndex + 1 + options.superRally.length) % options.superRally.length;
+                          onLegFieldChange(legIndex, 'super_rally', options.superRally[nextIndex]);
+                        }}
+                      >
+                        Super Rally: {leg.super_rally}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
 
               <SortableContext items={legSequences[legIndex]} strategy={horizontalListSortingStrategy}>
@@ -917,17 +893,26 @@ export function RoadBook({
                           stage={catalogStage}
                           value={stageConfig}
                           stageNumber={absoluteIndex + 1}
-                          onEdit={() => openEditModal(legIndex, stageConfig._uid)}
-                          onDelete={() => handleDeleteStage(legIndex, i, stageConfig)}
+                          locked={locked}
+                          onEdit={locked ? undefined : () => openEditModal(legIndex, stageConfig._uid)}
+                          onDelete={locked ? undefined : () => handleDeleteStage(legIndex, i, stageConfig)}
                           hiddenStageNameEnabled={hiddenStageNameEnabled}
                         />
+                        {/* rbr-rally-creator-web#80/#97 + locked: the same
+                            block serves both modes -- locked just renders it
+                            disabled with every affordance stripped (no
+                            sortable id, no click-to-edit, no clear cross),
+                            so a created rally's road book still reads the
+                            full service rhythm at a glance while staying
+                            read-only like everything else. */}
                         {showServiceBlock && (
                           <div className={styles.serviceBlockWrap}>
                             <ServiceBlock
                               serviceTime={stageConfig.service_time}
-                              sortableId={serviceSortableId(stageConfig._uid)}
-                              onClick={() => openServiceModal(stageConfig._uid)}
-                              onClear={() => handleClearService(stageConfig._uid)}
+                              disabled={locked}
+                              sortableId={locked ? null : serviceSortableId(stageConfig._uid)}
+                              onClick={locked ? undefined : () => openServiceModal(stageConfig._uid)}
+                              onClear={locked ? undefined : () => handleClearService(stageConfig._uid)}
                             />
                           </div>
                         )}
@@ -935,44 +920,52 @@ export function RoadBook({
                     );
                   })}
 
-                  {/* rbr-rally-creator-web#97: the leg's one always-present
-                      "+ Add service" slot, at the very end of the row --
-                      clicking it opens ServiceConfigModal directly, scoped
-                      to the leg's last stage that doesn't have one assigned
-                      yet (lastUnassignedServiceStageUid). Omitted once every
-                      assignable stage in the leg already has a service (or
-                      there's no assignable stage at all) -- nothing left for
-                      it to target. */}
-                  {(() => {
-                    const targetUid = lastUnassignedServiceStageUid(legIndex);
-                    if (!targetUid) return null;
-                    return (
-                      <div className={styles.serviceBlockWrap}>
-                        <ServiceBlock serviceTime="No Service" onClick={() => openServiceModal(targetUid)} />
-                      </div>
-                    );
-                  })()}
+                  {/* Everything past the placed bricks is edit-mode-only
+                      affordance -- a locked leg row simply ends after its
+                      last brick/service block, matching the read-only
+                      "Created / locked" rendering. */}
+                  {!locked && (
+                    <>
+                      {/* rbr-rally-creator-web#97: the leg's one always-present
+                          "+ Add service" slot, at the very end of the row --
+                          clicking it opens ServiceConfigModal directly, scoped
+                          to the leg's last stage that doesn't have one assigned
+                          yet (lastUnassignedServiceStageUid). Omitted once every
+                          assignable stage in the leg already has a service (or
+                          there's no assignable stage at all) -- nothing left for
+                          it to target. */}
+                      {(() => {
+                        const targetUid = lastUnassignedServiceStageUid(legIndex);
+                        if (!targetUid) return null;
+                        return (
+                          <div className={styles.serviceBlockWrap}>
+                            <ServiceBlock serviceTime="No Service" onClick={() => openServiceModal(targetUid)} />
+                          </div>
+                        );
+                      })()}
 
-                  <button
-                    type="button"
-                    className={[styles.addStageBrick, legStages.length === 0 ? styles.addStageBrickEmpty : '']
-                      .filter(Boolean)
-                      .join(' ')}
-                    onClick={() => openAddModal(legIndex)}
-                  >
-                    + Add stage
-                  </button>
+                      <button
+                        type="button"
+                        className={[styles.addStageBrick, legStages.length === 0 ? styles.addStageBrickEmpty : '']
+                          .filter(Boolean)
+                          .join(' ')}
+                        onClick={() => openAddModal(legIndex)}
+                      >
+                        + Add stage
+                      </button>
 
-                  {legStages.length === 0 && (
-                    <p className={styles.emptyLegHint} aria-hidden="true">
-                      Add your first stage &rarr;
-                    </p>
+                      {legStages.length === 0 && (
+                        <p className={styles.emptyLegHint} aria-hidden="true">
+                          Add your first stage &rarr;
+                        </p>
+                      )}
+
+                      {/* rbr-rally-creator-web#96: only occupies space while a
+                          stage brick is actually being dragged -- see
+                          RemoveDropZone's own comment above for why. */}
+                      {activeDrag?.type === 'stage' && <RemoveDropZone legIndex={legIndex} />}
+                    </>
                   )}
-
-                  {/* rbr-rally-creator-web#96: only occupies space while a
-                      stage brick is actually being dragged -- see
-                      RemoveDropZone's own comment above for why. */}
-                  {activeDrag?.type === 'stage' && <RemoveDropZone legIndex={legIndex} />}
                 </LegDropContainer>
               </SortableContext>
             </div>
@@ -1005,16 +998,18 @@ export function RoadBook({
             here instead of letting the user find out via a 400 after
             submit. Disabled rather than hidden, same reasoning as the
             "Remove leg" button above. */}
-        <button
-          type="button"
-          className={styles.addLegButton}
-          onClick={onAddLeg}
-          disabled={legSchedule.length >= MAX_LEGS}
-          title={legSchedule.length >= MAX_LEGS ? `Rallies can have at most ${MAX_LEGS} legs` : undefined}
-        >
+        {!locked && (
+          <button
+            type="button"
+            className={styles.addLegButton}
+            onClick={onAddLeg}
+            disabled={legSchedule.length >= MAX_LEGS}
+            title={legSchedule.length >= MAX_LEGS ? `Rallies can have at most ${MAX_LEGS} legs` : undefined}
+          >
 
-          + Add Leg
-        </button>
+            + Add Leg
+          </button>
+        )}
       </div>
 
       {/* rbr-rally-creator-web#96: the dragged item's overlay is the real
@@ -1024,26 +1019,33 @@ export function RoadBook({
           guarantees the floating preview matches the source block's shape
           and size exactly, rather than a bespoke box that has to be kept in
           sync by hand. */}
-      <DragOverlay>
-        {activeDrag?.type === 'stage' && (
-          <StageBrick
-            uid={activeDrag.uid}
-            stage={activeDrag.stage}
-            value={activeDrag.value}
-            stageNumber={activeDrag.stageNumber}
-            locked
-            hiddenStageNameEnabled={hiddenStageNameEnabled}
-            dangerHighlight={activeDrag.overRemoveZone}
-          />
-        )}
-        {activeDrag?.type === 'service' && (
-          <div className={styles.serviceBlockWrap}>
-            <ServiceBlock serviceTime={activeDrag.value?.service_time} />
-          </div>
-        )}
-      </DragOverlay>
+      {/* The overlay/modal/toast layer only exists while editing -- gated
+          on !locked (not just on the state that opens each one) so that a
+          modal or undo toast left open at the exact moment a creation job
+          starts vanishes with the flip, exactly as it did when the locked
+          path was a separate early-return tree without this layer. */}
+      {!locked && (
+        <DragOverlay>
+          {activeDrag?.type === 'stage' && (
+            <StageBrick
+              uid={activeDrag.uid}
+              stage={activeDrag.stage}
+              value={activeDrag.value}
+              stageNumber={activeDrag.stageNumber}
+              locked
+              hiddenStageNameEnabled={hiddenStageNameEnabled}
+              dangerHighlight={activeDrag.overRemoveZone}
+            />
+          )}
+          {activeDrag?.type === 'service' && (
+            <div className={styles.serviceBlockWrap}>
+              <ServiceBlock serviceTime={activeDrag.value?.service_time} />
+            </div>
+          )}
+        </DragOverlay>
+      )}
 
-      {modalState && (
+      {!locked && modalState && (
         <StageConfigModal
           mode={modalState.mode}
           initialValue={modalState.initialValue}
@@ -1062,7 +1064,7 @@ export function RoadBook({
           StageConfigModal above. No stage picker inside it; `uid` (and thus
           which stagePlan entry gets written back to) is fixed at open time
           by whichever block was clicked. */}
-      {serviceModalState && (
+      {!locked && serviceModalState && (
         <ServiceConfigModal
           value={stageByUid.get(serviceModalState.uid)}
           options={options}
@@ -1073,7 +1075,7 @@ export function RoadBook({
         />
       )}
 
-      {pendingUndo && (
+      {!locked && pendingUndo && (
         <Toast
           message={pendingUndo.type === 'leg' ? 'Leg removed' : 'Stage removed'}
           actionLabel="Undo"

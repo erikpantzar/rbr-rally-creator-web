@@ -39,6 +39,26 @@
   --radius: 0.75rem;
 
   --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* z-index ladder -- every position:fixed layer in the app takes its slot
+     from here so stacking order is decided in one place, not by scattered
+     literals. Bottom to top:
+       --z-panel    RallySidebar's docked panel (its scrim sits at
+                    calc(--z-panel - 1))
+       --z-modal    StageConfigModal's full-page overlay
+       --z-popover  transient floaters inside a modal (StagePicker's hover
+                    preview) -- above --z-modal, below --z-modal-2
+       --z-modal-2  ServiceConfigModal, which can open on top of
+                    StageConfigModal
+       --z-toast    Toast is the undo affordance, so it must stay visible
+                    above every panel/modal layer
+     Small local values (1/2/5) inside components are intra-component
+     stacking and intentionally not tokenized. */
+  --z-panel: 100;
+  --z-modal: 200;
+  --z-popover: 250;
+  --z-modal-2: 300;
+  --z-toast: 400;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -51,8 +71,15 @@
     --card: oklch(25% 0.012 250);
 
     --accent: oklch(78% 0.16 92);
+    --accent-ink: oklch(22% 0.03 92);
     --accent-soft-bg: oklch(32% 0.06 92);
     --accent-soft-fg: oklch(85% 0.13 92);
+
+    --danger-bg: oklch(30% 0.06 25);
+    --danger-fg: oklch(80% 0.12 25);
+
+    --success-bg: oklch(30% 0.05 150);
+    --success-fg: oklch(80% 0.1 150);
 
     --info-bg: oklch(30% 0.05 250);
     --info-fg: oklch(80% 0.1 250);
@@ -62,12 +89,16 @@
 :root[data-theme='dark'] {
   --bg: oklch(20% 0.012 250); --ink: oklch(92% 0.012 250); --ink-soft: oklch(80% 0.012 250);
   --muted: oklch(65% 0.012 250); --border: oklch(32% 0.012 250); --card: oklch(25% 0.012 250);
-  --accent: oklch(78% 0.16 92); --accent-soft-bg: oklch(32% 0.06 92); --accent-soft-fg: oklch(85% 0.13 92);
+  --accent: oklch(78% 0.16 92); --accent-ink: oklch(22% 0.03 92); --accent-soft-bg: oklch(32% 0.06 92); --accent-soft-fg: oklch(85% 0.13 92);
+  --danger-bg: oklch(30% 0.06 25); --danger-fg: oklch(80% 0.12 25);
+  --success-bg: oklch(30% 0.05 150); --success-fg: oklch(80% 0.1 150);
   --info-bg: oklch(30% 0.05 250); --info-fg: oklch(80% 0.1 250); --info-border: oklch(55% 0.14 250);
 }
 :root[data-theme='light'] {
   --bg: oklch(97% 0.008 250); --ink: oklch(24% 0.015 250); --ink-soft: oklch(42% 0.015 250);
   --muted: oklch(55% 0.012 250); --border: oklch(88% 0.008 250); --card: #ffffff;
-  --accent: oklch(58% 0.16 92); --accent-soft-bg: oklch(93% 0.06 92); --accent-soft-fg: oklch(45% 0.13 92);
+  --accent: oklch(58% 0.16 92); --accent-ink: #ffffff; --accent-soft-bg: oklch(93% 0.06 92); --accent-soft-fg: oklch(45% 0.13 92);
+  --danger-bg: oklch(95% 0.03 25); --danger-fg: oklch(48% 0.18 25);
+  --success-bg: oklch(94% 0.05 150); --success-fg: oklch(45% 0.13 150);
   --info-bg: oklch(94% 0.045 250); --info-fg: oklch(48% 0.14 250); --info-border: oklch(70% 0.12 250);
 }

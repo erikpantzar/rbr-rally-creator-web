@@ -1,31 +1,10 @@
 /* rbr-rally-creator-web#80: a much smaller form than StageConfigModal's, so
-   this renders as a centered backdrop+dialog (StageConfigModal's own
-   pre-#16 shape) rather than a full-page overlay -- three fields don't need
-   a full layer on top of the app. z-index above StageConfigModal's 200 so
-   opening this *from* StageConfigModal's "Service" summary button still
-   layers correctly on top of it. */
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 210;
-  background: oklch(0% 0 0 / 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-}
-
-.dialog {
-  width: 100%;
-  max-width: 26rem;
-  max-height: calc(100vh - 2rem);
-  overflow-y: auto;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: 0 20px 48px oklch(0% 0 0 / 0.28);
-  outline: none;
-}
+   this renders as Modal's `overlay` variant (centered backdrop+dialog,
+   StageConfigModal's own pre-#16 shape) rather than a full-page takeover --
+   three fields don't need a full layer on top of the app. The scrim/dialog
+   chrome and the --z-modal-2 stacking (above StageConfigModal's --z-modal,
+   so opening this *from* its "Service" summary button layers correctly)
+   live in Modal.module.css now. */
 
 .header {
   padding: 1rem 1.25rem 0.75rem;
@@ -51,27 +30,8 @@
   padding: 1.25rem;
 }
 
-.formGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.formGroup > label {
-  font-weight: 600;
-  color: var(--ink);
-  font-size: 0.85rem;
-}
-
-.formGroup select {
-  padding: 0.5rem 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 0;
-  background: var(--bg);
-  color: var(--ink);
-  font-size: 0.9rem;
-  font-family: inherit;
-}
+/* Field stacks and their labels/selects come from the shared FormGroup
+   primitive now (the rules were byte-identical with StageConfigModal's). */
 
 .tierRow {
   display: flex;
@@ -108,45 +68,5 @@
   color: var(--muted);
 }
 
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.6rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--border);
-}
-
-.cancelButton,
-.saveButton {
-  padding: 0.55rem 1rem;
-  border-radius: 0;
-  font-size: 0.9rem;
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.cancelButton {
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--ink);
-}
-
-.cancelButton:hover {
-  border-color: var(--accent);
-}
-
-.saveButton {
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 600;
-}
-
-.saveButton:hover:not(:disabled) {
-  filter: brightness(1.05);
-}
-
-.saveButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+/* The Cancel/Save row is FormActions + Button (secondary/primary,
+   size="md") now -- nothing left to style here. */

@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Button } from '../Button/Button.jsx';
+import { FormGroup, FormActions } from '../FormGroup/FormGroup.jsx';
 import { Input } from '../Input/Input.jsx';
+import { Modal } from '../Modal/Modal.jsx';
 import { ServiceBlock } from '../ServiceBlock/ServiceBlock.jsx';
 import { ServiceConfigModal } from '../ServiceConfigModal/ServiceConfigModal.jsx';
 import { loadStageConfigDraft, saveStageConfigDraft, clearStageConfigDraft } from '../../lib/stageConfigDraft.js';
@@ -243,12 +246,11 @@ function StagePicker({ stages, selectedStageId, onSelect }) {
 // and this doesn't need more than Escape + focus-on-open to satisfy the
 // spec.
 //
-// `mode` is 'add' | 'edit' | 'duplicate' purely for the title copy; add and
-// duplicate both start from a blank/pre-filled draft respectively and both
-// call onSave with a config that has no matching brick yet in the parent's
-// eyes for 'add', while RoadBook is responsible for actually treating
-// 'duplicate' as "append as new" vs 'edit' as "update in place" -- this
-// component only edits a local draft and hands the finished object back.
+// `mode` is 'add' | 'edit' purely for the title copy; 'add' starts from a
+// blank draft and calls onSave with a config that has no matching brick yet
+// in the parent's eyes, while RoadBook is responsible for treating 'edit'
+// as "update in place" -- this component only edits a local draft and hands
+// the finished object back.
 
 export function StageConfigModal({
   mode,
@@ -277,7 +279,6 @@ export function StageConfigModal({
   // one). Saving from it just patches the local draft same as any other
   // field; nothing is written to stagePlan until this modal's own Save.
   const [serviceModalOpen, setServiceModalOpen] = useState(false);
-  const dialogRef = useRef(null);
   const hasCheckedStorageRef = useRef(false);
 
   // On first mount, prefer a matching abandoned in-progress draft (see
@@ -302,10 +303,6 @@ export function StageConfigModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialValue, mode]);
 
-  useEffect(() => {
-    dialogRef.current?.focus();
-  }, []);
-
   // Save every change immediately so a refresh or closed tab mid-edit can
   // be recovered -- debouncing isn't worth the complexity here, this is a
   // small object and localStorage writes are cheap.
@@ -318,19 +315,13 @@ export function StageConfigModal({
     });
   }, [draft, mode, initialValue]);
 
+  // Escape/focus wiring lives in Modal (useDialogChrome) -- handed
+  // handleCancel rather than onCancel directly so backing out via Escape
+  // still clears the recovery draft, same as the Back/Cancel buttons.
   function handleCancel() {
     clearStageConfigDraft();
     onCancel();
   }
-
-  useEffect(() => {
-    function handleKeyDown(e) {
-      if (e.key === 'Escape') handleCancel();
-    }
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onCancel]);
 
   function patch(fields) {
     setDraft((prev) => ({ ...prev, ...fields }));
@@ -377,17 +368,10 @@ export function StageConfigModal({
     onSave(draft);
   }
 
-  const title = mode === 'edit' ? 'Edit stage' : mode === 'duplicate' ? 'Duplicate stage' : 'Add stage';
+  const title = mode === 'edit' ? 'Edit stage' : 'Add stage';
 
   return (
-    <div
-      className={styles.overlay}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="stage-config-modal-title"
-      ref={dialogRef}
-      tabIndex={-1}
-    >
+    <Modal variant="takeover" labelledBy="stage-config-modal-title" onClose={handleCancel}>
       <div className={styles.header}>
         <div className={styles.headerInner}>
           <div className={styles.headerLeft}>
@@ -396,29 +380,29 @@ export function StageConfigModal({
             </button>
             <h3 id="stage-config-modal-title">{title}</h3>
           </div>
-          <button
+          <Button
             type="submit"
             form="stage-config-form"
+            variant="primary"
             className={styles.headerSaveButton}
             disabled={!draft.stage_id}
           >
             Save
-          </button>
+          </Button>
         </div>
       </div>
 
       {restoredFromDraft && (
         <div className={styles.restoredNotice}>
           <span>Restored your unsaved changes from before.</span>
-          <button type="button" onClick={handleDiscardDraft}>
+          <Button type="button" variant="secondary" size="sm" onClick={handleDiscardDraft}>
             Discard &amp; start fresh
-          </button>
+          </Button>
         </div>
       )}
 
       <form id="stage-config-form" className={styles.form} onSubmit={handleSave}>
-        <div className={styles.formGroup}>
-          <label>Stage</label>
+        <FormGroup label="Stage">
           <StagePicker
             stages={stages}
             selectedStageId={draft.stage_id}
@@ -442,7 +426,7 @@ export function StageConfigModal({
               });
             }}
           />
-        </div>
+        </FormGroup>
 
         {/* rbr-rally-creator-web#64: a purely local planning nickname --
             shown always, not gated on hidden_stage_name (that checkbox
@@ -450,8 +434,7 @@ export function StageConfigModal({
             shows "Stage N" for this stage's position so the user still
             knows which physical stage they're naming without that number
             being something they'd type over blindly. */}
-        <div className={styles.formGroup}>
-          <label htmlFor="modal-label">Nickname (optional)</label>
+        <FormGroup label="Nickname (optional)" htmlFor="modal-label">
           <Input
             id="modal-label"
             size="md"
@@ -463,7 +446,7 @@ export function StageConfigModal({
           <p className={styles.fieldNote}>
             For your own planning view only — this does not appear on rallysimfans.hu and participants never see it.
           </p>
-        </div>
+        </FormGroup>
 
         {/* rbr-rally-creator-service#20: the real public per-stage name
             shown to participants on rallysimfans.hu -- only rendered (and
@@ -472,8 +455,7 @@ export function StageConfigModal({
             appears in that same condition. Distinct from the always-visible
             local Nickname field above. */}
         {hiddenStageNameEnabled && (
-          <div className={styles.formGroup}>
-            <label htmlFor="modal-hidden-name">Hidden stage name</label>
+          <FormGroup label="Hidden stage name" htmlFor="modal-hidden-name">
             <Input
               id="modal-hidden-name"
               size="md"
@@ -485,11 +467,10 @@ export function StageConfigModal({
             <p className={styles.fieldNote}>
               Shown to participants on rallysimfans.hu in place of this stage's real name.
             </p>
-          </div>
+          </FormGroup>
         )}
 
-        <div className={styles.formGroup}>
-          <label>Surface age</label>
+        <FormGroup label="Surface age">
           <div className={styles.radioGroup}>
             {options.surfaceAge.map((age) => (
               <label key={age.value} className={styles.radioLabel}>
@@ -504,7 +485,7 @@ export function StageConfigModal({
               </label>
             ))}
           </div>
-        </div>
+        </FormGroup>
 
         {/* rbr-rally-creator-web#79: wetness/weather options are per-stage
             (see selectedStage.wetnessOptions/weatherOptions above), so with
@@ -516,8 +497,7 @@ export function StageConfigModal({
             the moment the fields themselves appear. */}
         {selectedStage && (
           <>
-            <div className={styles.formGroup}>
-              <label htmlFor="modal-wetness">Wetness</label>
+            <FormGroup label="Wetness" htmlFor="modal-wetness">
               <select
                 id="modal-wetness"
                 value={draft.wetness_id}
@@ -529,10 +509,9 @@ export function StageConfigModal({
                   </option>
                 ))}
               </select>
-            </div>
+            </FormGroup>
 
-            <div className={styles.formGroup}>
-              <label htmlFor="modal-tracksettings">Weather</label>
+            <FormGroup label="Weather" htmlFor="modal-tracksettings">
               <select
                 id="modal-tracksettings"
                 value={draft.tracksettings_id}
@@ -544,12 +523,11 @@ export function StageConfigModal({
                   </option>
                 ))}
               </select>
-            </div>
+            </FormGroup>
           </>
         )}
 
-        <div className={styles.formGroup}>
-          <label htmlFor="modal-tyre">Default tyre</label>
+        <FormGroup label="Default tyre" htmlFor="modal-tyre">
           <select id="modal-tyre" value={draft.def_tyre_id} onChange={(e) => patch({ def_tyre_id: e.target.value })}>
             {options.tyreOptions.map((opt) => (
               <option key={opt} value={opt}>
@@ -561,16 +539,16 @@ export function StageConfigModal({
             <div className={styles.tyreSuggestion}>
               <span>Wet conditions &mdash; switch to {suggestedWetTyre}?</span>
               <div className={styles.tyreSuggestionActions}>
-                <button type="button" onClick={() => patch({ def_tyre_id: suggestedWetTyre })}>
+                <Button type="button" variant="secondary" size="sm" onClick={() => patch({ def_tyre_id: suggestedWetTyre })}>
                   Apply
-                </button>
-                <button type="button" onClick={() => setDismissedWetSuggestion(true)}>
+                </Button>
+                <Button type="button" variant="secondary" size="sm" onClick={() => setDismissedWetSuggestion(true)}>
                   Ignore
-                </button>
+                </Button>
               </div>
             </div>
           )}
-        </div>
+        </FormGroup>
 
         <div className={styles.checkboxes}>
           <label className={styles.checkboxLabel}>
@@ -591,8 +569,7 @@ export function StageConfigModal({
           </label>
         </div>
 
-        <div className={styles.formGroup}>
-          <label>Service</label>
+        <FormGroup label="Service">
           {/* rbr-rally-creator-web#80: opens the same ServiceConfigModal
               the road book's leg-row blue blocks use, rather than keeping
               a separate inline editor here -- one editing surface for
@@ -609,16 +586,16 @@ export function StageConfigModal({
           {isLastStage && (
             <p className={styles.fieldNote}>Service is disabled on the rally’s final stage (enforced by the site).</p>
           )}
-        </div>
+        </FormGroup>
 
-        <div className={styles.actions}>
-          <button type="button" className={styles.cancelButton} onClick={handleCancel}>
+        <FormActions>
+          <Button type="button" variant="secondary" size="md" onClick={handleCancel}>
             Cancel
-          </button>
-          <button type="submit" className={styles.saveButton} disabled={!draft.stage_id}>
+          </Button>
+          <Button type="submit" variant="primary" size="md" disabled={!draft.stage_id}>
             Save
-          </button>
-        </div>
+          </Button>
+        </FormActions>
       </form>
 
       {/* rbr-rally-creator-web#80: sibling modal, opened on top of this one
@@ -638,6 +615,6 @@ export function StageConfigModal({
           onCancel={() => setServiceModalOpen(false)}
         />
       )}
-    </div>
+    </Modal>
   );
 }

@@ -1,23 +1,10 @@
-// Thin fetch wrapper for rbr-rally-creator-service's /auth/credentials
-// endpoint. `credentials: 'include'` is required on every call -- the
-// session lives in a cross-site httpOnly cookie the service sets, this app
-// never reads or stores the raw username/password itself. Saving
+// Thin wrappers for rbr-rally-creator-service's /auth/credentials endpoint.
+// The session lives in a cross-site httpOnly cookie the service sets (see
+// apiClient.js for the shared fetch plumbing that always sends it) -- this
+// app never reads or stores the raw username/password itself. Saving
 // credentials does NOT validate them against rallysimfans.hu -- that only
 // happens later, when a rally-creation job actually runs (not built yet).
-import { USE_MOCK_API, mockRequest } from './mockService.js';
-
-async function request(baseUrl, path, { method = 'GET', body } = {}) {
-  if (USE_MOCK_API) return mockRequest(path, { method, body });
-  const res = await fetch(`${baseUrl}${path}`, {
-    method,
-    credentials: 'include',
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, status: res.status, ...data };
-  return { ok: true, ...data };
-}
+import { request } from './apiClient.js';
 
 export const saveCredentials = (baseUrl, username, password) =>
   request(baseUrl, '/auth/credentials', { method: 'POST', body: { username, password } });

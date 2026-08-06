@@ -22,3 +22,18 @@ input,
 button {
   font: inherit;
 }
+
+/* Global reduced-motion guard, shipped ahead of the redesign's planned
+   motion work: anyone who has asked their OS for less motion gets
+   effectively-instant transitions/animations everywhere, and every future
+   transition added in a .module.css is covered automatically. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

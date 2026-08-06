@@ -1,35 +1,7 @@
-// Thin fetch wrapper for rbr-rally-creator-service's rally endpoints.
-// `credentials: 'include'` is required on every call -- the session lives in
-// a cross-site httpOnly cookie the service sets.
-import { USE_MOCK_API, mockRequest, mockRequestArray } from './mockService.js';
-
-async function request(baseUrl, path, { method = 'GET', body } = {}) {
-  if (USE_MOCK_API) return mockRequest(path, { method, body });
-  const res = await fetch(`${baseUrl}${path}`, {
-    method,
-    credentials: 'include',
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, status: res.status, ...data };
-  return { ok: true, ...data };
-}
-
-// The catalog endpoints return a raw JSON array, not an object -- spreading
-// an array into `{ ok: true, ...data }` produces numeric-keyed properties
-// (`{0: ..., 1: ...}`), not a `.stages`/`.carGroups` array. Kept as a
-// separate helper that wraps the array under `.data` instead.
-async function requestArray(baseUrl, path) {
-  if (USE_MOCK_API) return mockRequestArray(path);
-  const res = await fetch(`${baseUrl}${path}`, { credentials: 'include' });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    return { ok: false, status: res.status, ...data };
-  }
-  const data = await res.json().catch(() => []);
-  return { ok: true, data };
-}
+// Thin wrappers for rbr-rally-creator-service's rally endpoints. The shared
+// fetch plumbing (credentials-include cookie handling, the mock-API switch,
+// and the array-vs-object response shapes) lives in apiClient.js.
+import { request, requestArray } from './apiClient.js';
 
 // rbr-rally-creator-web#97: the header's ServiceStatus indicator polls this
 // to show whether the backend (and specifically its Playwright automation,

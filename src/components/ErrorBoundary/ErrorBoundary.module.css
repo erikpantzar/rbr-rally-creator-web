@@ -1,0 +1,45 @@
+/* Same rule-separated, border-forward danger treatment as ReadinessBanner's
+   .notReady -- a crash is the ultimate "not ready" state, so it speaks the
+   same visual language rather than introducing a new card/box style. */
+.crash {
+  max-width: 42rem;
+  margin: 4rem auto;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--danger-fg);
+  border-bottom: 1px solid var(--danger-fg);
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.heading {
+  margin: 0 0 0.5rem;
+  color: var(--danger-fg);
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.message {
+  margin: 0 0 1rem;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+
+/* Mirrors RallyBuilder.module.css's .submitButton -- the one action on this
+   screen deserves the app's primary-action styling. */
+.reloadButton {
+  padding: 0.75rem 1.5rem;
+  border: 1px solid var(--accent);
+  border-radius: 0;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  font-size: 0.95rem;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: pointer;
+}

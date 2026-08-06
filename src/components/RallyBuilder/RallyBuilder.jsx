@@ -26,6 +26,7 @@ import {
   clearCurrentDraft,
   saveRally,
 } from '../../lib/rallyStorage.js';
+import { Button } from '../Button/Button.jsx';
 import { RallyBasicsForm } from '../RallyBasicsForm/RallyBasicsForm.jsx';
 import { CarGroupPicker } from '../CarGroupPicker/CarGroupPicker.jsx';
 import { RoadBook } from '../RoadBook/RoadBook.jsx';
@@ -46,6 +47,24 @@ const TERMINAL_JOB_STATUSES = new Set([
   'failed',
   'cancelled',
 ]);
+
+// Empty-document defaults per DESIGN_SPEC.md -- shared by the initial
+// useState and handleNewRally's reset so the two can't drift apart (they
+// used to be duplicated literals). Always spread into a fresh object at the
+// use sites, never handed to setState directly, so component state can't
+// alias and mutate this shared module-level object.
+const DEFAULT_RALLY_BASICS = {
+  rally_name: '',
+  description: '',
+  damage_id: '2',
+  stages: 2,
+  legs: 1,
+  pacenotes_options: 'Normal Pacenotes',
+  hidden_stage_name: false,
+  road_side_service: 'no',
+  password1: '',
+  password2: '',
+};
 
 export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload }) {
   const [loading, setLoading] = useState(true);
@@ -70,16 +89,7 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload }) {
   const [fixTimesToastVisible, setFixTimesToastVisible] = useState(false);
 
   const [rallyBasics, setRallyBasics] = useState({
-    rally_name: '',
-    description: '',
-    damage_id: '2',
-    stages: 2,
-    legs: 1,
-    pacenotes_options: 'Normal Pacenotes',
-    hidden_stage_name: false,
-    road_side_service: 'no',
-    password1: '',
-    password2: '',
+    ...DEFAULT_RALLY_BASICS,
     ...initialPayload?.rallyBasics,
   });
 
@@ -217,8 +227,16 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload }) {
   useEffect(() => {
     if (!jobId) return;
 
+    // Same teardown guard as ServiceStatus.jsx: the interval callback is
+    // async, so clearInterval alone can't stop a tick whose fetch is already
+    // in flight -- without this flag, that response would still land and
+    // call setJob/setSubmitting after unmount (or after jobId/baseUrl
+    // changed and this effect's world is stale).
+    let cancelled = false;
+
     const interval = setInterval(async () => {
       const res = await getJobStatus(baseUrl, jobId);
+      if (cancelled) return;
       if (res.ok) {
         // The job-status response doesn't necessarily echo back whether this
         // was a dry run while it's still queued/running (only the eventual
@@ -227,20 +245,17 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload }) {
         // in-progress screen can label itself correctly throughout, not just
         // once it finishes.
         setJob((prev) => ({ ...res, dryRunRequested: prev?.dryRunRequested }));
-        if (
-          res.status === 'succeeded' ||
-          res.status === 'succeeded_unconfirmed' ||
-          res.status === 'succeeded_dry_run' ||
-          res.status === 'failed' ||
-          res.status === 'cancelled'
-        ) {
+        if (TERMINAL_JOB_STATUSES.has(res.status)) {
           clearInterval(interval);
           setSubmitting(false);
         }
       }
     }, 2000);
 
-    return () => clearInterval(interval);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [jobId, baseUrl]);
 
   // rbr-rally-creator-web#17: reflect job progress in the browser tab title
@@ -448,18 +463,7 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload }) {
   // clears currentDraft so a stray refresh right after clicking this
   // doesn't resurrect the rally that was just abandoned.
   function handleNewRally() {
-    setRallyBasics({
-      rally_name: '',
-      description: '',
-      damage_id: '2',
-      stages: 2,
-      legs: 1,
-      pacenotes_options: 'Normal Pacenotes',
-      hidden_stage_name: false,
-      road_side_service: 'no',
-      password1: '',
-      password2: '',
-    });
+    setRallyBasics({ ...DEFAULT_RALLY_BASICS });
     setCarGroupIds([]);
     setStagePlan([]);
     setLegSchedule([createDefaultLegConfig(0)]);
@@ -701,9 +705,9 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload }) {
           // DESIGN_SPEC.md's UX review note, rather than disappearing with
           // no replacement action.
           <div className={styles.actions}>
-            <button className={styles.submitButton} onClick={handleDuplicateAsNewDraft}>
+            <Button variant="primary" className={styles.submitButton} onClick={handleDuplicateAsNewDraft}>
               Duplicate as new draft
-            </button>
+            </Button>
           </div>
         ) : (
           <>
@@ -728,7 +732,8 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload }) {
                 New Rally
               </button>
 
-              <button
+              <Button
+                variant="primary"
                 className={styles.submitButton}
                 onClick={handleCreateRally}
                 disabled={!canSubmit}
@@ -738,7 +743,7 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload }) {
                     ? 'Running test...'
                     : 'Creating rally...'
                   : 'Create Rally'}
-              </button>
+              </Button>
 
               <label className={styles.testRunLabel}>
                 <input

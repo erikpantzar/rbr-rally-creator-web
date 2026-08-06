@@ -15,5 +15,10 @@ export function loadStagePickerFilters() {
 }
 
 export function saveStagePickerFilters(filters) {
-  localStorage.setItem(KEY, JSON.stringify(filters));
+  try {
+    localStorage.setItem(KEY, JSON.stringify(filters));
+  } catch {
+    // Best-effort persistence, same reasoning as rallyStorage.js's
+    // setCurrentDraft -- remembered filters aren't worth a crash.
+  }
 }

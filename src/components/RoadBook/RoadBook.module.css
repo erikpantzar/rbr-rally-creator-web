@@ -324,10 +324,10 @@
    RemoveDropZone in RoadBook.jsx) -- only ever rendered while a stage brick
    is mid-drag, so no "at rest" style is needed here beyond the subtle
    dashed-danger-outline look, matching .addStageBrickEmpty's border-forward
-   (not filled) treatment for the same reason: --danger-bg has no dark-mode
-   override, so a filled block would stay light-pink in dark mode. Turns
-   solid/filled on isOver so dropping here reads as an unambiguous "yes,
-   right here" the same instant the dragged brick itself also goes red (see
+   (not filled) treatment: at rest this is a hint, not an alarm. Turns
+   solid/filled on isOver (--danger-bg now themes correctly in dark mode)
+   so dropping here reads as an unambiguous "yes, right here" the same
+   instant the dragged brick itself also goes red (see
    StageBrick.module.css's .brickDanger/.brickLockedDanger). */
 .removeZone {
   display: flex;
@@ -403,8 +403,8 @@
    --danger-fg token used elsewhere for "needs attention" accents
    (.legRemoveButton's hover, .legRemoveBubbleConfirm). Border-forward,
    transparent background -- matching ReadinessBanner's .notReady treatment
-   -- rather than a filled --danger-bg block: --danger-bg/--danger-fg have no
-   dark-mode override, so a filled block would stay light-pink in dark mode.
+   -- rather than a filled --danger-bg block, so it reads as a prompt, not
+   an error state.
    Hover still layers the normal .addStageBrick:hover accent treatment on top
    since it's a more specific selector combination further down the
    cascade... concretely, the empty state's own hover rule below keeps the

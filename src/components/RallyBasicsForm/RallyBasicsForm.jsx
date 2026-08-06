@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { Input, Textarea } from '../Input/Input.jsx';
+import { PasswordInput } from '../PasswordInput/PasswordInput.jsx';
 import styles from './RallyBasicsForm.module.css';
 
 // road_side_service comes back from the service as plain value strings
@@ -9,8 +9,6 @@ function roadSideServiceLabel(value) {
 }
 
 export function RallyBasicsForm({ value, onChange, options, rallyNameInputRef }) {
-  const [passwordVisible, setPasswordVisible] = useState(false);
-
   function handleChange(field, fieldValue) {
     onChange({ ...value, [field]: fieldValue });
   }
@@ -119,25 +117,13 @@ export function RallyBasicsForm({ value, onChange, options, rallyNameInputRef })
         <p className={styles.passwordNote}>Optional — makes rally private</p>
         <div className={styles.formGroup}>
           <label htmlFor="password1">Password</label>
-          <div className={styles.passwordRow}>
-            <Input
-              id="password1"
-              size="md"
-              type={passwordVisible ? 'text' : 'password'}
-              value={value.password1}
-              onChange={(e) => handlePasswordChange(e.target.value)}
-              placeholder="Optional password"
-            />
-            <button
-              type="button"
-              className={styles.toggleVisibility}
-              onClick={() => setPasswordVisible((v) => !v)}
-              aria-label={passwordVisible ? 'Hide password' : 'Show password'}
-              aria-pressed={passwordVisible}
-            >
-              {passwordVisible ? '🙈' : '👁'}
-            </button>
-          </div>
+          <PasswordInput
+            id="password1"
+            size="md"
+            value={value.password1}
+            onChange={(e) => handlePasswordChange(e.target.value)}
+            placeholder="Optional password"
+          />
         </div>
       </div>
     </form>

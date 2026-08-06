@@ -1,0 +1,46 @@
+/* Full-screen takeover (rbr-rally-creator-web#16) -- replaces the old
+   centered backdrop+dialog. --z-modal (see tokens.css's z ladder) beats the
+   page content and RallySidebar's --z-panel, so this sits as "a full layer
+   on top of the app"; only the overlay variant below (--z-modal-2) and the
+   Toast (--z-toast, the undo affordance) stack above it. */
+.takeover {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  outline: none;
+}
+
+/* Dimmed scrim + centered card (rbr-rally-creator-web#80: ServiceConfigModal's
+   shape -- a much smaller form than a takeover warrants). --z-modal-2 sits
+   above --z-modal in tokens.css's z ladder so opening this *from* inside a
+   takeover modal (StageConfigModal's "Service" summary button) still layers
+   correctly on top of it. */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal-2);
+  background: oklch(0% 0 0 / 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+/* 26rem matches the one overlay consumer (ServiceConfigModal) -- if a
+   second overlay modal ever needs a different width, that's the moment to
+   grow a prop for it, not before. */
+.dialog {
+  width: 100%;
+  max-width: 26rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 20px 48px oklch(0% 0 0 / 0.28);
+  outline: none;
+}

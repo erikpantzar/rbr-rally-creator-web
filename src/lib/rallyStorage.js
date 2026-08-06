@@ -37,7 +37,16 @@ export function getCurrentDraft() {
 }
 
 export function setCurrentDraft(payload) {
-  localStorage.setItem(CURRENT_DRAFT_KEY, JSON.stringify({ updatedAt: new Date().toISOString(), payload }));
+  // Persistence here is best-effort, matching the read paths' existing
+  // corruption tolerance above: a blocked/full localStorage (private
+  // browsing, quota) must not crash the editor mid-build -- losing the
+  // autosave is the strictly smaller failure. Same reasoning applies to
+  // every other localStorage write in these lib files.
+  try {
+    localStorage.setItem(CURRENT_DRAFT_KEY, JSON.stringify({ updatedAt: new Date().toISOString(), payload }));
+  } catch {
+    // Swallowed on purpose -- see above.
+  }
 }
 
 // Called once a rally has actually been created -- the draft's job is done,
@@ -62,7 +71,11 @@ function readRallies() {
 }
 
 function writeRallies(rallies) {
-  localStorage.setItem(RALLIES_KEY, JSON.stringify(rallies));
+  try {
+    localStorage.setItem(RALLIES_KEY, JSON.stringify(rallies));
+  } catch {
+    // Best-effort, same reasoning as setCurrentDraft above.
+  }
 }
 
 // Sorted newest-first so RallySidebar doesn't have to know the storage
@@ -70,10 +83,6 @@ function writeRallies(rallies) {
 // the top of the list.
 export function listRallies() {
   return readRallies().sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-}
-
-export function getRally(id) {
-  return readRallies().find((r) => r.id === id) ?? null;
 }
 
 // Upsert -- pass the id previously returned from here (stored by the caller

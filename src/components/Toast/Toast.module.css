@@ -13,7 +13,9 @@
   font-family: var(--font-mono);
   font-size: 0.85rem;
   box-shadow: 0 10px 28px oklch(0% 0 0 / 0.3);
-  z-index: 100;
+  /* --z-toast is the top slot in tokens.css's ladder: the toast carries the
+     undo affordance, so it must stay visible above open panels/modals. */
+  z-index: var(--z-toast);
 }
 
 .message {

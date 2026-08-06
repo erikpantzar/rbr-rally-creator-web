@@ -77,34 +77,28 @@
   border-top: 1px solid var(--border);
 }
 
+/* Metrics + the uppercase treatment only -- the accent-filled look comes
+   from Button's `primary` variant. Deliberately bigger/louder than the
+   modal Save buttons: this is the document's one terminal action. No
+   `size` prop is passed, so Button contributes no padding/font-size and
+   there's no cross-module specificity race with this class (see
+   Button.jsx). */
 .submitButton {
   padding: 0.75rem 1.5rem;
-  border: 1px solid var(--accent);
-  border-radius: 0;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 600;
   font-size: 0.95rem;
-  font-family: inherit;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  cursor: pointer;
-}
-
-.submitButton:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.submitButton:not(:disabled):hover {
-  filter: brightness(1.05);
 }
 
 /* Secondary action next to Create Rally -- explicit save into the
    rbr.rallies history list (rbr-rally-creator-web#46), distinct from the
    automatic currentDraft autosave that happens regardless. Outlined rather
    than filled so it doesn't compete with .submitButton as the primary
-   action. */
+   action. Stays a bespoke <button>, not Button's `secondary` variant: this
+   one outlines in var(--ink) and hovers by filling with var(--card),
+   where the shared secondary is var(--border)-outlined and hovers by
+   tinting its border with the accent -- forcing it into the variant would
+   mean overriding every one of those declarations. */
 .saveButton {
   padding: 0.75rem 1.5rem;
   border: 1px solid var(--ink);

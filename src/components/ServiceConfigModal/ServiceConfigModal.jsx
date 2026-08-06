@@ -1,4 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import { Button } from '../Button/Button.jsx';
+import { FormGroup, FormActions } from '../FormGroup/FormGroup.jsx';
+import { Modal } from '../Modal/Modal.jsx';
 import { SERVICE_TIERS, getServiceTier } from '../../lib/rallyPlan.js';
 import styles from './ServiceConfigModal.module.css';
 
@@ -26,20 +29,7 @@ export function ServiceConfigModal({ value, options, stageLabel, stageNumber, is
     nummechanics: value.nummechanics,
     mechanicsSkill: value.mechanicsSkill,
   });
-  const dialogRef = useRef(null);
   const tier = getServiceTier(draft.service_time);
-
-  useEffect(() => {
-    dialogRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    function handleKeyDown(e) {
-      if (e.key === 'Escape') onCancel();
-    }
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onCancel]);
 
   function patch(fields) {
     setDraft((prev) => ({ ...prev, ...fields }));
@@ -71,110 +61,97 @@ export function ServiceConfigModal({ value, options, stageLabel, stageNumber, is
   const title = stageNumber ? `Service — Stage ${stageNumber}` : 'Service';
 
   return (
-    <div className={styles.overlay} onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
-      <div
-        className={styles.dialog}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="service-config-modal-title"
-        ref={dialogRef}
-        tabIndex={-1}
-      >
-        <div className={styles.header}>
-          <h3 id="service-config-modal-title">{title}</h3>
-          {stageLabel && <p className={styles.headerSubtitle}>{stageLabel}</p>}
-        </div>
-
-        <form className={styles.form} onSubmit={handleSave}>
-          {isLastStage ? (
-            <p className={styles.disabledNote}>
-              {disabledReason ?? 'Service is disabled on the rally’s final stage (enforced by the site).'}
-            </p>
-          ) : (
-            <>
-              <div className={styles.formGroup}>
-                <label>Tier</label>
-                <div className={styles.tierRow}>
-                  {Object.values(SERVICE_TIERS).map((t) => (
-                    <button
-                      key={t.key}
-                      type="button"
-                      className={[styles.tierButton, tier.key === t.key ? styles.tierButtonActive : ''].join(' ')}
-                      onClick={() => pickTier(t.key)}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {tier.key !== 'none' && (
-                <>
-                  <div className={styles.formGroup}>
-                    <label htmlFor="service-modal-duration">Duration</label>
-                    <select
-                      id="service-modal-duration"
-                      value={draft.service_time}
-                      onChange={(e) => patch({ service_time: e.target.value })}
-                    >
-                      {options.serviceTime
-                        .filter((t) => tier.times.includes(t))
-                        .map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-
-                  <div className={styles.formGroup}>
-                    <label htmlFor="service-modal-mechanics">Mechanics</label>
-                    <select
-                      id="service-modal-mechanics"
-                      value={draft.nummechanics}
-                      onChange={(e) => patch({ nummechanics: e.target.value })}
-                    >
-                      {options.mechanicsCount
-                        .filter((m) => m !== 'No Service')
-                        .map((m) => (
-                          <option key={m} value={m}>
-                            {m}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-
-                  <div className={styles.formGroup}>
-                    <label htmlFor="service-modal-skill">Skill</label>
-                    <select
-                      id="service-modal-skill"
-                      value={draft.mechanicsSkill}
-                      onChange={(e) => patch({ mechanicsSkill: e.target.value })}
-                    >
-                      {options.mechanicsSkill
-                        .filter((m) => m !== 'No Service')
-                        .map((m) => (
-                          <option key={m} value={m}>
-                            {m}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                </>
-              )}
-            </>
-          )}
-
-          <div className={styles.actions}>
-            <button type="button" className={styles.cancelButton} onClick={onCancel}>
-              Cancel
-            </button>
-            <button type="submit" className={styles.saveButton} disabled={isLastStage}>
-              Save
-            </button>
-          </div>
-        </form>
+    <Modal variant="overlay" labelledBy="service-config-modal-title" onClose={onCancel}>
+      <div className={styles.header}>
+        <h3 id="service-config-modal-title">{title}</h3>
+        {stageLabel && <p className={styles.headerSubtitle}>{stageLabel}</p>}
       </div>
-    </div>
+
+      <form className={styles.form} onSubmit={handleSave}>
+        {isLastStage ? (
+          <p className={styles.disabledNote}>
+            {disabledReason ?? 'Service is disabled on the rally’s final stage (enforced by the site).'}
+          </p>
+        ) : (
+          <>
+            <FormGroup label="Tier">
+              <div className={styles.tierRow}>
+                {Object.values(SERVICE_TIERS).map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    className={[styles.tierButton, tier.key === t.key ? styles.tierButtonActive : ''].join(' ')}
+                    onClick={() => pickTier(t.key)}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </FormGroup>
+
+            {tier.key !== 'none' && (
+              <>
+                <FormGroup label="Duration" htmlFor="service-modal-duration">
+                  <select
+                    id="service-modal-duration"
+                    value={draft.service_time}
+                    onChange={(e) => patch({ service_time: e.target.value })}
+                  >
+                    {options.serviceTime
+                      .filter((t) => tier.times.includes(t))
+                      .map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                  </select>
+                </FormGroup>
+
+                <FormGroup label="Mechanics" htmlFor="service-modal-mechanics">
+                  <select
+                    id="service-modal-mechanics"
+                    value={draft.nummechanics}
+                    onChange={(e) => patch({ nummechanics: e.target.value })}
+                  >
+                    {options.mechanicsCount
+                      .filter((m) => m !== 'No Service')
+                      .map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                  </select>
+                </FormGroup>
+
+                <FormGroup label="Skill" htmlFor="service-modal-skill">
+                  <select
+                    id="service-modal-skill"
+                    value={draft.mechanicsSkill}
+                    onChange={(e) => patch({ mechanicsSkill: e.target.value })}
+                  >
+                    {options.mechanicsSkill
+                      .filter((m) => m !== 'No Service')
+                      .map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                  </select>
+                </FormGroup>
+              </>
+            )}
+          </>
+        )}
+
+        <FormActions>
+          <Button type="button" variant="secondary" size="md" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" size="md" disabled={isLastStage}>
+            Save
+          </Button>
+        </FormActions>
+      </form>
+    </Modal>
   );
 }

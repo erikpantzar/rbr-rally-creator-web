@@ -94,28 +94,5 @@
   color: var(--ink-soft);
 }
 
-.passwordRow {
-  display: flex;
-  gap: 0.4rem;
-}
-
-.passwordRow input {
-  flex: 1;
-  min-width: 0;
-}
-
-.toggleVisibility {
-  padding: 0 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 0;
-  background: var(--bg);
-  color: var(--ink);
-  font-size: 1.05rem;
-  line-height: 1;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.toggleVisibility:hover {
-  border-color: var(--ink-soft);
-}
+/* The password row + visibility toggle moved into the shared PasswordInput
+   primitive (it was a verbatim copy of CredentialForm's). */

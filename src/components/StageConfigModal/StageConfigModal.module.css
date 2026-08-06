@@ -1,18 +1,6 @@
-/* Full-screen overlay (rbr-rally-creator-web#16) -- replaces the old
-   centered backdrop+dialog. z-index 200 beats every other stacking context
-   in the app (Toast and the old dialog both sat at 100, RoadBook's sticky
-   leg headers at 2) so this always sits on top as "a full layer on top of
-   the app". */
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  background: var(--bg);
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  outline: none;
-}
+/* The full-screen overlay itself (rbr-rally-creator-web#16's "full layer on
+   top of the app") now lives in Modal's `takeover` variant -- this file
+   only styles what's inside it. */
 
 /* Sticky top bar: Back (left) and Save (right) stay reachable regardless of
    how far the form below is scrolled -- addresses the issue's "add a <-
@@ -79,27 +67,17 @@
   background: var(--accent-soft-bg);
 }
 
+/* Metrics/layout only -- the accent-filled look comes from Button's
+   `primary` variant. This header copy keeps its slightly tighter padding
+   (vs the actions row's `md` 0.55rem/1rem) for pixel parity with the
+   pre-extraction sticky bar; no `size` prop is passed, so Button sets no
+   padding/font-size of its own and there's no cross-module specificity
+   race with this class (see Button.jsx). */
 .headerSaveButton {
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 600;
   padding: 0.5rem 1.1rem;
-  border-radius: 0;
   font-size: 0.9rem;
-  font-family: inherit;
-  cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
-}
-
-.headerSaveButton:hover:not(:disabled) {
-  filter: brightness(1.05);
-}
-
-.headerSaveButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* Shown when a matching abandoned in-progress draft was recovered from
@@ -117,22 +95,6 @@
   border-bottom: 1px solid var(--border);
   font-size: 0.85rem;
   color: var(--ink);
-}
-
-.restoredNotice button {
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--ink);
-  padding: 0.3rem 0.6rem;
-  border-radius: 0;
-  font-size: 0.8rem;
-  font-family: inherit;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.restoredNotice button:hover {
-  border-color: var(--accent);
 }
 
 /* Wider than the old 32rem dialog (rbr-rally-creator-web#16: "could use the
@@ -157,27 +119,8 @@
   margin: 0 auto;
 }
 
-.formGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.formGroup > label {
-  font-weight: 600;
-  color: var(--ink);
-  font-size: 0.85rem;
-}
-
-.formGroup select {
-  padding: 0.5rem 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 0;
-  background: var(--bg);
-  color: var(--ink);
-  font-size: 0.9rem;
-  font-family: inherit;
-}
+/* Field stacks and their labels/selects come from the shared FormGroup
+   primitive now (the rules were byte-identical with ServiceConfigModal's). */
 
 /* Quiet footnote under the nickname field (rbr-rally-creator-web#64) --
    deliberately plain body text in the muted color, not a colored
@@ -216,22 +159,6 @@
   flex-shrink: 0;
 }
 
-.tyreSuggestionActions button {
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--ink);
-  padding: 0.3rem 0.6rem;
-  border-radius: 0;
-  font-size: 0.8rem;
-  font-family: inherit;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.tyreSuggestionActions button:hover {
-  border-color: var(--accent);
-}
-
 .radioGroup {
   display: flex;
   flex-direction: column;
@@ -261,48 +188,8 @@
   gap: 0.35rem;
 }
 
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.6rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--border);
-}
-
-.cancelButton,
-.saveButton {
-  padding: 0.55rem 1rem;
-  border-radius: 0;
-  font-size: 0.9rem;
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.cancelButton {
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--ink);
-}
-
-.cancelButton:hover {
-  border-color: var(--accent);
-}
-
-.saveButton {
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 600;
-}
-
-.saveButton:hover:not(:disabled) {
-  filter: brightness(1.05);
-}
-
-.saveButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+/* The bottom Cancel/Save row is FormActions + Button (secondary/primary,
+   size="md") now -- nothing left to style here. */
 
 /* Stage picker */
 
@@ -329,7 +216,13 @@
   flex: 1 1 10rem;
 }
 
-.pickerFilters select {
+/* Two-class (.picker) prefix so this reliably outweighs FormGroup's own
+   single-class `.formGroup select` rule regardless of CSS module injection
+   order -- the whole picker sits inside the "Stage" FormGroup, and these
+   filter selects need their tighter 0.85rem/var(--card) treatment, not the
+   shared field-select look. Same specificity trick as .pickerFilterInput
+   below. */
+.picker .pickerFilters select {
   padding: 0.5rem 0.7rem;
   border: 1px solid var(--border);
   border-radius: 0;
@@ -380,13 +273,14 @@
 /* rbr-rally-creator-web#100: larger hover preview, floating near the
    cursor. Fixed positioning (left/top set inline from clientX/clientY) so
    it tracks the pointer in viewport space regardless of where .pickerList
-   is scrolled; z-index above StageConfigModal's own .overlay (200) so it's
-   never hidden behind the picker it floats over. pointer-events: none so
-   the preview itself can never intercept the mousemove/mouseleave it
-   depends on. */
+   is scrolled; --z-popover sits above StageConfigModal's own .overlay
+   (--z-modal) so it's never hidden behind the picker it floats over, but
+   below ServiceConfigModal's --z-modal-2 so it can't bleed through a modal
+   opened on top. pointer-events: none so the preview itself can never
+   intercept the mousemove/mouseleave it depends on. */
 .pickerHoverPreview {
   position: fixed;
-  z-index: 210;
+  z-index: var(--z-popover);
   pointer-events: none;
   width: 16rem;
   height: 16rem;

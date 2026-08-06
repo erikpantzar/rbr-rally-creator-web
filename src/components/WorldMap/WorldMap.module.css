@@ -1,0 +1,44 @@
+/* World map styling (rbr-rally-creator-web#106) -- everything is semantic
+   tokens so the map re-themes with the rest of the app: land is drawn in
+   the same --border grey the timing-sheet rules use, stage countries speak
+   the app's --accent "interactive/highlighted" language, and nothing here
+   hardcodes a color. Squared corners and flat fills on purpose -- the map
+   should read like a printed inset on the rally document, not a widget. */
+
+.map {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  background: var(--card);
+  padding: 0.5rem;
+}
+
+/* Countries with no stages in the catalog: visible geography, nothing
+   more. Stroked in --card (the map's own background) so adjacent shapes
+   read as separate countries without introducing a new color. */
+.land {
+  fill: var(--border);
+  stroke: var(--card);
+  stroke-width: 0.5;
+}
+
+/* Countries that have stages -- the soft accent pair keeps them clearly
+   distinct from .land in both themes while staying quieter than the
+   full-strength --accent, which is reserved for the selected state. */
+.country {
+  fill: var(--accent-soft-bg);
+  stroke: var(--accent-soft-fg);
+  stroke-width: 0.6;
+  cursor: pointer;
+  transition: fill 120ms ease;
+}
+
+.country:hover {
+  fill: var(--accent-soft-fg);
+}
+
+.country[data-selected='true'] {
+  fill: var(--accent);
+  stroke: var(--accent);
+}

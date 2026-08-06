@@ -11,6 +11,9 @@ import {
   MAX_LEG_SPAN_DAYS,
   MAX_LEGS,
 } from '../../lib/rallyPlan.js';
+import { applyStageConfigUpdate, applyServiceFieldsUpdate } from '../../lib/pickerWorkspace.js';
+import { getPickerWorkspaceEnabled } from '../../lib/settings.js';
+import { PickerWorkspace } from '../PickerWorkspace/PickerWorkspace.jsx';
 import { StageBrick } from '../StageBrick/StageBrick.jsx';
 import { StageConfigModal } from '../StageConfigModal/StageConfigModal.jsx';
 import { ServiceConfigModal } from '../ServiceConfigModal/ServiceConfigModal.jsx';
@@ -143,6 +146,15 @@ export function RoadBook({
 }) {
   const [activeDrag, setActiveDrag] = useState(null);
   const [modalState, setModalState] = useState(null); // { mode, legIndex, uid?, initialValue }
+  // rbr-rally-creator-web#107: the PICKER_WORKSPACE flag (plan doc §6) --
+  // decides whether modalState renders the new PickerWorkspace or the old
+  // StageConfigModal. Read once per mount (lazy initializer, same pattern
+  // as StagePicker's thumbnailsEnabled) rather than per render: it's a
+  // devtools-only localStorage toggle that requires a reload anyway (see
+  // getPickerWorkspaceEnabled in lib/settings.js for how to flip it), and
+  // live plan edits re-render this component per keystroke once the
+  // workspace is live -- no reason to hit localStorage on each of those.
+  const [pickerWorkspaceEnabled] = useState(() => getPickerWorkspaceEnabled());
   // rbr-rally-creator-web#80: which stage's ServiceConfigModal (if any) is
   // open -- { uid, stageNumber, isLastStage }. Entirely separate from
   // modalState above (StageConfigModal and ServiceConfigModal are sibling
@@ -660,11 +672,30 @@ export function RoadBook({
     setModalState(null);
   }
 
+  // rbr-rally-creator-web#107 (plan doc Phase 1): the 'edit' half of the
+  // old handleModalSave, split out so it can serve two callers -- the
+  // modal's Save (below) and PickerWorkspace's LIVE per-change updates
+  // (plan doc D1: the workspace pane has no Save; every StageEntryEditor
+  // onChange lands here immediately). Routing through onStagePlanChange is
+  // what keeps normalizeLastStageService applied to every one of these
+  // writes -- RallyBuilder's updateStagePlan runs it on each call (plan
+  // doc constraint 2).
+  function handleUpdateStage(uid, config) {
+    onStagePlanChange(applyStageConfigUpdate(stagePlan, uid, config));
+  }
+
+  // Same split for the service write shape (only the three service fields
+  // move) -- shared by ServiceConfigModal's Save and the workspace's
+  // in-pane ServiceEntryForm (plan doc D5).
+  function handleUpdateService(uid, serviceFields) {
+    onStagePlanChange(applyServiceFieldsUpdate(stagePlan, uid, serviceFields));
+  }
+
   function handleModalSave(config) {
     if (!modalState) return;
 
     if (modalState.mode === 'edit') {
-      onStagePlanChange(stagePlan.map((s) => (s._uid === modalState.uid ? config : s)));
+      handleUpdateStage(modalState.uid, config);
     } else {
       // 'add': append as a brand-new brick at the end of the target leg's
       // slice of stagePlan, and grow that leg's stage_count by one to match
@@ -707,9 +738,7 @@ export function RoadBook({
   // instead of the full stage-edit form.
   function handleServiceModalSave(serviceFields) {
     if (!serviceModalState) return;
-    onStagePlanChange(
-      stagePlan.map((s) => (s._uid === serviceModalState.uid ? { ...s, ...serviceFields } : s))
-    );
+    handleUpdateService(serviceModalState.uid, serviceFields);
     closeServiceModal();
   }
 
@@ -1051,7 +1080,7 @@ export function RoadBook({
         </DragOverlay>
       )}
 
-      {!locked && modalState && (
+      {!locked && modalState && !pickerWorkspaceEnabled && (
         <StageConfigModal
           mode={modalState.mode}
           initialValue={modalState.initialValue}
@@ -1062,6 +1091,35 @@ export function RoadBook({
           hiddenStageNameEnabled={hiddenStageNameEnabled}
           onSave={handleModalSave}
           onCancel={closeModal}
+        />
+      )}
+
+      {/* rbr-rally-creator-web#107 Phase 1: with the PICKER_WORKSPACE flag
+          on, the exact same openAddModal/openEditModal entry points render
+          the workspace instead of StageConfigModal. It's a controlled view
+          over the live stagePlan/legSchedule props (plan doc Option C) --
+          selection starts from the origin context (D3: the clicked stage,
+          or the origin leg for "+ Add stage"), edits flow back LIVE through
+          handleUpdateStage/handleUpdateService (D1), and closing just
+          clears modalState -- nothing pending to save or discard.
+          modalState's frozen initialValue/willBeLastStage/stageNumber are
+          deliberately unused here: the workspace derives position facts
+          live from the plan (plan doc R5). */}
+      {!locked && modalState && pickerWorkspaceEnabled && (
+        <PickerWorkspace
+          stages={stages}
+          options={options}
+          stagePlan={stagePlan}
+          legSchedule={legSchedule}
+          hiddenStageNameEnabled={hiddenStageNameEnabled}
+          initialSelection={
+            modalState.mode === 'edit'
+              ? { type: 'stage', uid: modalState.uid }
+              : { type: 'leg', legIndex: modalState.legIndex }
+          }
+          onUpdateStage={handleUpdateStage}
+          onUpdateService={handleUpdateService}
+          onClose={closeModal}
         />
       )}
 

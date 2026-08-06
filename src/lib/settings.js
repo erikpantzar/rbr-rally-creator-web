@@ -29,6 +29,27 @@ export function getStageThumbnailsEnabled() {
   return localStorage.getItem(THUMBNAILS_KEY) !== 'false';
 }
 
+// rbr-rally-creator-web#107: the PICKER_WORKSPACE behavior flag
+// (docs/redesign/07-picker-workspace.md §6) -- chooses whether RoadBook's
+// modalState renders the new PickerWorkspace (sidebar + live detail pane)
+// or the pre-existing StageConfigModal flow. The plan doc offers two homes
+// for this flag ("module-level in RoadBook, or settings.js if we want a
+// runtime toggle for dogfooding") -- settings.js was picked so the
+// workspace can be dogfooded on a deployed build without a rebuild, same
+// devtools-only escape-hatch pattern as baseUrl above: no UI, no setter
+// export; flip it from the console and reload:
+//
+//   localStorage.setItem('rbr.pickerWorkspaceEnabled', 'true')   // on
+//   localStorage.removeItem('rbr.pickerWorkspaceEnabled')        // off
+//
+// Defaults OFF (unset key reads false) -- the old modal flow stays the
+// shipped behavior until the doc's Phase 3 cutover flips/removes this.
+const PICKER_WORKSPACE_KEY = 'rbr.pickerWorkspaceEnabled';
+
+export function getPickerWorkspaceEnabled() {
+  return localStorage.getItem(PICKER_WORKSPACE_KEY) === 'true';
+}
+
 export function setStageThumbnailsEnabled(enabled) {
   try {
     localStorage.setItem(THUMBNAILS_KEY, String(enabled));

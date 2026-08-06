@@ -30,9 +30,19 @@ function surfaceGlyph(surface) {
 // make a bricked stage's real identity disappear entirely once nicknamed.
 // When there's no nickname, this just renders the real name as the sole
 // line.
-function getStageNames(stage, label) {
+// rbr-rally-creator-web#95: also surface the real per-stage public name
+// (`hidden_name`, set via StageConfigModal's "Hidden stage name" field) that
+// rallysimfans.hu shows to participants in place of the real stage name --
+// only meaningful (and only rendered) when "Hide stage names" is checked in
+// Rally basics (`hiddenEnabled`, threaded down the same way as in
+// StageConfigModal), so a planner can tell at a glance which stages have one
+// set without opening each stage's modal.
+function getStageNames(stage, label, hiddenName, hiddenEnabled) {
   const realName = stage?.name ?? 'Unknown stage';
-  return label ? { primary: label, secondary: realName } : { primary: realName, secondary: null };
+  const hidden = hiddenEnabled && hiddenName ? hiddenName : null;
+  return label
+    ? { primary: label, secondary: realName, hidden }
+    : { primary: realName, secondary: null, hidden };
 }
 
 // One placed stage, rendered collapsed/summary-only per DESIGN_SPEC.md's
@@ -63,6 +73,7 @@ export function StageBrick({
   onEdit,
   onDelete,
   locked = false,
+  hiddenStageNameEnabled = false,
 }) {
   // Sortable hook is called unconditionally (Rules of Hooks) even though
   // its output is only used on the editable path below -- locked bricks
@@ -80,7 +91,7 @@ export function StageBrick({
   // (which still carries hover-revealed edit affordances). No drag handle,
   // no controls, no click-to-edit.
   if (locked) {
-    const lockedNames = getStageNames(stage, value._label);
+    const lockedNames = getStageNames(stage, value._label, value.hidden_name, hiddenStageNameEnabled);
     return (
       <div className={styles.brickLocked}>
         <span className={styles.stageNumber}>{stageNumber}</span>
@@ -89,6 +100,14 @@ export function StageBrick({
         </span>
         <span className={styles.stageName}>{lockedNames.primary}</span>
         {lockedNames.secondary && <span className={styles.stageNameSecondary}>{lockedNames.secondary}</span>}
+        {lockedNames.hidden && (
+          <span
+            className={styles.stageHiddenName}
+            title="Shown to participants on rallysimfans.hu in place of this stage's real name"
+          >
+            Hidden: {lockedNames.hidden}
+          </span>
+        )}
         {stage && <span className={styles.stageMeta}>{formatKm(parseStageKm(stage))}</span>}
         <span className={styles.stageMeta}>{value.tracksettings_id}</span>
         <span className={styles.stageMeta}>{value.def_tyre_id}</span>
@@ -112,7 +131,7 @@ export function StageBrick({
     };
   }
 
-  const brickNames = getStageNames(stage, value._label);
+  const brickNames = getStageNames(stage, value._label, value.hidden_name, hiddenStageNameEnabled);
 
   return (
     <div ref={setNodeRef} style={style} className={rootClassName} {...listeners} {...attributes}>
@@ -135,6 +154,14 @@ export function StageBrick({
         </span>
         <span className={styles.stageName}>{brickNames.primary}</span>
         {brickNames.secondary && <span className={styles.stageNameSecondary}>{brickNames.secondary}</span>}
+        {brickNames.hidden && (
+          <span
+            className={styles.stageHiddenName}
+            title="Shown to participants on rallysimfans.hu in place of this stage's real name"
+          >
+            Hidden: {brickNames.hidden}
+          </span>
+        )}
         {stage && <span className={styles.stageMeta}>{formatKm(parseStageKm(stage))}</span>}
         <span className={styles.stageMeta}>{value.tracksettings_id}</span>
         <span className={styles.stageMeta}>{value.def_tyre_id}</span>

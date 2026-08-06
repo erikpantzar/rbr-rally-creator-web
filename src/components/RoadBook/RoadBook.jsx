@@ -687,6 +687,7 @@ export function RoadBook({
                         value={stageConfig}
                         stageNumber={absoluteIndex + 1}
                         locked
+                        hiddenStageNameEnabled={hiddenStageNameEnabled}
                       />
                       {/* rbr-rally-creator-web#80/#97: locked rallies are
                           still read-only for service, same as everything
@@ -858,6 +859,7 @@ export function RoadBook({
                           stageNumber={absoluteIndex + 1}
                           onEdit={() => openEditModal(legIndex, stageConfig._uid)}
                           onDelete={() => handleDeleteStage(legIndex, i, stageConfig)}
+                          hiddenStageNameEnabled={hiddenStageNameEnabled}
                         />
                         {showServiceBlock && (
                           <div className={styles.serviceBlockWrap}>
@@ -959,7 +961,14 @@ export function RoadBook({
           sync by hand. */}
       <DragOverlay>
         {activeDrag?.type === 'stage' && (
-          <StageBrick uid={activeDrag.uid} stage={activeDrag.stage} value={activeDrag.value} stageNumber={activeDrag.stageNumber} locked />
+          <StageBrick
+            uid={activeDrag.uid}
+            stage={activeDrag.stage}
+            value={activeDrag.value}
+            stageNumber={activeDrag.stageNumber}
+            locked
+            hiddenStageNameEnabled={hiddenStageNameEnabled}
+          />
         )}
         {activeDrag?.type === 'service' && (
           <div className={styles.serviceBlockWrap}>

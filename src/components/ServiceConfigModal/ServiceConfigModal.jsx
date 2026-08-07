@@ -14,21 +14,24 @@ import styles from './ServiceConfigModal.module.css';
 // controlled form edits, and Save/Cancel. Behavior unchanged.
 //
 // Deliberately has NO stage picker inside it -- which stage it applies to
-// is implicit from where it was opened (the leg-list blue block, or
-// StageConfigModal's own "Service" summary button), passed in here as
-// `stageLabel`/`stageNumber` purely for display, and `value` is that one
-// stage's current service fields. onSave hands back just the three
-// service fields; the caller (RoadBook or StageConfigModal) is responsible
-// for writing them onto the right stagePlan entry -- this component never
-// touches stagePlan itself.
+// is implicit from where it was opened (the leg-list blue block), passed in
+// here as `stageLabel`/`stageNumber` purely for display, and `value` is that
+// one stage's current service fields. onSave hands back just the three
+// service fields; the caller (RoadBook) is responsible for writing them onto
+// the right stagePlan entry -- this component never touches stagePlan
+// itself.
 //
-// Mirrors StageConfigModal's structural conventions (full-page overlay,
-// sticky header with Back/Save, Escape-to-close, .actions row at the
-// bottom) rather than inventing a new modal shape, since DESIGN_SPEC.md
-// treats these two as siblings in the same system. Unlike StageConfigModal
-// this is a much smaller form, so it renders as a centered card instead of
-// a full-page overlay -- but reuses the same tokens/actions-row/Escape
-// conventions so it still reads as "part of the same app".
+// Originally mirrored the now-removed StageConfigModal's structural
+// conventions (full-page overlay, sticky header with Back/Save,
+// Escape-to-close, .actions row at the bottom) since DESIGN_SPEC.md treated
+// them as siblings in the same system; StageConfigModal is gone
+// (rbr-rally-creator-web#107 Phase 3 -- PickerWorkspace replaced it, and
+// hosts its own in-pane service form for the flows that used to nest a
+// ServiceConfigModal inside it), but this standalone entry point (opened
+// directly from a leg-row ServiceBlock click) still renders as a smaller
+// centered card rather than a full-page overlay, reusing the same
+// tokens/actions-row/Escape conventions so it still reads as "part of the
+// same app".
 export function ServiceConfigModal({ value, options, stageLabel, stageNumber, isLastStage, disabledReason, onSave, onCancel }) {
   const [draft, setDraft] = useState({
     service_time: value.service_time,

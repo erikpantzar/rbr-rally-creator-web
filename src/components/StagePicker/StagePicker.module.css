@@ -190,97 +190,25 @@
   padding: 0.5rem;
 }
 
-/* THROWAWAY: dev-only comparison tool, delete after Erik picks a variant
-   (#107 follow-up). Three "already in this rally" decoration styles, all
-   defined here but only ever painted inside StagePickerVariantDemo.jsx's
-   three columns -- each column wraps its picker in a
-   [data-decoration-variant='N'] container, and every rule below is scoped
-   under that attribute selector so a real (non-demo) StagePicker with
-   stagePlanCounts set would render .pickerCardUsed but *no* decoration at
-   all (no ancestor attribute to match). Needs position: relative on the
-   card itself since the badge/ribbon are absolutely positioned against it.
-   .pickerCard already isn't positioned, so this only takes effect once
-   .pickerCardUsed is also present -- no layout change for ordinary cards. */
+/* "Already in this rally" indicator (rbr-rally-creator-web#107 follow-up):
+   Erik compared three throwaway treatments live (thin border + count badge,
+   half-opacity + badge, corner ribbon) and picked the ribbon -- a pure
+   "you've used this" flag with no count, since duplicate stages in a rally
+   are expected and fine, so the badge's extra "how many" info wasn't
+   wanted. position: relative only takes effect once .pickerCardUsed is
+   present (the ribbon below is absolutely positioned against it), so
+   ordinary cards are unaffected. */
 .pickerCardUsed {
   position: relative;
 }
 
-/* Variant 1: thin amber left border at any count, full opacity otherwise --
-   the border alone is the "you already added this" signal; the badge below
-   only adds the number once it's ambiguous (count > 1). */
-[data-decoration-variant='1'] .pickerCardUsed {
-  border-left: 3px solid var(--accent);
-}
-
-.pickerCardBadgeV1 {
-  display: none;
-}
-
-[data-decoration-variant='1'] .pickerCardBadgeV1[data-count]:not([data-count='1']) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: absolute;
-  top: -0.4rem;
-  right: -0.4rem;
-  min-width: 1.1rem;
-  height: 1.1rem;
-  padding: 0 0.2rem;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: 0.65rem;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.pickerCardBadgeV2 {
-  display: none;
-}
-
-/* Variant 2: card drops to ~55% opacity at any count, badge always shows
-   (including count === 1, since the dimming alone can't carry "used once"
-   vs. "used many times"). Opacity goes on the whole button, not just the
-   body, so the thumbnail and border dim along with the text. */
-[data-decoration-variant='2'] .pickerCardUsed {
-  opacity: 0.55;
-}
-
-[data-decoration-variant='2'] .pickerCardUsed:hover {
-  opacity: 0.8;
-}
-
-[data-decoration-variant='2'] .pickerCardBadgeV2 {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: absolute;
-  top: -0.4rem;
-  right: -0.4rem;
-  min-width: 1.1rem;
-  height: 1.1rem;
-  padding: 0 0.2rem;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: 0.65rem;
-  font-weight: 700;
-  line-height: 1;
-  opacity: 1;
-}
-
-.pickerCardRibbonV3 {
-  display: none;
-}
-
-/* Variant 3: folded-corner ribbon, no number -- pure "you've used this"
-   signal regardless of count. Built from two triangles (the ribbon fill and
-   a darker "fold" sliver) rather than an image so it stays a single color
-   swap away from matching --accent in both themes. Squared corners
-   elsewhere in this app are deliberate (see tokens.css), but a ribbon *is*
-   a diagonal by definition -- the fold reads as a fixed real-world shape,
-   not a rounded-corner UI affordance, so it doesn't fight that convention. */
-[data-decoration-variant='3'] .pickerCardRibbonV3 {
+/* Folded-corner ribbon, built from a CSS border-triangle rather than an
+   image so it stays a single color swap away from matching --accent in
+   both themes, no asset to ship. Squared corners elsewhere in this app are
+   deliberate (see tokens.css), but a ribbon *is* a diagonal by definition --
+   the fold reads as a fixed real-world shape, not a rounded-corner UI
+   affordance, so it doesn't fight that convention. */
+.pickerCardRibbon {
   display: block;
   position: absolute;
   top: 0;

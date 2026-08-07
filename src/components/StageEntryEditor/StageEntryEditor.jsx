@@ -51,6 +51,7 @@ export function StageEntryEditor({
   hiddenStageNameEnabled = false,
   onEditService,
   pickerMode = 'inline',
+  stagePlanCounts,
 }) {
   // Only meaningful in 'affordance' mode -- whether the one-shot replace
   // picker is currently open. Per-mount state is correct here the same way
@@ -90,6 +91,22 @@ export function StageEntryEditor({
     () => stages.find((s) => s.id === value.stage_id) ?? null,
     [stages, value.stage_id]
   );
+
+  // The "already added" ribbon (#107 follow-up) is meant to flag OTHER
+  // stages you've already used, not this entry's own current pick --
+  // seeing a ribbon on the very card you're mid-way through replacing (or
+  // picking for the first time) would read as "you can't pick this",
+  // which isn't the message. Subtract one occurrence for value.stage_id
+  // before handing counts down, so this entry's own pick never
+  // self-flags. A no-op when stagePlanCounts isn't passed at all.
+  const stagePlanCountsExcludingSelf = useMemo(() => {
+    if (!stagePlanCounts || !value.stage_id) return stagePlanCounts;
+    const next = new Map(stagePlanCounts);
+    const current = next.get(value.stage_id) ?? 0;
+    if (current > 1) next.set(value.stage_id, current - 1);
+    else next.delete(value.stage_id);
+    return next;
+  }, [stagePlanCounts, value.stage_id]);
   // Suggestion only -- per the issue's own title ("dont enforce it"), this
   // never auto-applies. It disappears (without needing an explicit dismiss)
   // as soon as any part of the condition it was suggesting for stops
@@ -117,7 +134,12 @@ export function StageEntryEditor({
     <>
       {pickerMode === 'inline' ? (
         <FormGroup label="Stage">
-          <StagePicker stages={stages} selectedStageId={value.stage_id} onSelect={handlePickStage} />
+          <StagePicker
+            stages={stages}
+            selectedStageId={value.stage_id}
+            onSelect={handlePickStage}
+            stagePlanCounts={stagePlanCountsExcludingSelf}
+          />
         </FormGroup>
       ) : (
         // 'affordance' mode (PickerWorkspace, D2 fallout / defaults item 2):
@@ -127,7 +149,12 @@ export function StageEntryEditor({
         <FormGroup label="Stage">
           {changingStage ? (
             <>
-              <StagePicker stages={stages} selectedStageId={value.stage_id} onSelect={handlePickStage} />
+              <StagePicker
+                stages={stages}
+                selectedStageId={value.stage_id}
+                onSelect={handlePickStage}
+                stagePlanCounts={stagePlanCountsExcludingSelf}
+              />
               <Button type="button" variant="secondary" size="sm" onClick={() => setChangingStage(false)}>
                 Cancel
               </Button>

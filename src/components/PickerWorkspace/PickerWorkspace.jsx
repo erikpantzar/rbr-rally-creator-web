@@ -92,6 +92,22 @@ export function PickerWorkspace({
   useEffect(() => () => clearTimeout(toastTimeoutRef.current), []);
 
   const stageByCatalogId = useMemo(() => new Map(stages.map((s) => [s.id, s])), [stages]);
+
+  // Picker "already added" ribbon (#107 follow-up): counts, not booleans,
+  // even though the ribbon itself only ever asks ">0" -- a Map is the
+  // natural shape for "how many times does each catalog id appear", and
+  // StagePicker's isStageAlreadyUsed already tolerates either a Map or a
+  // plain object, so there's no reason to throw the count away here just
+  // because today's only consumer doesn't need it. Recomputed from the live
+  // stagePlan prop every render, same "never a stale local copy" rule as
+  // `rows`/`resolved` above.
+  const stagePlanCounts = useMemo(() => {
+    const counts = new Map();
+    for (const entry of stagePlan) {
+      counts.set(entry.stage_id, (counts.get(entry.stage_id) ?? 0) + 1);
+    }
+    return counts;
+  }, [stagePlan]);
   const stageByUid = useMemo(() => new Map(stagePlan.map((s) => [s._uid, s])), [stagePlan]);
 
   // Both the sidebar rows and the effective selection are derived fresh
@@ -236,6 +252,7 @@ export function PickerWorkspace({
               hiddenStageNameEnabled={hiddenStageNameEnabled}
               onEditService={() => setSelection({ type: 'service', uid: resolved.uid })}
               pickerMode="affordance"
+              stagePlanCounts={stagePlanCounts}
             />
           </div>
         </>
@@ -308,7 +325,12 @@ export function PickerWorkspace({
           Pick a stage to add it to the end of Leg {resolved.legIndex + 1}. Filters stay put, so picking
           again keeps adding here.
         </p>
-        <StagePicker stages={stages} selectedStageId={null} onSelect={handleAddCardSelect} />
+        <StagePicker
+          stages={stages}
+          selectedStageId={null}
+          onSelect={handleAddCardSelect}
+          stagePlanCounts={stagePlanCounts}
+        />
       </>
     );
   }

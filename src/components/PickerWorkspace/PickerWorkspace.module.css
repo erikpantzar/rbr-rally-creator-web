@@ -313,3 +313,66 @@
     border-bottom: 1px solid var(--border);
   }
 }
+
+/* "Stage added" confirmation (Phase 2 follow-up, #107): same dark pill
+   language as the app's own Toast component, but self-dismissing with no
+   action/dismiss buttons -- this is passive confirmation, not the undo
+   affordance Toast exists for. --z-toast (the ladder's top slot) so it
+   floats above the takeover workspace itself. */
+.addedToast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%);
+  padding: 0.6rem 1rem;
+  background: var(--ink);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  white-space: nowrap;
+  box-shadow: 0 10px 28px oklch(0% 0 0 / 0.3);
+  z-index: var(--z-toast);
+  animation: addedToastFade 2.2s ease-in-out;
+}
+
+@keyframes addedToastFade {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  10% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* New sidebar row highlight-fade: a soft highlight wash (the #104
+   constructive-action green, since adding a stage is exactly that) that
+   blooms in then fades out over the same ~2.2s window as the toast above,
+   so the two read as one confirmation rather than two uncoordinated
+   effects. onAnimationEnd (PickerWorkspace.jsx) clears justAddedUid once
+   this finishes, so the class is never left applied. */
+.stageRowAdded {
+  animation: stageRowAddedFade 2.2s ease-out;
+}
+
+@keyframes stageRowAddedFade {
+  0% {
+    background: var(--highlight-bg);
+    box-shadow: inset 3px 0 0 var(--highlight-border);
+  }
+  70% {
+    background: var(--highlight-bg);
+    box-shadow: inset 3px 0 0 var(--highlight-border);
+  }
+  100% {
+    background: transparent;
+    box-shadow: none;
+  }
+}

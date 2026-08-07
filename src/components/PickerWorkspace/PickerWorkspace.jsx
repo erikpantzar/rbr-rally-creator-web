@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal } from '../Modal/Modal.jsx';
 import { ServiceEntryForm } from '../ServiceEntryForm/ServiceEntryForm.jsx';
 import { StageEntryEditor } from '../StageEntryEditor/StageEntryEditor.jsx';
@@ -54,13 +54,16 @@ import styles from './PickerWorkspace.module.css';
 // Phase 2 (#107, D2/D4): a leg context's picker card click now really adds
 // -- onAddStage(legIndex, stageId) appends a born-complete brick to the END
 // of that leg (RoadBook's handleAddStageFromWorkspace does the seeding +
-// splice), and the workspace immediately selects the new brick (this file's
-// own choice where the doc left it open, "cheap to change") so "keep
-// adding" stays one click per stage: pick a leg once, then every card click
-// both adds AND leaves you looking at what you just added, filters
-// untouched (StagePicker persists its own filters across mounts). Replacing
-// an EXISTING stage's catalog pick is now a separate, explicit "Change
-// stage" affordance on the stage form itself (StageEntryEditor's
+// splice). The workspace deliberately STAYS on the leg-context pane rather
+// than jumping the selection to the new brick (an earlier version of this
+// did that; feedback was that it broke the "keep dealing stages" rhythm --
+// every click should feel like adding a card to the leg, not a navigation).
+// Instead: a self-dismissing "Stage added" toast plus a brief highlight-fade
+// on the new row in the sidebar give the confirmation, and the picker stays
+// put with its filters untouched (StagePicker persists its own filters
+// across mounts) so the very next click adds the next stage. Replacing an
+// EXISTING stage's catalog pick is a separate, explicit "Change stage"
+// affordance on the stage form itself (StageEntryEditor's
 // pickerMode="affordance", D2) -- the in-form picker no longer re-targets
 // on a bare click the way the Phase 1 stopgap did.
 export function PickerWorkspace({
@@ -76,6 +79,17 @@ export function PickerWorkspace({
   onClose,
 }) {
   const [selection, setSelection] = useState(initialSelection ?? null);
+
+  // Transient "you just added this" feedback -- a toast (auto-dismissed)
+  // plus a fading highlight on the new row (CSS animation, cleared from
+  // state on animationend so it can never get stuck). Both are pure UI
+  // state local to this component, not plan state: the sidebar itself
+  // always reflects committed stagePlan/legSchedule regardless of these.
+  const [addedToast, setAddedToast] = useState(null);
+  const [justAddedUid, setJustAddedUid] = useState(null);
+  const toastTimeoutRef = useRef(null);
+
+  useEffect(() => () => clearTimeout(toastTimeoutRef.current), []);
 
   const stageByCatalogId = useMemo(() => new Map(stages.map((s) => [s.id, s])), [stages]);
   const stageByUid = useMemo(() => new Map(stagePlan.map((s) => [s._uid, s])), [stagePlan]);
@@ -160,13 +174,20 @@ export function PickerWorkspace({
     }
 
     const km = stageKmText(entry);
+    const justAdded = row.uid === justAddedUid;
     return (
       <button
         key={`stage:${row.uid}`}
         type="button"
-        className={[styles.stageRow, selected ? styles.rowSelected : ''].filter(Boolean).join(' ')}
+        className={[styles.stageRow, selected ? styles.rowSelected : '', justAdded ? styles.stageRowAdded : '']
+          .filter(Boolean)
+          .join(' ')}
         aria-current={selected || undefined}
         onClick={() => setSelection({ type: 'stage', uid: row.uid })}
+        // Clears the highlight once its fade-out animation finishes, so it
+        // can never get stuck on a row (e.g. if the toast timeout and the
+        // animation duration ever drift apart, or the row is clicked mid-fade).
+        onAnimationEnd={justAdded ? () => setJustAddedUid(null) : undefined}
       >
         <span className={styles.stageRowNumber}>{row.stageNumber}</span>
         <span className={styles.stageRowName}>{stageDisplayName(entry)}</span>
@@ -259,8 +280,20 @@ export function PickerWorkspace({
     const legStageCount = legRow ? legRow.endIndex - legRow.startIndex : 0;
 
     function handleAddCardSelect(stageId) {
+      const stage = stageByCatalogId.get(stageId);
       const newUid = onAddStage(resolved.legIndex, stageId);
-      setSelection({ type: 'stage', uid: newUid });
+
+      // Selection deliberately does NOT move to the new brick (see the
+      // Phase 2 comment above) -- only the toast + row highlight change.
+      // Re-triggering on every add (even the same uid twice in a row,
+      // which can't actually happen here since each add gets a fresh uid)
+      // clears any in-flight timeout first so a rapid string of adds each
+      // gets its own full toast duration rather than the first one's timer
+      // cutting a later toast short.
+      clearTimeout(toastTimeoutRef.current);
+      setAddedToast(stage ? `${stage.name} added` : 'Stage added');
+      setJustAddedUid(newUid);
+      toastTimeoutRef.current = setTimeout(() => setAddedToast(null), 2200);
     }
 
     return (
@@ -294,6 +327,16 @@ export function PickerWorkspace({
         </h3>
         <p className={styles.headerHint}>Changes apply as you make them</p>
       </div>
+
+      {/* "Stage added" confirmation -- self-dismissing (see handleAddCardSelect's
+          timeout), role="status" so it's announced without stealing focus. Sits
+          outside .body so it floats above both panes regardless of scroll
+          position, same reasoning as the app's own Toast component. */}
+      {addedToast && (
+        <div className={styles.addedToast} role="status">
+          {addedToast}
+        </div>
+      )}
 
       <div className={styles.body}>
         <nav className={styles.sidebar} aria-label="Rally itinerary">

@@ -5,7 +5,6 @@ import { CredentialForm } from './components/CredentialForm/CredentialForm.jsx';
 import { CredentialStatus } from './components/CredentialStatus/CredentialStatus.jsx';
 import { RallyBuilder } from './components/RallyBuilder/RallyBuilder.jsx';
 import { ExploreView } from './components/ExploreView/ExploreView.jsx';
-import { SECTION_IDS } from './lib/sectionJump.js';
 import { RallySidebar } from './components/RallySidebar/RallySidebar.jsx';
 import { StockholmClock } from './components/StockholmClock/StockholmClock.jsx';
 import { ServiceStatus } from './components/ServiceStatus/ServiceStatus.jsx';
@@ -160,37 +159,34 @@ function App() {
       )}
 
       {baseUrl && view === 'builder' && (
-        // rbr-rally-creator-web#105: jump target for the readiness banner's
-        // "save your credentials" problem link -- the one target that lives
-        // outside RallyBuilder, which is why SECTION_IDS is shared from
-        // lib/sectionJump.js instead of being RallyBuilder's private map.
-        // (#106: gated on the builder view -- the banner only renders there,
-        // so a jump can never target a hidden section.)
-        <section className={styles.section} id={SECTION_IDS.credentials} data-jump-target="">
-          <h2>rallysimfans.hu credentials</h2>
-          {credState.status === 'unsaved' ? (
-            <CredentialForm onSubmit={handleSaveCredentials} submitting={saving} error={saveError} />
-          ) : (
-            <CredentialStatus username={credState.username} onClear={handleClearCredentials} />
-          )}
-        </section>
-      )}
-
-      {baseUrl && view === 'builder' && (
-        <section className={styles.section}>
-          <h2>Create a rally</h2>
-          {/* key forces a clean remount whenever the user opens a different
-              saved rally (or switches back to "new") -- RallyBuilder's state
-              (rallyBasics/stagePlan/etc.) is all local useState, so this is
-              the simplest way to guarantee it doesn't carry over from
-              whatever was on screen before (rbr-rally-creator-web#46). */}
-          <RallyBuilder
-            key={activeRally?.id ?? 'new'}
-            baseUrl={baseUrl}
-            credentialsSaved={credState.status === 'saved'}
-            initialPayload={activeRally?.payload}
-          />
-        </section>
+        // rbr-rally-creator-web#followup: credentials no longer get their
+        // own top-level App.jsx section -- they're now the first thing
+        // inside RallyBuilder's numbered "1. General settings" section, so
+        // the merged section reads as one card even though two components
+        // render into it. App.jsx still owns the credentials fetch/
+        // localStorage logic (per the app's convention, see the comment atop
+        // this file) and builds the actual markup here; RallyBuilder just
+        // places it via `credentialsSlot`, so neither component has to know
+        // about the other's internals.
+        //
+        // key forces a clean remount whenever the user opens a different
+        // saved rally (or switches back to "new") -- RallyBuilder's state
+        // (rallyBasics/stagePlan/etc.) is all local useState, so this is the
+        // simplest way to guarantee it doesn't carry over from whatever was
+        // on screen before (rbr-rally-creator-web#46).
+        <RallyBuilder
+          key={activeRally?.id ?? 'new'}
+          baseUrl={baseUrl}
+          credentialsSaved={credState.status === 'saved'}
+          initialPayload={activeRally?.payload}
+          credentialsSlot={
+            credState.status === 'unsaved' ? (
+              <CredentialForm onSubmit={handleSaveCredentials} submitting={saving} error={saveError} />
+            ) : (
+              <CredentialStatus username={credState.username} onClear={handleClearCredentials} />
+            )
+          }
+        />
       )}
 
       {/* rbr-rally-creator-web#62: fixed-position overlay panel, rendered

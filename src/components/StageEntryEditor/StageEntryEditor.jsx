@@ -41,6 +41,18 @@ import styles from './StageEntryEditor.module.css';
 // replace: picking a card there patches stage_id + its dependent tyre/
 // wetness/weather defaults atomically via applyPickedStageToConfig (R6),
 // then collapses back to the summary row.
+//
+// `onAddService`/`onAddLeg` (rbr-rally-creator-web#107 follow-up): two
+// optional contextual shortcuts rendered together at the foot of the form,
+// below the Service group -- "while I'm editing this stage" jump points the
+// old modal flow never had a use for (it edited one entry with no live
+// itinerary alongside it to jump around in), so both are omitted entirely
+// when not supplied rather than defaulting to a no-op, keeping any future
+// non-workspace caller's render byte-identical. PickerWorkspace is the only
+// caller that passes them today. Each performs its own mutation (via the
+// prop) and its own selection jump -- this component doesn't know or care
+// what "jump" means, it just triggers the callback the same as any other
+// button here.
 export function StageEntryEditor({
   value,
   onChange,
@@ -52,6 +64,8 @@ export function StageEntryEditor({
   onEditService,
   pickerMode = 'inline',
   stagePlanCounts,
+  onAddService,
+  onAddLeg,
 }) {
   // Only meaningful in 'affordance' mode -- whether the one-shot replace
   // picker is currently open. Per-mount state is correct here the same way
@@ -331,6 +345,48 @@ export function StageEntryEditor({
           <p className={styles.fieldNote}>Service is disabled on the rally’s final stage (enforced by the site).</p>
         )}
       </FormGroup>
+
+      {/* rbr-rally-creator-web#107 follow-up: contextual shortcuts, only
+          while editing an existing stage (PickerWorkspace's stage pane) --
+          "keep going without backing out to the sidebar". Rendered as a
+          quiet footer rather than mixed into the fields above it, echoing
+          how "Change stage" reads as a distinct action from the form
+          content it sits above (.stageSummaryRow) rather than a field
+          itself. Each shortcut is independently optional (see the props
+          comment above) so this whole block simply doesn't render for any
+          future non-workspace caller.
+          "+ Add service" is disabled on the rally's true last stage --
+          normalizeLastStageService (RallyBuilder, on every stagePlan
+          change) would just strip whatever it wrote right back out, since
+          the site's own rule is there's no next stage left to service
+          before. The Service group above already explains this in prose
+          when isLastStage; the button's title attribute repeats it briefly
+          for anyone hovering the disabled shortcut without scrolling back
+          up to re-read the form. */}
+      {(onAddService || onAddLeg) && (
+        <div className={styles.shortcutRow}>
+          {onAddService && (
+            <button
+              type="button"
+              className={styles.shortcutButton}
+              disabled={isLastStage}
+              title={
+                isLastStage
+                  ? 'Service is disabled on the rally’s final stage (enforced by the site).'
+                  : 'Give this stage a service stop and open it to fine-tune'
+              }
+              onClick={onAddService}
+            >
+              + Add service after this stage
+            </button>
+          )}
+          {onAddLeg && (
+            <button type="button" className={styles.shortcutButton} onClick={onAddLeg}>
+              + Add leg
+            </button>
+          )}
+        </div>
+      )}
     </>
   );
 }

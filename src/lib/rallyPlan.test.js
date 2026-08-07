@@ -8,6 +8,8 @@ import {
   parseStageKm,
   formatKm,
   applyPickedStageToConfig,
+  createDefaultServiceFields,
+  createDefaultStageConfig,
   MAX_LEG_SPAN_DAYS,
   MIN_LEG_LEAD_MINUTES,
   CLAMP_LEG_LEAD_MINUTES,
@@ -202,5 +204,27 @@ describe('constants', () => {
   it('keeps the leg span cap safely under the site 7-day open-to-close limit', () => {
     expect(MAX_LEG_SPAN_DAYS).toBe(6);
     expect(CLAMP_LEG_LEAD_MINUTES).toBeGreaterThan(MIN_LEG_LEAD_MINUTES);
+  });
+});
+
+// rbr-rally-creator-web#107: extracted so the workspace's "Add service after
+// this stage" shortcut and a brand-new stage's seed config can never drift
+// apart -- see the two assertions below.
+describe('createDefaultServiceFields', () => {
+  it('gives a real (non-"No Service") starting tier', () => {
+    const fields = createDefaultServiceFields();
+    expect(fields.service_time).toBe('60 minutes');
+    expect(fields.nummechanics).toBe('6 mechanic');
+    expect(fields.mechanicsSkill).toBe('Expert');
+  });
+
+  it('matches exactly the service fields a freshly-created stage config seeds', () => {
+    const fresh = createDefaultStageConfig();
+    const shortcut = createDefaultServiceFields();
+    expect({
+      service_time: fresh.service_time,
+      nummechanics: fresh.nummechanics,
+      mechanicsSkill: fresh.mechanicsSkill,
+    }).toEqual(shortcut);
   });
 });

@@ -4,6 +4,7 @@ import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-
 import {
   computeLegStageRanges,
   createStageConfigFromPrevious,
+  createDefaultServiceFields,
   applyPickedStageToConfig,
   toDatetimeLocalValue,
   formatKm,
@@ -12,7 +13,12 @@ import {
   MAX_LEG_SPAN_DAYS,
   MAX_LEGS,
 } from '../../lib/rallyPlan.js';
-import { applyStageConfigUpdate, applyServiceFieldsUpdate, applyAddStage } from '../../lib/pickerWorkspace.js';
+import {
+  applyStageConfigUpdate,
+  applyServiceFieldsUpdate,
+  applyAddStage,
+  applyAddLeg,
+} from '../../lib/pickerWorkspace.js';
 import { PickerWorkspace } from '../PickerWorkspace/PickerWorkspace.jsx';
 import { StageBrick } from '../StageBrick/StageBrick.jsx';
 import { ServiceConfigModal } from '../ServiceConfigModal/ServiceConfigModal.jsx';
@@ -678,6 +684,36 @@ export function RoadBook({
     return config._uid;
   }
 
+  // rbr-rally-creator-web#107: the stage editor pane's "+ Add service after
+  // this stage" shortcut -- gives `uid`'s stage a sensible starting service
+  // (createDefaultServiceFields, the same three values a brand-new stage
+  // config already seeds) via the exact same write shape
+  // handleUpdateService/handleServiceModalSave use, so this is genuinely
+  // "assign a service" and not a parallel code path. Guards against the
+  // rally's true last stage defensively -- StageEntryEditor already hides
+  // the button whenever isLastStage is true (normalizeLastStageService would
+  // just strip it back out on the next onStagePlanChange anyway, per the
+  // site's real business rule), but a stale click from an in-flight render
+  // shouldn't silently write a service the plan will immediately erase.
+  function handleAddServiceToStage(uid) {
+    if (uid === stagePlan[stagePlan.length - 1]?._uid) return;
+    handleUpdateService(uid, createDefaultServiceFields());
+  }
+
+  // rbr-rally-creator-web#107: the stage editor pane's "+ Add leg" shortcut
+  // -- same createDefaultLegConfig(0) append RoadBook's own "+ Add Leg"
+  // button (onAddLeg/handleAddLeg in RallyBuilder) already performs, just
+  // reachable from inside the workspace too so the user never has to back
+  // out to the road book to start a new leg. Pulled out as applyAddLeg
+  // (pickerWorkspace.js) so this handler stays a one-liner, mirroring
+  // handleAddStageFromWorkspace's own split above. Returns the new leg's
+  // index so the workspace can jump selection to its leg-context pane.
+  function handleAddLegFromWorkspace() {
+    const { legSchedule: nextLegSchedule, legIndex } = applyAddLeg(legSchedule);
+    onLegScheduleChange(nextLegSchedule);
+    return legIndex;
+  }
+
   // rbr-rally-creator-web#80: opens ServiceConfigModal scoped to one stage
   // -- `uid` is implicit from whichever brick/block the user clicked, never
   // asked for via a picker inside the modal itself. isLastStage is the same
@@ -1057,7 +1093,13 @@ export function RoadBook({
           through handleAddStageFromWorkspace (D2/D4), and closing just
           clears modalState -- nothing pending to save or discard. Position
           facts (stageNumber, isLastStage) are derived live inside the
-          workspace from the plan, not frozen at open time (plan doc R5). */}
+          workspace from the plan, not frozen at open time (plan doc R5).
+          onAddServiceToStage/onAddLegFromWorkspace: the stage editor pane's
+          two contextual shortcuts ("+ Add service after this stage", "+ Add
+          leg") -- unlike the picker-add flow above, these two DO jump the
+          workspace's selection to what they just created (explicit
+          intentional navigation, not the "keep dealing cards" rhythm D2's
+          click-to-add is tuned for). */}
       {!locked && modalState && (
         <PickerWorkspace
           stages={stages}
@@ -1073,6 +1115,8 @@ export function RoadBook({
           onUpdateStage={handleUpdateStage}
           onUpdateService={handleUpdateService}
           onAddStage={handleAddStageFromWorkspace}
+          onAddServiceToStage={handleAddServiceToStage}
+          onAddLegFromWorkspace={handleAddLegFromWorkspace}
           onClose={closeModal}
         />
       )}

@@ -66,6 +66,20 @@ import styles from './PickerWorkspace.module.css';
 // affordance on the stage form itself (StageEntryEditor's
 // pickerMode="affordance", D2) -- the in-form picker no longer re-targets
 // on a bare click the way the Phase 1 stopgap did.
+//
+// rbr-rally-creator-web#107 follow-up: the stage editor pane also hosts two
+// contextual shortcuts -- "+ Add service after this stage" and "+ Add leg"
+// -- reachable from StageEntryEditor's onAddService/onAddLeg props
+// (handleAddServiceShortcut/handleAddLegShortcut below), backed by
+// RoadBook's onAddServiceToStage/onAddLegFromWorkspace callbacks. These
+// deliberately DO jump the workspace's selection to what they just created
+// -- the opposite of the click-to-add picker's "stay put" rule above.
+// Different intent: click-to-add is a repeatable rhythm where every click
+// should feel like dealing the next card without looking away, but "add a
+// service" / "add a leg" are one-shot, deliberate actions the user takes
+// specifically to go work on that new thing next -- there's no "next one"
+// to keep clicking through. Jumping is the whole point, not a regression of
+// the click-to-add lesson above.
 export function PickerWorkspace({
   stages,
   options,
@@ -76,6 +90,8 @@ export function PickerWorkspace({
   onUpdateStage,
   onUpdateService,
   onAddStage,
+  onAddServiceToStage,
+  onAddLegFromWorkspace,
   onClose,
 }) {
   const [selection, setSelection] = useState(initialSelection ?? null);
@@ -226,6 +242,29 @@ export function PickerWorkspace({
     );
   }
 
+  // rbr-rally-creator-web#107: the stage editor pane's "+ Add service after
+  // this stage" shortcut. Unlike handleAddCardSelect above, this DOES jump
+  // selection -- onAddServiceToStage assigns the service in one call (no
+  // separate "now go fill it in" step the way a brand-new unassigned stage
+  // needs), so landing on the service pane immediately is the natural next
+  // stop, not a surprise navigation. Selection follows the exact
+  // {type:'service', uid} shape resolveWorkspaceSelection already expects.
+  function handleAddServiceShortcut() {
+    onAddServiceToStage(resolved.uid);
+    setSelection({ type: 'service', uid: resolved.uid });
+  }
+
+  // rbr-rally-creator-web#107: the stage editor pane's "+ Add leg"
+  // shortcut. onAddLegFromWorkspace both creates the leg AND returns its
+  // index (RoadBook.handleAddLegFromWorkspace), so the jump is a direct
+  // read of that return value rather than a guess at legSchedule.length --
+  // safe even if this ever fires twice in quick succession before a
+  // re-render lands.
+  function handleAddLegShortcut() {
+    const newLegIndex = onAddLegFromWorkspace();
+    setSelection({ type: 'leg', legIndex: newLegIndex });
+  }
+
   function renderDetail() {
     if (resolved.type === 'stage') {
       return (
@@ -253,6 +292,8 @@ export function PickerWorkspace({
               onEditService={() => setSelection({ type: 'service', uid: resolved.uid })}
               pickerMode="affordance"
               stagePlanCounts={stagePlanCounts}
+              onAddService={handleAddServiceShortcut}
+              onAddLeg={handleAddLegShortcut}
             />
           </div>
         </>

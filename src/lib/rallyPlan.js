@@ -15,6 +15,23 @@ export function generateUid() {
   return `uid-${Date.now()}-${uidCounter}`;
 }
 
+// The service-fields portion of a fresh stage's defaults, pulled out on its
+// own (rbr-rally-creator-web#107, "Add service after this stage" shortcut)
+// so a stage that already has a real config -- surface/tyre/etc already
+// set, just no service yet -- can be handed a sensible starting service
+// without dragging in createDefaultStageConfig's unrelated defaults (which
+// would stomp fields this stage already has). Same three values a
+// freshly-created stage config seeds below, kept in exactly one place so
+// the two "what does a stage's service start as" call sites (a brand-new
+// brick, and this shortcut) can never drift apart.
+export function createDefaultServiceFields() {
+  return {
+    service_time: '60 minutes',
+    nummechanics: '6 mechanic',
+    mechanicsSkill: 'Expert',
+  };
+}
+
 // A freshly-added stage slot starts unassigned (stage_id: null) -- the
 // road book is a blank document you drag real stages into from the
 // catalog, per Phase 3's "endgame vision", rather than pre-seeded with an
@@ -29,9 +46,7 @@ export function createDefaultStageConfig() {
     def_tyre_id: 'Gravel Dry',
     choose_tyre: true,
     choose_setup: true,
-    service_time: '60 minutes',
-    nummechanics: '6 mechanic',
-    mechanicsSkill: 'Expert',
+    ...createDefaultServiceFields(),
     // Real site field (rbr-rally-creator-service#20): the public per-stage
     // name shown to participants when rallyBasics.hidden_stage_name is
     // checked. Sent to the backend as-is -- distinct from `_label` below.

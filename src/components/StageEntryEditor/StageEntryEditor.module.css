@@ -94,3 +94,49 @@
   font-size: 0.9rem;
   color: var(--ink);
 }
+
+/* Contextual shortcuts footer (rbr-rally-creator-web#107 follow-up):
+   "+ Add service after this stage" / "+ Add leg", rendered below the
+   Service group when StageEntryEditor is given onAddService/onAddLeg
+   (PickerWorkspace only). A top hairline separates it from the form proper
+   -- these are actions ABOUT the form, not fields IN it, the same
+   distinction .stageSummaryRow draws for "Change stage". Row wraps at
+   narrow widths (the workspace's narrow-viewport stacked layout, see
+   PickerWorkspace.module.css) rather than forcing two buttons to overlap. */
+.shortcutRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+/* Same dashed-outline "constructive add" language .addStageBrick/
+   .addLegButton/ServiceBlock's empty state already established (the
+   rbr-rally-creator-web#104 green --highlight-* ramp = "this builds the
+   rally") -- sized for a form footer instead of the road book's grid, and
+   text-only (no fixed min-width/min-height to stretch against, unlike
+   .addStageBrick which matches a sibling StageBrick's height). */
+.shortcutButton {
+  border: 1px dashed var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 0.5rem 0.85rem;
+  cursor: pointer;
+}
+
+.shortcutButton:not(:disabled):hover {
+  border-color: var(--highlight-border);
+  color: var(--highlight-fg);
+  background: var(--highlight-bg);
+}
+
+.shortcutButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

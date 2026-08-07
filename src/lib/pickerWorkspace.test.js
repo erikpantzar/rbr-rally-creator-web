@@ -6,6 +6,7 @@ import {
   applyStageConfigUpdate,
   applyServiceFieldsUpdate,
   applyAddStage,
+  applyAddLeg,
 } from './pickerWorkspace.js';
 
 // Minimal stagePlan entries -- only the fields these helpers actually read
@@ -160,5 +161,38 @@ describe('applyAddStage', () => {
     const { stagePlan, legSchedule } = applyAddStage(plan, legs, 0, stage('new'));
     expect(stagePlan.map((s) => s._uid)).toEqual(['a', 'new', 'b']);
     expect(legSchedule).toEqual([leg(2), leg(1)]);
+  });
+});
+
+// rbr-rally-creator-web#107: the workspace's "+ Add leg" shortcut's pure
+// math -- same append-an-empty-leg rule RoadBook's own "+ Add Leg" button
+// already uses (RallyBuilder's handleAddLeg), just exercised standalone so
+// RoadBook's handleAddLegFromWorkspace can stay a one-liner.
+describe('applyAddLeg', () => {
+  it('appends one new empty leg to the end of legSchedule', () => {
+    const legs = [leg(2), leg(1)];
+    const { legSchedule } = applyAddLeg(legs);
+    expect(legSchedule).toHaveLength(3);
+    expect(legSchedule[0]).toBe(legs[0]);
+    expect(legSchedule[1]).toBe(legs[1]);
+    expect(legSchedule[2]).toMatchObject({ stage_count: 0, super_rally: 'disabled' });
+  });
+
+  it('returns the new leg\'s index so the caller can jump selection to it', () => {
+    const legs = [leg(2), leg(1)];
+    const { legIndex } = applyAddLeg(legs);
+    expect(legIndex).toBe(2);
+  });
+
+  it('does not mutate the input array', () => {
+    const legs = [leg(2)];
+    applyAddLeg(legs);
+    expect(legs).toHaveLength(1);
+  });
+
+  it('works from an empty legSchedule too (index 0)', () => {
+    const { legSchedule, legIndex } = applyAddLeg([]);
+    expect(legIndex).toBe(0);
+    expect(legSchedule).toHaveLength(1);
   });
 });

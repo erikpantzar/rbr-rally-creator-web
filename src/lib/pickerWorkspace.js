@@ -4,7 +4,7 @@
 // unit tests ("unit-test the selection/entry-key model and the
 // update-callback math") can hit them directly, without rendering anything.
 
-import { computeLegStageRanges, getServiceTier } from './rallyPlan.js';
+import { computeLegStageRanges, createDefaultLegConfig, getServiceTier } from './rallyPlan.js';
 
 // Flattens the committed stagePlan/legSchedule truth into the sidebar's one
 // vertical list (plan doc D6 + issue decision log: "one vertical list --
@@ -135,4 +135,20 @@ export function applyAddStage(stagePlan, legSchedule, legIndex, config) {
     i === legIndex ? { ...leg, stage_count: (leg.stage_count || 0) + 1 } : leg
   );
   return { stagePlan: nextStagePlan, legSchedule: nextLegSchedule };
+}
+
+// rbr-rally-creator-web#107: the workspace's "+ Add leg" shortcut (from
+// inside the stage editor pane, not the road book's own leg-list button --
+// same underlying rule, different entry point). Appends one new empty leg
+// via the exact same createDefaultLegConfig(0) RoadBook's "+ Add Leg"
+// button already uses (RallyBuilder.jsx's handleAddLeg), so a leg created
+// from either affordance is identical. Pulled out as pure array math for
+// the same reason as applyAddStage above: RoadBook's handler stays a
+// one-liner and the append is unit-testable without rendering anything.
+// Returns the new leg's index (legSchedule.length before the append) so the
+// caller can jump the workspace's selection to it.
+export function applyAddLeg(legSchedule) {
+  const legIndex = legSchedule.length;
+  const nextLegSchedule = [...legSchedule, createDefaultLegConfig(0)];
+  return { legSchedule: nextLegSchedule, legIndex };
 }

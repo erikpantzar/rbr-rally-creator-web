@@ -93,6 +93,20 @@ export function getWetTyreForSurface(surface) {
   return SURFACE_WET_TYRE[surface] ?? null;
 }
 
+// A stage entry born already assigned to a catalog stage -- the Explore
+// view's "Add" action (add-a-stage-from-the-map). Unlike the builder's
+// blank slots above, the whole point here is arriving with stage_id set;
+// the tyre default mirrors what StageEntryEditor applies at the moment a
+// stage is picked there, so a stage added from the map ends up configured
+// exactly as if it had been picked in the editor. Every other field keeps
+// createDefaultStageConfig's defaults and stays editable in the builder.
+export function createStageConfigForCatalogStage(stage) {
+  const config = { ...createDefaultStageConfig(), stage_id: stage.id };
+  const defaultTyre = getDefaultTyreForSurface(stage.surface);
+  if (defaultTyre) config.def_tyre_id = defaultTyre;
+  return config;
+}
+
 // datetime-local inputs need "YYYY-MM-DDTHH:mm", in the browser's local
 // time, not toISOString() (which is UTC and includes seconds/Z).
 export function toDatetimeLocalValue(date) {

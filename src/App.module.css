@@ -15,6 +15,15 @@
   gap: 2rem;
 }
 
+/* Map-first views (Explore, #okatwentytwo) get the full window -- the
+   46rem document column is the *builder's* shape, and squeezing a world
+   map into it wastes the map. Side padding stays so the header rule and
+   map frame never touch the window edge. */
+.page[data-view='explore'],
+.page[data-view='okatwentytwo'] {
+  max-width: none;
+}
+
 .header {
   display: flex;
   align-items: center;

@@ -1,0 +1,137 @@
+/* #okatwentytwo easter egg -- the beacon-map styling itself lives in
+   WorldMap.module.css's 'beacon' variant; this file lays out the map, its
+   caption line, and the two-country stage lists (same timing-sheet voice
+   as ExploreView's stage rows). */
+
+.egg {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.caption {
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.error {
+  margin: 0;
+  text-align: center;
+  color: var(--danger-fg);
+  font-size: 0.85rem;
+}
+
+/* Sweden | Finland, side by side and centered under the map -- capped at
+   a readable measure each, same reasoning as ExploreView's .columns. */
+.columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 28rem));
+  gap: 2rem;
+  justify-content: center;
+}
+
+@media (max-width: 40rem) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.countryHeading {
+  margin: 0 0 0.5rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--ink);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.countryCount {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.stageList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stageRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Same "already in your rally" wash as ExploreView's stage rows. */
+.stageRow[data-drafted='true'] {
+  margin: 0 -0.4rem;
+  padding: 0.4rem 0.4rem;
+  background: var(--highlight-bg);
+}
+
+.stageName {
+  font-size: 0.78rem;
+  color: var(--ink);
+}
+
+.draftedTag {
+  flex: none;
+  color: var(--highlight-fg);
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.stageMeta {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.addButton {
+  flex: none;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: inherit;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.addButton:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft-bg);
+  color: var(--accent-soft-fg);
+}
+
+.addButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}

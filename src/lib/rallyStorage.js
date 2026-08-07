@@ -49,6 +49,41 @@ export function setCurrentDraft(payload) {
   }
 }
 
+// Appends one stage entry to the current draft's stage plan -- the Explore
+// view's "Add" action (rbr-rally-creator-web: add stages from the map).
+// Every other draft field is passed through untouched, so adding from the
+// map composes with whatever build was already in progress; with no draft
+// at all, a minimal stagePlan-only payload is enough because RallyBuilder
+// hydrates each draft field independently and defaults the rest (see its
+// mount effect). Returns the new stage count for the caller's toast.
+//
+// Deliberately writes to currentDraft only: if the user has a *saved* rally
+// open, RallyBuilder ignores currentDraft on its next mount (initialPayload
+// wins) -- same precedence rule that already governs drafts everywhere.
+export function appendStageToCurrentDraft(stageConfig) {
+  const payload = getCurrentDraft()?.payload ?? {};
+  const stagePlan = [...(Array.isArray(payload.stagePlan) ? payload.stagePlan : []), stageConfig];
+  setCurrentDraft({ ...payload, stagePlan });
+  return stagePlan.length;
+}
+
+// Which catalog stages the current draft already contains, as a
+// stage_id -> occurrence-count Map (the same stage twice is a legal rally,
+// so a bare Set would understate the plan). Blank builder slots
+// (stage_id: null) don't count -- they're not any country's stage yet.
+// Explore/OkaTwentyTwo use this to mark already-added stages and countries.
+export function countCurrentDraftStages() {
+  const counts = new Map();
+  const stagePlan = getCurrentDraft()?.payload?.stagePlan;
+  if (!Array.isArray(stagePlan)) return counts;
+  for (const entry of stagePlan) {
+    if (entry?.stage_id != null) {
+      counts.set(entry.stage_id, (counts.get(entry.stage_id) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
 // Called once a rally has actually been created -- the draft's job is done,
 // so it shouldn't keep coming back on the next visit. Also called when the
 // user opens a saved rally from history (see RallyBuilder): that rally's

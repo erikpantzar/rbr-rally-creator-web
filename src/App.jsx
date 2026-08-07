@@ -5,6 +5,7 @@ import { CredentialForm } from './components/CredentialForm/CredentialForm.jsx';
 import { CredentialStatus } from './components/CredentialStatus/CredentialStatus.jsx';
 import { RallyBuilder } from './components/RallyBuilder/RallyBuilder.jsx';
 import { ExploreView } from './components/ExploreView/ExploreView.jsx';
+import { OkaTwentyTwo } from './components/OkaTwentyTwo/OkaTwentyTwo.jsx';
 import { SECTION_IDS } from './lib/sectionJump.js';
 import { RallySidebar } from './components/RallySidebar/RallySidebar.jsx';
 import { StockholmClock } from './components/StockholmClock/StockholmClock.jsx';
@@ -55,7 +56,40 @@ function App() {
   // anything the user can lose work in -- RallyBuilder persists its
   // in-progress build to rallyStorage's current draft on every change, and
   // restores it when this flips back to 'builder' and it remounts.
-  const [view, setView] = useState('builder'); // builder | explore
+  // builder | explore | okatwentytwo. The initializer (not a mount effect)
+  // reads the hash so a fresh load of #okatwentytwo starts on the egg in
+  // the very first render -- syncing after mount instead would race the
+  // stale-hash cleanup effect below, which sees the pre-sync 'builder'
+  // state and strips the hash it was about to honor.
+  const [view, setView] = useState(() =>
+    window.location.hash === '#okatwentytwo' ? 'okatwentytwo' : 'builder'
+  );
+
+  // #okatwentytwo (easter egg): the app still has no router -- this is one
+  // hash listener, not the start of one. Typing the hash is the only way
+  // in (no nav link, deliberately); removing it (or navigating back) drops
+  // you in the builder, the app's home view.
+  useEffect(() => {
+    function syncViewFromHash() {
+      if (window.location.hash === '#okatwentytwo') {
+        setView('okatwentytwo');
+      } else {
+        setView((prev) => (prev === 'okatwentytwo' ? 'builder' : prev));
+      }
+    }
+    window.addEventListener('hashchange', syncViewFromHash);
+    return () => window.removeEventListener('hashchange', syncViewFromHash);
+  }, []);
+
+  // Leaving the egg via the nav buttons (My Rallies / Explore set view
+  // directly) must not leave a stale #okatwentytwo in the URL.
+  // replaceState instead of assigning location.hash: no scroll jump and no
+  // extra history entry to back-button through.
+  useEffect(() => {
+    if (view !== 'okatwentytwo' && window.location.hash === '#okatwentytwo') {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, [view]);
 
   function handleOpenRally(rally) {
     setActiveRally(rally);
@@ -94,7 +128,10 @@ function App() {
   }
 
   return (
-    <div className={styles.page}>
+    // data-view lets App.module.css widen the page for map-first views
+    // (Explore, #okatwentytwo) while the builder keeps its 46rem document
+    // column -- one attribute instead of view-conditional class juggling.
+    <div className={styles.page} data-view={view}>
       <header className={styles.header}>
         {/* rbr-rally-creator-web#77: top-left, small and subtle -- secondary
             to the title/primary actions rather than competing buttons, so
@@ -156,6 +193,15 @@ function App() {
         <section className={styles.section}>
           <h2>Explore stages by country</h2>
           <ExploreView baseUrl={baseUrl} />
+        </section>
+      )}
+
+      {/* Reachable only by typing the hash (see the hashchange effect
+          above); fetches the catalog like ExploreView so its Sweden/
+          Finland stage lists can add to the draft. */}
+      {baseUrl && view === 'okatwentytwo' && (
+        <section className={styles.section}>
+          <OkaTwentyTwo baseUrl={baseUrl} />
         </section>
       )}
 

@@ -62,6 +62,48 @@ function decodeRing(arcIndices) {
   return ring;
 }
 
+// --- Antimeridian handling ---
+// Rings that cross the +/-180 line (Russia, Fiji, the western Aleutians)
+// would otherwise jump from one edge of the projected map to the other and
+// close their fill straight across it -- the full-width horizontal streaks
+// visible on the pre-fix map. Unwrap each ring into a continuous longitude
+// space first, then emit one copy per 360-degree window it touches, with
+// longitudes clamped to [-180, 180]: the shape flat-cuts at the map edge,
+// and the cut-off remainder is drawn by the neighboring copy at the
+// opposite edge. The clamped-away portion collapses to a zero-width strip
+// along the edge -- invisible as fill, and Douglas-Peucker later collapses
+// its collinear points to almost nothing.
+
+function unwrapLongitudes(ring) {
+  const out = [];
+  let prev = null;
+  for (const [lon, lat] of ring) {
+    let adjusted = lon;
+    if (prev != null) {
+      while (adjusted - prev > 180) adjusted -= 360;
+      while (adjusted - prev < -180) adjusted += 360;
+    }
+    out.push([adjusted, lat]);
+    prev = adjusted;
+  }
+  return out;
+}
+
+function splitAtAntimeridian(ring) {
+  const unwrapped = unwrapLongitudes(ring);
+  const lons = unwrapped.map(([lon]) => lon);
+  const min = Math.min(...lons);
+  const max = Math.max(...lons);
+  const copies = [];
+  for (let offset = -360; offset <= 360; offset += 360) {
+    if (min + offset > 180 || max + offset < -180) continue;
+    copies.push(
+      unwrapped.map(([lon, lat]) => [Math.max(-180, Math.min(180, lon + offset)), lat])
+    );
+  }
+  return copies;
+}
+
 // --- Projection ---
 // Plain equirectangular onto a 1000-wide viewBox, latitude clamped to
 // [-56, 84]: Antarctica is skipped below and nothing above 84N exists in
@@ -160,8 +202,10 @@ for (const geometry of topology.objects.countries.geometries) {
   for (const polygon of polygons) {
     // Only outer rings (index 0). Holes at 110m scale are lakes a few
     // pixels across -- invisible at render size, pure path-data weight.
-    const ring = simplify(decodeRing(polygon[0]).map(project), TOLERANCE);
-    if (ring.length >= 3) rings.push(ring);
+    for (const copy of splitAtAntimeridian(decodeRing(polygon[0]))) {
+      const ring = simplify(copy.map(project), TOLERANCE);
+      if (ring.length >= 3) rings.push(ring);
+    }
   }
   if (rings.length === 0) continue;
 

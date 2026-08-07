@@ -26,7 +26,17 @@ const THUMBNAIL_PREVIEW_DELAY_MS = 500;
 // lines and keeps this component free of drag concerns entirely -- StageCatalogPanel
 // itself is left untouched for whatever future drag-and-drop-creation phase
 // might still want it.
-export function StagePicker({ stages, selectedStageId, onSelect }) {
+//
+// THROWAWAY: dev-only comparison tool, delete after Erik picks a variant (#107 follow-up).
+// `stagePlanCounts` (optional) is the only change on this file for that
+// tool: a Map/plain-object of catalog stage_id -> how many times it already
+// appears in the current rally's stagePlan. Left undefined by every real
+// caller today (PickerWorkspace.jsx, StageEntryEditor.jsx aren't touched),
+// so the lookup below is always a no-op miss and nothing renders -- the
+// decoration only shows up inside StagePickerVariantDemo.jsx, which passes
+// fake counts. Once a variant is picked for real, this prop should carry
+// real data end-to-end instead of being demo-only.
+export function StagePicker({ stages, selectedStageId, onSelect, stagePlanCounts }) {
   const [nameFilter, setNameFilter] = useState('');
   const saved = useMemo(() => loadStagePickerFilters() ?? {}, []);
   // rbr-rally-creator-web#99: editing an already-picked stage should show
@@ -114,6 +124,16 @@ export function StagePicker({ stages, selectedStageId, onSelect }) {
     saveStagePickerFilters({ country, surface });
   }, [country, surface]);
 
+  // THROWAWAY: dev-only comparison tool (#107 follow-up). Accepts either a
+  // Map or a plain object for stagePlanCounts since the eventual real caller
+  // hasn't been decided yet -- cheaper to support both here than to force
+  // that decision now for a prop only the demo currently uses.
+  function getStagePlanCount(stageId) {
+    if (!stagePlanCounts) return 0;
+    if (stagePlanCounts instanceof Map) return stagePlanCounts.get(stageId) ?? 0;
+    return stagePlanCounts[stageId] ?? 0;
+  }
+
   const filteredStages = useMemo(() => {
     const lc = nameFilter.trim().toLowerCase();
     return stages.filter((s) => {
@@ -168,36 +188,70 @@ export function StagePicker({ stages, selectedStageId, onSelect }) {
       </div>
 
       <div className={styles.pickerList}>
-        {filteredStages.map((stage) => (
-          <button
-            type="button"
-            key={stage.id}
-            className={[styles.pickerCard, stage.id === selectedStageId ? styles.pickerCardSelected : ''].join(' ')}
-            onClick={() => onSelect(stage.id)}
-            onMouseEnter={(e) => handleCardMouseEnter(stage, e)}
-            onMouseMove={handleCardMouseMove}
-            onMouseLeave={handleCardMouseLeave}
-          >
-            {/* Fixed-size box regardless of whether imageUrl is present (rbr-rally-creator-service#15)
-                so the grid doesn't reflow as thumbnails load in, and so stages without one (older
-                catalog entries, or before the backend fix ships) still line up with ones that have it.
-                Hidden outright (not just the <img>) when thumbnailsEnabled is off, per #100's ask for
-                an optional toggle -- no empty box taking up card width once thumbnails are off. */}
-            {thumbnailsEnabled && (
-              <span className={styles.pickerCardThumb}>
-                {stage.imageUrl && (
-                  <img src={stage.imageUrl} alt="" loading="lazy" className={styles.pickerCardThumbImg} />
-                )}
+        {filteredStages.map((stage) => {
+          // THROWAWAY: dev-only comparison tool (#107 follow-up). Count is
+          // always 0 for every real caller today (see stagePlanCounts prop
+          // comment above), so .pickerCardUsed and the badge/ribbon below
+          // never render outside StagePickerVariantDemo.jsx.
+          const usedCount = getStagePlanCount(stage.id);
+          return (
+            <button
+              type="button"
+              key={stage.id}
+              className={[
+                styles.pickerCard,
+                stage.id === selectedStageId ? styles.pickerCardSelected : '',
+                usedCount > 0 ? styles.pickerCardUsed : '',
+              ].join(' ')}
+              onClick={() => onSelect(stage.id)}
+              onMouseEnter={(e) => handleCardMouseEnter(stage, e)}
+              onMouseMove={handleCardMouseMove}
+              onMouseLeave={handleCardMouseLeave}
+            >
+              {/* THROWAWAY: dev-only comparison tool (#107 follow-up). Three
+                  decoration styles live side by side, each scoped by CSS to
+                  only paint when the ancestor demo column sets
+                  data-decoration-variant to its own number -- see
+                  StagePickerVariantDemo.jsx and the .pickerCardUsed rules in
+                  StagePicker.module.css. Badge shows the count except variant
+                  1 at exactly 1 (border-only signal there); ribbon (variant 3)
+                  carries no count at all. */}
+              {usedCount > 0 && (
+                <>
+                  {/* Variant 1 wants the badge hidden at exactly count===1
+                      (border alone signals "used" there); data-count + a CSS
+                      :not() selector below does that without JS needing to
+                      know which variant column it's rendering into. */}
+                  <span className={styles.pickerCardBadgeV1} data-count={usedCount} aria-hidden="true">
+                    {usedCount}
+                  </span>
+                  <span className={styles.pickerCardBadgeV2} aria-hidden="true">
+                    {usedCount}
+                  </span>
+                  <span className={styles.pickerCardRibbonV3} aria-hidden="true" />
+                </>
+              )}
+              {/* Fixed-size box regardless of whether imageUrl is present (rbr-rally-creator-service#15)
+                  so the grid doesn't reflow as thumbnails load in, and so stages without one (older
+                  catalog entries, or before the backend fix ships) still line up with ones that have it.
+                  Hidden outright (not just the <img>) when thumbnailsEnabled is off, per #100's ask for
+                  an optional toggle -- no empty box taking up card width once thumbnails are off. */}
+              {thumbnailsEnabled && (
+                <span className={styles.pickerCardThumb}>
+                  {stage.imageUrl && (
+                    <img src={stage.imageUrl} alt="" loading="lazy" className={styles.pickerCardThumbImg} />
+                  )}
+                </span>
+              )}
+              <span className={styles.pickerCardBody}>
+                <span className={styles.pickerCardName}>{stage.name}</span>
+                <span className={styles.pickerCardMeta}>
+                  {stage.country} &middot; {stage.surface} &middot; {stage.length}
+                </span>
               </span>
-            )}
-            <span className={styles.pickerCardBody}>
-              <span className={styles.pickerCardName}>{stage.name}</span>
-              <span className={styles.pickerCardMeta}>
-                {stage.country} &middot; {stage.surface} &middot; {stage.length}
-              </span>
-            </span>
-          </button>
-        ))}
+            </button>
+          );
+        })}
         {filteredStages.length === 0 && <p className={styles.pickerEmpty}>No stages match this filter.</p>}
       </div>
 

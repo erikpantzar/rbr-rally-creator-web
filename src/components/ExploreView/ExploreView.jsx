@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
 import { getStages } from '../../lib/rallyApi.js';
 import {
   aggregateStagesByCountry,
@@ -38,7 +39,20 @@ const ADD_TOAST_MS = 3500;
 export function ExploreView({ baseUrl }) {
   const [stages, setStages] = useState(null); // null = still loading
   const [error, setError] = useState(null);
-  const [selectedCountry, setSelectedCountry] = useState(null);
+
+  // Selected country lives in the URL (/explorer/:country) rather than
+  // local state -- decoded once here since useParams hands back the raw
+  // path segment, and every country name must round-trip through it (see
+  // setSelectedCountry below, which is what encodes it going the other
+  // way). Gives Explore real deep links: sharing/bookmarking/back-button
+  // all land on the exact country that was showing.
+  const { country: countryParam } = useParams();
+  const selectedCountry = countryParam ? decodeURIComponent(countryParam) : null;
+  const navigate = useNavigate();
+  function setSelectedCountry(country) {
+    navigate(country ? `/explorer/${encodeURIComponent(country)}` : '/explorer');
+  }
+
   const [hoveredCountry, setHoveredCountry] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const toastTimerRef = useRef(null);

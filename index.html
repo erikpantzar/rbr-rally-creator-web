@@ -5,6 +5,18 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>RBR Rally Creator</title>
+    <script>
+      // Other half of public/404.html's redirect trick: if we landed here
+      // via a bounced deep link, restore the real URL before React Router
+      // mounts, so the app opens on the actual route instead of "/".
+      (function () {
+        var params = new URLSearchParams(location.search);
+        var redirect = params.get('redirect');
+        if (redirect) {
+          history.replaceState(null, '', redirect);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

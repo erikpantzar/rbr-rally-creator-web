@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>RBR Rally Creator</title>
+    <!--
+      GitHub Pages has no server-side rewrite, so a deep link like
+      /rbr-rally-creator-web/explorer/sweden hits this 404 page instead of
+      index.html. The standard spa-github-pages workaround: stash the real
+      path in a query string and redirect to the site root, where the
+      matching script in index.html reads it back out and restores it via
+      history.replaceState before the router ever sees a mismatched route.
+    -->
+    <script>
+      var path = location.pathname + location.search + location.hash;
+      location.replace('/rbr-rally-creator-web/?redirect=' + encodeURIComponent(path));
+    </script>
+  </head>
+  <body></body>
+</html>

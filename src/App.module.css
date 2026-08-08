@@ -97,11 +97,13 @@
   font-family: inherit;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+  text-decoration: none;
   cursor: pointer;
 }
 
 .historyButton:hover,
-.historyButton[data-active='true'] {
+.historyButton[data-active='true'],
+.historyButton[aria-current='page'] {
   color: var(--ink);
   text-decoration: underline;
 }

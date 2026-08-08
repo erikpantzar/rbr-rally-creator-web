@@ -189,3 +189,33 @@
   color: var(--muted);
   padding: 0.5rem;
 }
+
+/* "Already in this rally" indicator (rbr-rally-creator-web#107 follow-up):
+   Erik compared three throwaway treatments live (thin border + count badge,
+   half-opacity + badge, corner ribbon) and picked the ribbon -- a pure
+   "you've used this" flag with no count, since duplicate stages in a rally
+   are expected and fine, so the badge's extra "how many" info wasn't
+   wanted. position: relative only takes effect once .pickerCardUsed is
+   present (the ribbon below is absolutely positioned against it), so
+   ordinary cards are unaffected. */
+.pickerCardUsed {
+  position: relative;
+}
+
+/* Folded-corner ribbon, built from a CSS border-triangle rather than an
+   image so it stays a single color swap away from matching --accent in
+   both themes, no asset to ship. Squared corners elsewhere in this app are
+   deliberate (see tokens.css), but a ribbon *is* a diagonal by definition --
+   the fold reads as a fixed real-world shape, not a rounded-corner UI
+   affordance, so it doesn't fight that convention. */
+.pickerCardRibbon {
+  display: block;
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 1.1rem 1.1rem 0;
+  border-color: transparent var(--accent) transparent transparent;
+}

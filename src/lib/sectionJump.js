@@ -5,10 +5,10 @@
 //
 // This is deliberately imperative DOM work rather than React state: the
 // glow is purely-presentational transient feedback that nothing else reads,
-// and the targets span two component trees (App.jsx owns the credentials
-// section, RallyBuilder owns the other three) -- threading a
-// which-section-is-glowing state prop across that boundary would be plumbing
-// for plumbing's sake.
+// and the targets span two component trees (App.jsx builds the credentials
+// markup, RallyBuilder places it and owns the other three targets) --
+// threading a which-section-is-glowing state prop across that boundary
+// would be plumbing for plumbing's sake.
 
 // Canonical ids for every jump-target section, shared by the components
 // that render the targets (App.jsx, RallyBuilder.jsx) and the readiness

@@ -26,7 +26,16 @@ const THUMBNAIL_PREVIEW_DELAY_MS = 500;
 // lines and keeps this component free of drag concerns entirely -- StageCatalogPanel
 // itself is left untouched for whatever future drag-and-drop-creation phase
 // might still want it.
-export function StagePicker({ stages, selectedStageId, onSelect }) {
+//
+// `stagePlanCounts` (optional): a Map/plain-object of catalog stage_id ->
+// how many times it already appears in the current rally's stagePlan.
+// Erik picked the corner-ribbon treatment (rbr-rally-creator-web#107
+// follow-up, out of three throwaway variants) after eyeballing all three
+// live -- a plain "you've used this" flag, no count shown, so the shape
+// doesn't need the exact number, just whether it's > 0. Optional and
+// defaults to a no-op miss so a caller that doesn't have plan context (none
+// today, but kept optional for cheapness) still renders a plain picker.
+export function StagePicker({ stages, selectedStageId, onSelect, stagePlanCounts }) {
   const [nameFilter, setNameFilter] = useState('');
   const saved = useMemo(() => loadStagePickerFilters() ?? {}, []);
   // rbr-rally-creator-web#99: editing an already-picked stage should show
@@ -114,6 +123,15 @@ export function StagePicker({ stages, selectedStageId, onSelect }) {
     saveStagePickerFilters({ country, surface });
   }, [country, surface]);
 
+  // Accepts either a Map or a plain object -- PickerWorkspace passes a Map
+  // (cheap to build with new Map(stagePlan.map(...))), kept flexible in
+  // case a future caller finds a plain object more convenient to build.
+  function isStageAlreadyUsed(stageId) {
+    if (!stagePlanCounts) return false;
+    const count = stagePlanCounts instanceof Map ? stagePlanCounts.get(stageId) : stagePlanCounts[stageId];
+    return (count ?? 0) > 0;
+  }
+
   const filteredStages = useMemo(() => {
     const lc = nameFilter.trim().toLowerCase();
     return stages.filter((s) => {
@@ -168,36 +186,50 @@ export function StagePicker({ stages, selectedStageId, onSelect }) {
       </div>
 
       <div className={styles.pickerList}>
-        {filteredStages.map((stage) => (
-          <button
-            type="button"
-            key={stage.id}
-            className={[styles.pickerCard, stage.id === selectedStageId ? styles.pickerCardSelected : ''].join(' ')}
-            onClick={() => onSelect(stage.id)}
-            onMouseEnter={(e) => handleCardMouseEnter(stage, e)}
-            onMouseMove={handleCardMouseMove}
-            onMouseLeave={handleCardMouseLeave}
-          >
-            {/* Fixed-size box regardless of whether imageUrl is present (rbr-rally-creator-service#15)
-                so the grid doesn't reflow as thumbnails load in, and so stages without one (older
-                catalog entries, or before the backend fix ships) still line up with ones that have it.
-                Hidden outright (not just the <img>) when thumbnailsEnabled is off, per #100's ask for
-                an optional toggle -- no empty box taking up card width once thumbnails are off. */}
-            {thumbnailsEnabled && (
-              <span className={styles.pickerCardThumb}>
-                {stage.imageUrl && (
-                  <img src={stage.imageUrl} alt="" loading="lazy" className={styles.pickerCardThumbImg} />
-                )}
+        {filteredStages.map((stage) => {
+          const alreadyUsed = isStageAlreadyUsed(stage.id);
+          return (
+            <button
+              type="button"
+              key={stage.id}
+              className={[
+                styles.pickerCard,
+                stage.id === selectedStageId ? styles.pickerCardSelected : '',
+                alreadyUsed ? styles.pickerCardUsed : '',
+              ].join(' ')}
+              onClick={() => onSelect(stage.id)}
+              onMouseEnter={(e) => handleCardMouseEnter(stage, e)}
+              onMouseMove={handleCardMouseMove}
+              onMouseLeave={handleCardMouseLeave}
+            >
+              {/* Corner ribbon: pure "you've already added this stage to the
+                  rally" signal -- no count, since it's fine to add a stage
+                  many times (per Erik) and the ribbon isn't meant to answer
+                  "how many", just "have I used this at all". See
+                  .pickerCardRibbon in StagePicker.module.css for why it's
+                  built from CSS triangles rather than an image. */}
+              {alreadyUsed && <span className={styles.pickerCardRibbon} aria-hidden="true" />}
+              {/* Fixed-size box regardless of whether imageUrl is present (rbr-rally-creator-service#15)
+                  so the grid doesn't reflow as thumbnails load in, and so stages without one (older
+                  catalog entries, or before the backend fix ships) still line up with ones that have it.
+                  Hidden outright (not just the <img>) when thumbnailsEnabled is off, per #100's ask for
+                  an optional toggle -- no empty box taking up card width once thumbnails are off. */}
+              {thumbnailsEnabled && (
+                <span className={styles.pickerCardThumb}>
+                  {stage.imageUrl && (
+                    <img src={stage.imageUrl} alt="" loading="lazy" className={styles.pickerCardThumbImg} />
+                  )}
+                </span>
+              )}
+              <span className={styles.pickerCardBody}>
+                <span className={styles.pickerCardName}>{stage.name}</span>
+                <span className={styles.pickerCardMeta}>
+                  {stage.country} &middot; {stage.surface} &middot; {stage.length}
+                </span>
               </span>
-            )}
-            <span className={styles.pickerCardBody}>
-              <span className={styles.pickerCardName}>{stage.name}</span>
-              <span className={styles.pickerCardMeta}>
-                {stage.country} &middot; {stage.surface} &middot; {stage.length}
-              </span>
-            </span>
-          </button>
-        ))}
+            </button>
+          );
+        })}
         {filteredStages.length === 0 && <p className={styles.pickerEmpty}>No stages match this filter.</p>}
       </div>
 

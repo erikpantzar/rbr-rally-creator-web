@@ -15,6 +15,23 @@ export function generateUid() {
   return `uid-${Date.now()}-${uidCounter}`;
 }
 
+// The service-fields portion of a fresh stage's defaults, pulled out on its
+// own (rbr-rally-creator-web#107, "Add service after this stage" shortcut)
+// so a stage that already has a real config -- surface/tyre/etc already
+// set, just no service yet -- can be handed a sensible starting service
+// without dragging in createDefaultStageConfig's unrelated defaults (which
+// would stomp fields this stage already has). Same three values a
+// freshly-created stage config seeds below, kept in exactly one place so
+// the two "what does a stage's service start as" call sites (a brand-new
+// brick, and this shortcut) can never drift apart.
+export function createDefaultServiceFields() {
+  return {
+    service_time: '60 minutes',
+    nummechanics: '6 mechanic',
+    mechanicsSkill: 'Expert',
+  };
+}
+
 // A freshly-added stage slot starts unassigned (stage_id: null) -- the
 // road book is a blank document you drag real stages into from the
 // catalog, per Phase 3's "endgame vision", rather than pre-seeded with an
@@ -29,9 +46,7 @@ export function createDefaultStageConfig() {
     def_tyre_id: 'Gravel Dry',
     choose_tyre: true,
     choose_setup: true,
-    service_time: '60 minutes',
-    nummechanics: '6 mechanic',
-    mechanicsSkill: 'Expert',
+    ...createDefaultServiceFields(),
     // Real site field (rbr-rally-creator-service#20): the public per-stage
     // name shown to participants when rallyBasics.hidden_stage_name is
     // checked. Sent to the backend as-is -- distinct from `_label` below.
@@ -91,6 +106,30 @@ export function getDefaultTyreForSurface(surface) {
 
 export function getWetTyreForSurface(surface) {
   return SURFACE_WET_TYRE[surface] ?? null;
+}
+
+// What "picking a stage card" always means to a stage config, regardless of
+// whether that pick is creating a brand-new brick (PickerWorkspace's
+// click-to-add, rbr-rally-creator-web#107 Phase 2, D2) or retargeting an
+// existing one ("Change stage", same doc, R6). Extracted so both call
+// sites share one definition instead of forking it -- previously this logic
+// lived only inline in StageEntryEditor's picker onSelect. Surface-matched
+// tyre default (rbr-rally-creator-web#24) plus a reset of wetness/weather
+// to the new stage's first option, since those option lists are per-stage
+// (discovery/capabilities/stages.json) and a value valid for the old pick
+// may not exist on the new one. Returns a whole new config object so
+// callers can pass the result straight to onChange/onStagePlanChange in one
+// atomic write (R6: stage_id and its dependent fields must never be split
+// across two patches).
+export function applyPickedStageToConfig(config, stage) {
+  const defaultTyre = stage ? getDefaultTyreForSurface(stage.surface) : null;
+  return {
+    ...config,
+    stage_id: stage?.id ?? null,
+    ...(defaultTyre ? { def_tyre_id: defaultTyre } : {}),
+    wetness_id: stage?.wetnessOptions?.[0] ?? '',
+    tracksettings_id: stage?.weatherOptions?.[0] ?? '',
+  };
 }
 
 // datetime-local inputs need "YYYY-MM-DDTHH:mm", in the browser's local

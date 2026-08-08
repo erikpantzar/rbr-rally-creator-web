@@ -4,6 +4,7 @@
 // unit tests ("unit-test the selection/entry-key model and the
 // update-callback math") can hit them directly, without rendering anything.
 
+import { arrayMove } from '@dnd-kit/sortable';
 import { computeLegStageRanges, createDefaultLegConfig, getServiceTier } from './rallyPlan.js';
 
 // Flattens the committed stagePlan/legSchedule truth into the sidebar's one
@@ -151,4 +152,48 @@ export function applyAddLeg(legSchedule) {
   const legIndex = legSchedule.length;
   const nextLegSchedule = [...legSchedule, createDefaultLegConfig(0)];
   return { legSchedule: nextLegSchedule, legIndex };
+}
+
+// rbr-rally-creator-web#107 Phase 4: the sidebar's drag-to-reorder math,
+// mirroring RoadBook's own handleDragEnd (RoadBook.jsx) exactly -- same
+// per-leg uid "containers" derived from computeLegStageRanges, same-leg
+// reorder via arrayMove, cross-leg move via filter-out + splice-in, then
+// rebuild the flat stagePlan from the containers. Kept as one function
+// (rather than splitting same-leg/cross-leg) since the destination leg is
+// just a parameter -- same leg index in and out is simply the reorder case
+// with no stage_count shift. Always returns both stagePlan and legSchedule
+// (mirroring applyAddStage's shape) even when legSchedule is unchanged, so
+// callers have one consistent shape to destructure.
+//
+// Callers MUST route the result through onStagePlanChange (not hold it) so
+// normalizeLastStageService still runs -- same contract as every other
+// helper in this file; this function never calls it.
+export function applyReorderStage(stagePlan, legSchedule, uid, destLegIndex, destIndex) {
+  const ranges = computeLegStageRanges(legSchedule);
+  const containers = ranges.map(({ startIndex, endIndex }) =>
+    stagePlan.slice(startIndex, endIndex).map((s) => s._uid)
+  );
+  const sourceLegIndex = containers.findIndex((c) => c.includes(uid));
+  if (sourceLegIndex === -1) return { stagePlan, legSchedule };
+
+  const stageByUid = new Map(stagePlan.map((s) => [s._uid, s]));
+  const newContainers = containers.map((c) => [...c]);
+
+  if (sourceLegIndex === destLegIndex) {
+    const sourceIndex = newContainers[sourceLegIndex].indexOf(uid);
+    newContainers[sourceLegIndex] = arrayMove(newContainers[sourceLegIndex], sourceIndex, destIndex);
+    const nextStagePlan = newContainers.flatMap((uids) => uids.map((u) => stageByUid.get(u)));
+    return { stagePlan: nextStagePlan, legSchedule };
+  }
+
+  newContainers[sourceLegIndex] = newContainers[sourceLegIndex].filter((u) => u !== uid);
+  newContainers[destLegIndex].splice(destIndex, 0, uid);
+
+  const nextStagePlan = newContainers.flatMap((uids) => uids.map((u) => stageByUid.get(u)));
+  const nextLegSchedule = legSchedule.map((leg, i) => {
+    if (i === sourceLegIndex) return { ...leg, stage_count: Math.max(0, (leg.stage_count || 0) - 1) };
+    if (i === destLegIndex) return { ...leg, stage_count: (leg.stage_count || 0) + 1 };
+    return leg;
+  });
+  return { stagePlan: nextStagePlan, legSchedule: nextLegSchedule };
 }

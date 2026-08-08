@@ -7,6 +7,7 @@ import {
   applyServiceFieldsUpdate,
   applyAddStage,
   applyAddLeg,
+  applyReorderStage,
 } from './pickerWorkspace.js';
 
 // Minimal stagePlan entries -- only the fields these helpers actually read
@@ -194,5 +195,65 @@ describe('applyAddLeg', () => {
     const { legSchedule, legIndex } = applyAddLeg([]);
     expect(legIndex).toBe(0);
     expect(legSchedule).toHaveLength(1);
+  });
+});
+
+// rbr-rally-creator-web#107 Phase 4: the sidebar's drag-to-reorder math,
+// mirroring RoadBook's own handleDragEnd exactly (same containers/arrayMove/
+// splice pattern, plan doc constraint 5: "the same onStagePlanChange/
+// onLegScheduleChange shapes RoadBook's dnd already uses").
+describe('applyReorderStage', () => {
+  it('reorders within one leg without touching legSchedule', () => {
+    const plan = [stage('a'), stage('b'), stage('c')];
+    const legs = [leg(3)];
+    const { stagePlan, legSchedule } = applyReorderStage(plan, legs, 'a', 0, 2);
+
+    expect(stagePlan.map((s) => s._uid)).toEqual(['b', 'c', 'a']);
+    expect(legSchedule).toEqual(legs);
+    // Inputs untouched.
+    expect(plan.map((s) => s._uid)).toEqual(['a', 'b', 'c']);
+    // Untouched entries keep reference equality.
+    expect(stagePlan[0]).toBe(plan[1]);
+    expect(stagePlan[1]).toBe(plan[2]);
+    expect(stagePlan[2]).toBe(plan[0]);
+  });
+
+  it('moves a stage into a different leg at the given index, adjusting both legs\' stage_count', () => {
+    const plan = [stage('a'), stage('b'), stage('c')]; // leg0: [a, b], leg1: [c]
+    const legs = [leg(2), leg(1)];
+    const { stagePlan, legSchedule } = applyReorderStage(plan, legs, 'b', 1, 0);
+
+    expect(stagePlan.map((s) => s._uid)).toEqual(['a', 'b', 'c']);
+    expect(legSchedule).toEqual([leg(1), leg(2)]);
+    // Inputs untouched.
+    expect(plan.map((s) => s._uid)).toEqual(['a', 'b', 'c']);
+    expect(legs[0].stage_count).toBe(2);
+  });
+
+  it('moving to the end of the destination leg appends after its existing stages', () => {
+    const plan = [stage('a'), stage('b'), stage('c')]; // leg0: [a], leg1: [b, c]
+    const legs = [leg(1), leg(2)];
+    const { stagePlan, legSchedule } = applyReorderStage(plan, legs, 'a', 1, 2);
+
+    expect(stagePlan.map((s) => s._uid)).toEqual(['b', 'c', 'a']);
+    expect(legSchedule).toEqual([leg(0), leg(3)]);
+  });
+
+  it('is a no-op (same references) when the dragged uid is not found in any leg', () => {
+    const plan = [stage('a')];
+    const legs = [leg(1)];
+    const result = applyReorderStage(plan, legs, 'zz', 0, 0);
+    expect(result.stagePlan).toBe(plan);
+    expect(result.legSchedule).toBe(legs);
+  });
+
+  it('reordering the rally\'s last stage does not crash or drop entries (normalization is the caller\'s job)', () => {
+    const plan = [stage('a'), stage('b', '30 minutes'), stage('c')];
+    const legs = [leg(3)];
+    const { stagePlan } = applyReorderStage(plan, legs, 'c', 0, 1);
+    expect(stagePlan.map((s) => s._uid)).toEqual(['a', 'c', 'b']);
+    // service_time is untouched here -- normalizeLastStageService (called by
+    // RallyBuilder's updateStagePlan on the result) is what strips it.
+    expect(stagePlan[2].service_time).toBe('30 minutes');
   });
 });

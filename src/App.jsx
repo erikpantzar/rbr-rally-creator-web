@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Routes, Route, NavLink, useLocation, useNavigate } from 'react-router';
+import { Routes, Route, Link, NavLink, useLocation, useNavigate } from 'react-router';
 import { getBaseUrl } from './lib/settings.js';
 import { saveCredentials, getCredentialsStatus, clearCredentials } from './lib/authApi.js';
 import { CredentialForm } from './components/CredentialForm/CredentialForm.jsx';
@@ -154,7 +154,16 @@ function App() {
           </NavLink>
         </div>
         <div className={styles.titleGroup}>
-          <h1>RBR Rally Creator</h1>
+          {/* The logo/title doubles as the "back to the builder" link --
+              Explore (and the egg) otherwise have no way home except the
+              browser's back button. Plain Link, not NavLink: the root route
+              is "active" on every screen that isn't Explore, so an
+              aria-current highlight here would be meaningless noise. */}
+          <h1>
+            <Link to="/" className={styles.titleLink}>
+              RBR Rally Creator
+            </Link>
+          </h1>
           {/* Build-time commit hash (see vite.config.js's __COMMIT_HASH__
               define) -- links to the actual diff so "what's live right now"
               is always one click away, no changelog to keep in sync. */}

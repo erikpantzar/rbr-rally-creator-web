@@ -1,16 +1,9 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { DndContext, DragOverlay, PointerSensor, closestCenter, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
-import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   computeLegStageRanges,
   createStageConfigFromPrevious,
   createDefaultServiceFields,
   applyPickedStageToConfig,
-  toDatetimeLocalValue,
-  formatKm,
-  sumStagePlanKm,
-  getServiceTier,
-  MAX_LEG_SPAN_DAYS,
   MAX_LEGS,
 } from '../../lib/rallyPlan.js';
 import {
@@ -21,11 +14,9 @@ import {
   applyReorderStage,
 } from '../../lib/pickerWorkspace.js';
 import { PickerWorkspace } from '../PickerWorkspace/PickerWorkspace.jsx';
-import { StageBrick } from '../StageBrick/StageBrick.jsx';
+import { Itinerary } from '../Itinerary/Itinerary.jsx';
 import { ServiceConfigModal } from '../ServiceConfigModal/ServiceConfigModal.jsx';
-import { ServiceBlock } from '../ServiceBlock/ServiceBlock.jsx';
 import { Toast } from '../Toast/Toast.jsx';
-import styles from './RoadBook.module.css';
 
 // How long the "Undo" toast stays up after a brick delete or leg removal,
 // per DESIGN_SPEC.md's UX review note on undo. One pending undo at a time --
@@ -33,98 +24,7 @@ import styles from './RoadBook.module.css';
 // replaces whatever was pending, no queue/stack.
 const UNDO_TIMEOUT_MS = 5000;
 
-// Handed to DndContext in place of the real sensors while the road book is
-// locked: with no sensors mounted, no drag can ever start, which is what
-// lets the whole dnd wiring (DndContext/SortableContext/LegDropContainer
-// and every onDrag* handler) stay mounted-but-inert in locked mode instead
-// of being torn out -- see the comment above the render in RoadBook below.
-// Module-level constant rather than a fresh [] per render so DndContext's
-// sensor setup isn't needlessly re-run every time the component renders.
-const NO_SENSORS = [];
-
-// Droppable wrapper around a leg's stage row. Individual StageBricks are
-// themselves sortable/droppable (dnd-kit's useSortable), which handles
-// "drop onto this specific brick" -- this container-level droppable is the
-// fallback target for "drop into this leg" when there's no specific brick
-// under the pointer (the gap past the last brick), so a brick can still be
-// dragged to the end of a leg that has fewer bricks than the pointer's x
-// position would otherwise land on.
-// UI-level hint for the close-time <input>'s max attribute -- the real
-// enforcement (clamping close_time if it's pushed past this) lives in
-// RallyBuilder's handleLegFieldChange; this just keeps the native date
-// picker from suggesting out-of-range values in the first place.
-function maxCloseTimeFor(openTime) {
-  if (!openTime) return undefined;
-  const maxDate = new Date(openTime);
-  maxDate.setDate(maxDate.getDate() + MAX_LEG_SPAN_DAYS);
-  return toDatetimeLocalValue(maxDate);
-}
-
-function LegDropContainer({ legIndex, children }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `leg-container-${legIndex}`, data: { type: 'leg-container', legIndex } });
-  return (
-    <div ref={setNodeRef} className={[styles.stagesList, isOver ? styles.legDropActive : ''].join(' ')}>
-      {children}
-    </div>
-  );
-}
-
-// rbr-rally-creator-web#96: drag-to-delete target, rendered at the end of
-// each leg's row (to the right of that leg's stages) -- one per leg rather
-// than a single book-wide zone, so "drag it out to the right" reads as
-// naturally reachable from wherever a brick lives, without a long drag
-// across the whole document. Only mounted while a stage brick is actually
-// being dragged (see the `activeDrag?.type === 'stage'` guard where this is
-// rendered below) -- a drop target nobody can see is just visual clutter
-// the rest of the time, matching .addStageBrick's "not always doing
-// something" treatment for the empty-leg hint. Dropping on it routes
-// through handleDragEnd's `remove-zone` branch, which reuses
-// handleDeleteStage exactly -- no separate removal logic here.
-function RemoveDropZone({ legIndex }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: `remove-zone-${legIndex}`,
-    data: { type: 'remove-zone', legIndex },
-  });
-  return (
-    <div
-      ref={setNodeRef}
-      className={[styles.removeZone, isOver ? styles.removeZoneOver : ''].filter(Boolean).join(' ')}
-      aria-hidden="true"
-    >
-      Drop to remove
-    </div>
-  );
-}
-
-// rbr-rally-creator-web#34: inline "context bubble" that replaces
-// window.confirm for the has-stages leg-removal case. Anchored to the
-// leg's remove button via .legRemoveWrap (position: relative in the CSS),
-// in the same spirit as Toast's floating action -- a small, self-contained
-// inline notice with explicit action buttons, not a heavyweight
-// modal/dialog system. Purely
-// presentational: RoadBook still owns the actual merge-direction decision
-// (previous leg by default, next as fallback), this just shows it and
-// waits for an explicit yes/no.
-function LegRemoveConfirmBubble({ legIndex, stageCount, targetLegIndex, onConfirm, onCancel }) {
-  return (
-    <div className={styles.legRemoveBubble} role="dialog" aria-label={`Remove Leg ${legIndex + 1}?`}>
-      <p className={styles.legRemoveBubbleText}>
-        Leg {legIndex + 1} has {stageCount} stage{stageCount === 1 ? '' : 's'}. Move{' '}
-        {stageCount === 1 ? 'it' : 'them'} into Leg {targetLegIndex + 1} and remove Leg {legIndex + 1}?
-      </p>
-      <div className={styles.legRemoveBubbleActions}>
-        <button type="button" className={styles.legRemoveBubbleCancel} onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className={styles.legRemoveBubbleConfirm} onClick={onConfirm}>
-          Move stages &amp; remove
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// Owns the DndContext for the road book. Per DESIGN_SPEC.md's "Lego bits"
+// Owns the road book's mutation/undo/modal state. Per DESIGN_SPEC.md's "Lego bits"
 // model, the road book is no longer a fixed grid of rallyBasics.stages
 // slots you drag catalog cards onto -- it's an additive list of bricks, one
 // per already-configured stage, that only grows via the "+ Add stage"
@@ -151,7 +51,6 @@ export function RoadBook({
   hiddenStageNameEnabled = false,
   locked = false,
 }) {
-  const [activeDrag, setActiveDrag] = useState(null);
   const [modalState, setModalState] = useState(null); // { mode, legIndex, uid? } -- opens PickerWorkspace
   // rbr-rally-creator-web#80: which stage's ServiceConfigModal (if any) is
   // open -- { uid, stageNumber, isLastStage }. Entirely separate from
@@ -193,8 +92,6 @@ export function RoadBook({
   // direction }. Only one at a time, same "single pending thing" shape as
   // pendingUndo above. null means no bubble is showing.
   const [removeConfirm, setRemoveConfirm] = useState(null);
-
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   useEffect(() => {
     return () => {
@@ -377,153 +274,25 @@ export function RoadBook({
     clearPendingUndo();
   }
 
-  const stageByCatalogId = useMemo(() => new Map(stages.map((s) => [s.id, s])), [stages]);
   const stageByUid = useMemo(() => new Map(stagePlan.map((s) => [s._uid, s])), [stagePlan]);
 
-  // Whole-rally km total (rbr-rally-creator-web#18) -- same sumStagePlanKm
-  // helper each leg header below uses, just over the full stagePlan rather
-  // than one leg's slice of it.
-  const rallyTotalKm = sumStagePlanKm(stagePlan, stageByCatalogId);
-
   const legRanges = computeLegStageRanges(legSchedule);
-  const containers = legRanges.map(({ startIndex, endIndex }) => stagePlan.slice(startIndex, endIndex).map((s) => s._uid));
 
-  // rbr-rally-creator-web#96: service blocks are independently sortable, not
-  // just implicit passengers on their stage. A service block has no
-  // identity of its own in stagePlan (it's a few fields *on* a stage entry),
-  // so an assigned one is addressed by a derived id, `service:<stageUid>`,
-  // meaning "the service block currently assigned to this stage."
-  // SERVICE_ID_PREFIX and the two helpers below are the only place that
-  // encoding lives.
-  const SERVICE_ID_PREFIX = 'service:';
-  const serviceSortableId = (stageUid) => `${SERVICE_ID_PREFIX}${stageUid}`;
-  const stageUidFromServiceSortableId = (id) =>
-    typeof id === 'string' && id.startsWith(SERVICE_ID_PREFIX) ? id.slice(SERVICE_ID_PREFIX.length) : null;
-
-  function isServiceAssigned(stageConfig) {
-    return getServiceTier(stageConfig.service_time).key !== 'none';
+  function handleClearService(stageUid) {
+    onStagePlanChange(
+      stagePlan.map((s) =>
+        s._uid === stageUid ? { ...s, service_time: 'No Service', nummechanics: 'No Service', mechanicsSkill: 'No Service' } : s
+      )
+    );
   }
 
-  // rbr-rally-creator-web#97: the last assignable (non-rally-final) stage in
-  // a leg that doesn't have a service assigned yet -- what the leg's single
-  // "+ Add service" button targets. null when every assignable stage in the
-  // leg already has one (or there's no assignable stage at all), in which
-  // case the button isn't rendered for that leg.
-  function lastUnassignedServiceStageUid(legIndex) {
-    const { startIndex, endIndex } = legRanges[legIndex];
-    for (let absoluteIndex = endIndex - 1; absoluteIndex >= startIndex; absoluteIndex--) {
-      if (absoluteIndex === stagePlan.length - 1) continue; // rally's true last stage: never assignable
-      const stageConfig = stagePlan[absoluteIndex];
-      if (!isServiceAssigned(stageConfig)) return stageConfig._uid;
-    }
-    return null;
-  }
-
-  // Per-leg flat sequence dnd-kit sorts: each stage uid, followed by its
-  // service token if (and only if) it currently has one assigned. The
-  // rally's true last stage never gets a service token slot at all, per the
-  // existing business rule (no stage left to service before). The "+ Add
-  // service" button is a plain click target now (see ServiceConfigModal's
-  // opener below), not part of the sortable sequence.
-  const legSequences = containers.map((uids, legIndex) => {
-    const { startIndex } = legRanges[legIndex];
-    return uids.flatMap((uid, i) => {
-      const absoluteIndex = startIndex + i;
-      const isRallyLastStage = absoluteIndex === stagePlan.length - 1;
-      const stageConfig = stageByUid.get(uid);
-      if (isRallyLastStage) return [uid];
-      return isServiceAssigned(stageConfig) ? [uid, serviceSortableId(uid)] : [uid];
-    });
-  });
-
-  function findContainerOfUid(uid) {
-    return containers.findIndex((c) => c.includes(uid));
-  }
-
-  function findLegOfSequenceId(id) {
-    return legSequences.findIndex((seq) => seq.includes(id));
-  }
-
-  function rebuildStagePlanFromContainers(newContainers) {
-    return newContainers.flatMap((uids) => uids.map((uid) => stageByUid.get(uid)));
-  }
-
-  function handleDragStart(event) {
-    const uid = event.active.id;
-    const draggedServiceOf = stageUidFromServiceSortableId(uid);
-    if (draggedServiceOf) {
-      const stagePlanEntry = stageByUid.get(draggedServiceOf);
-      setActiveDrag({ type: 'service', value: stagePlanEntry, uid });
-      return;
-    }
-    const stagePlanEntry = stageByUid.get(uid);
-    const catalogStage = stagePlanEntry?.stage_id ? stageByCatalogId.get(stagePlanEntry.stage_id) : null;
-    const stageNumber = stagePlan.findIndex((s) => s._uid === uid) + 1;
-    setActiveDrag({ type: 'stage', stage: catalogStage, value: stagePlanEntry, stageNumber, uid });
-  }
-
-  function handleDragCancel() {
-    setActiveDrag(null);
-  }
-
-  // rbr-rally-creator-web#96: tracks whether the pointer is currently over
-  // one of the RemoveDropZones, purely so the DragOverlay's floating brick
-  // can turn red while it's hovering the zone it would delete into if
-  // dropped -- a live "about to remove this" preview, same idea as
-  // .legDropActive/.dropTarget's existing over-state highlighting elsewhere
-  // in this file. Reading `over` off DndContext's own onDragOver (rather
-  // than each RemoveDropZone's individual useDroppable().isOver) keeps this
-  // as a single piece of state regardless of how many remove zones exist
-  // (one per leg), since only one can ever be "the" one being hovered at a
-  // time anyway.
-  function handleDragOver(event) {
-    const overRemoveZone = event.over?.data.current?.type === 'remove-zone';
-    setActiveDrag((prev) => {
-      if (!prev || prev.overRemoveZone === overRemoveZone) return prev;
-      return { ...prev, overRemoveZone };
-    });
-  }
-
-  // Moving an already-assigned service block to a different stage: doesn't
-  // reorder stagePlan itself -- stagePlan's stage order is untouched.
-  // Instead, the service *fields* land on whichever stage ends up
-  // immediately before the drop position, and the stage it was dragged away
-  // from reverts to "No Service" -- matching the earlier decision that a
-  // service block belongs to "the stage that follows it after drop", not a
-  // free-floating item.
-  function handleServiceDragEnd(sourceStageUid, draggedSequenceId, over) {
-    let destLegIndex;
-    let destSequence;
-    let destIndexInSequence;
-
-    if (over.data.current?.type === 'stage-brick' || over.data.current?.type === 'service-block') {
-      const overId = over.id;
-      destLegIndex = findLegOfSequenceId(overId);
-      if (destLegIndex === -1) return;
-      destSequence = legSequences[destLegIndex];
-      destIndexInSequence = destSequence.indexOf(overId);
-    } else if (over.data.current?.type === 'leg-container') {
-      destLegIndex = over.data.current.legIndex;
-      destSequence = legSequences[destLegIndex];
-      destIndexInSequence = destSequence.length;
-    } else {
-      return;
-    }
-
-    // Simulate the drop: remove the dragged token from its current slot,
-    // insert it at the target position, then read off whichever stage token
-    // now sits immediately before it -- that's the new owner.
-    const withoutSource = destSequence.filter((id) => id !== draggedSequenceId);
-    const clampedIndex = Math.min(destIndexInSequence, withoutSource.length);
-    const reordered = [...withoutSource.slice(0, clampedIndex), draggedSequenceId, ...withoutSource.slice(clampedIndex)];
-    const droppedAt = reordered.indexOf(draggedSequenceId);
-    const precedingId = droppedAt > 0 ? reordered[droppedAt - 1] : null;
-    const targetStageUid = precedingId && !stageUidFromServiceSortableId(precedingId) ? precedingId : null;
-
-    if (!targetStageUid || targetStageUid === sourceStageUid) return; // no real target, or dropped back in place
-
+  // rbr-rally-creator-web#96: a dragged service block's fields land on
+  // whichever stage it's dropped after (targetStageUid, resolved by
+  // Itinerary), and the stage it was dragged away from reverts to "No
+  // Service" -- a service belongs to "the stage that follows it after
+  // drop", not a free-floating item.
+  function handleReassignService(sourceStageUid, targetStageUid) {
     const { service_time, nummechanics, mechanicsSkill } = stageByUid.get(sourceStageUid);
-
     onStagePlanChange(
       stagePlan.map((s) => {
         if (s._uid === targetStageUid) return { ...s, service_time, nummechanics, mechanicsSkill };
@@ -535,92 +304,19 @@ export function RoadBook({
     );
   }
 
-  function handleClearService(stageUid) {
-    onStagePlanChange(
-      stagePlan.map((s) =>
-        s._uid === stageUid ? { ...s, service_time: 'No Service', nummechanics: 'No Service', mechanicsSkill: 'No Service' } : s
-      )
+  // rbr-rally-creator-web#96: dropping a stage brick on a RemoveDropZone
+  // deletes it -- routed through the exact same handleDeleteStage the
+  // per-brick delete cross uses (undo toast, stage_count decrement, all of
+  // it), rather than duplicating that logic here.
+  function handleDeleteStageViaDrag(uid) {
+    const legIndex = legRanges.findIndex(({ startIndex, endIndex }) =>
+      stagePlan.slice(startIndex, endIndex).some((s) => s._uid === uid)
     );
-  }
-
-  function handleDragEnd(event) {
-    const { active, over } = event;
-    setActiveDrag(null);
-    if (!over) return;
-
-    const draggedServiceOf = stageUidFromServiceSortableId(active.id);
-    if (draggedServiceOf) {
-      handleServiceDragEnd(draggedServiceOf, active.id, over);
-      return;
-    }
-
-    const sourceUid = active.id;
-    const sourceLegIndex = findContainerOfUid(sourceUid);
-    if (sourceLegIndex === -1) return;
-
-    // rbr-rally-creator-web#96: dropping a stage brick on a RemoveDropZone
-    // deletes it -- routed through the exact same handleDeleteStage the
-    // per-brick delete cross uses (undo toast, stage_count decrement, all of
-    // it), rather than duplicating that logic here. indexInLeg is derived
-    // the same way the stage-brick/leg-container branches below derive
-    // destination indices, just against the *source* leg since there's no
-    // destination position for a delete.
-    if (over.data.current?.type === 'remove-zone') {
-      const indexInLeg = containers[sourceLegIndex].indexOf(sourceUid);
-      const stageConfig = stageByUid.get(sourceUid);
-      if (stageConfig) handleDeleteStage(sourceLegIndex, indexInLeg, stageConfig);
-      return;
-    }
-
-    let destLegIndex;
-    let destIndexInContainer;
-
-    if (over.data.current?.type === 'stage-brick') {
-      const overUid = over.id;
-      if (overUid === sourceUid) return; // dropped on itself, no-op
-      destLegIndex = findContainerOfUid(overUid);
-      if (destLegIndex === -1) return;
-      destIndexInContainer = containers[destLegIndex].indexOf(overUid);
-    } else if (over.data.current?.type === 'service-block') {
-      // Dropping a stage brick onto a service token: treat it the same as
-      // dropping onto that token's owning stage brick, so a stage can still
-      // be moved to "right after" a given position even if the pointer
-      // lands on the service block instead of the stage.
-      const overStageUid = stageUidFromServiceSortableId(over.id);
-      destLegIndex = findContainerOfUid(overStageUid);
-      if (destLegIndex === -1) return;
-      destIndexInContainer = containers[destLegIndex].indexOf(overStageUid) + 1;
-    } else if (over.data.current?.type === 'leg-container') {
-      destLegIndex = over.data.current.legIndex;
-      destIndexInContainer = containers[destLegIndex].length;
-    } else {
-      return;
-    }
-
-    const newContainers = containers.map((c) => [...c]);
-
-    if (sourceLegIndex === destLegIndex) {
-      const sourceIndexInContainer = newContainers[sourceLegIndex].indexOf(sourceUid);
-      newContainers[sourceLegIndex] = arrayMove(newContainers[sourceLegIndex], sourceIndexInContainer, destIndexInContainer);
-      onStagePlanChange(rebuildStagePlanFromContainers(newContainers));
-      return;
-    }
-
-    // Cross-leg move: pull the brick out of its source leg and splice it
-    // into the destination leg at the dropped position -- then adjust each
-    // leg's stage_count by one so start_stage_no recomputes to match the
-    // new grouping (computeLegStageRanges derives it from these counts).
-    newContainers[sourceLegIndex] = newContainers[sourceLegIndex].filter((u) => u !== sourceUid);
-    newContainers[destLegIndex].splice(destIndexInContainer, 0, sourceUid);
-
-    onStagePlanChange(rebuildStagePlanFromContainers(newContainers));
-    onLegScheduleChange(
-      legSchedule.map((leg, i) => {
-        if (i === sourceLegIndex) return { ...leg, stage_count: Math.max(0, (leg.stage_count || 0) - 1) };
-        if (i === destLegIndex) return { ...leg, stage_count: (leg.stage_count || 0) + 1 };
-        return leg;
-      })
-    );
+    if (legIndex === -1) return;
+    const { startIndex } = legRanges[legIndex];
+    const indexInLeg = stagePlan.slice(startIndex, legRanges[legIndex].endIndex).findIndex((s) => s._uid === uid);
+    const stageConfig = stageByUid.get(uid);
+    if (stageConfig) handleDeleteStage(legIndex, indexInLeg, stageConfig);
   }
 
   // rbr-rally-creator-web#107 (Phase 3): modalState is now just PickerWorkspace's
@@ -757,343 +453,40 @@ export function RoadBook({
     closeServiceModal();
   }
 
-  // One render tree serves both the editable road book and the locked/
-  // read-only one (DESIGN_SPEC.md's "Created / locked" state, shown once a
-  // creation job is running or finished). These used to be two separately
-  // hand-maintained copies -- a locked early return plus the full editable
-  // tree -- which meant every visual change had to land twice and drift was
-  // only ever one missed edit away. Now `locked` switches the interactive
-  // affordances off in place instead:
-  //
-  //  - The dnd wiring (DndContext/SortableContext/LegDropContainer and the
-  //    onDrag* handlers) stays mounted in locked mode, with its sensors
-  //    swapped for NO_SENSORS -- no sensors means no drag can ever start,
-  //    so all of it is inert while locked. Keeping it mounted (rather than
-  //    conditionally wrapping) keeps the element tree's shape identical
-  //    across the `locked` flip, which happens live mid-session the moment
-  //    a job starts: if the wrappers came and went, React would unmount and
-  //    remount every brick on the flip. None of these wrappers add visible
-  //    DOM of their own (LegDropContainer renders the same .stagesList div
-  //    the old locked tree wrote by hand), so the locked rendering comes
-  //    out unchanged.
-  //  - Everything that exists only to *edit* the plan -- the leg remove
-  //    button/bubble, the schedule inputs (plain text renders in their
-  //    place, per the spec's "render as plain text instead"), the
-  //    add-stage/add-service/add-leg affordances, remove drop zones,
-  //    DragOverlay, both modals, and the undo toast -- renders only when
-  //    !locked.
+  // Itinerary (shared with PickerWorkspace's sidebar, at reduced detail)
+  // owns the actual leg/stage/service rendering and all drag-and-drop --
+  // RoadBook itself is now just the mutation/undo/modal state and the two
+  // modals layered on top. `locked` passes straight through: Itinerary
+  // renders the same DESIGN_SPEC.md "Created / locked" plain-text/no-sensors
+  // treatment it always did.
   return (
-    <DndContext
-      sensors={locked ? NO_SENSORS : sensors}
-      collisionDetection={closestCenter}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-      onDragCancel={handleDragCancel}
-    >
-      <div className={styles.book}>
-        {legRanges.map(({ startIndex, endIndex }, legIndex) => {
-          const legStages = stagePlan.slice(startIndex, endIndex);
-          const leg = legSchedule[legIndex];
-          const legTotalKm = sumStagePlanKm(legStages, stageByCatalogId);
-
-          return (
-            <div key={legIndex} className={styles.legGroup}>
-              <div className={styles.legHeader}>
-                <h4>
-                  Leg {legIndex + 1}{' '}
-                  <span className={styles.legStageCount}>{legStages.length} stage{legStages.length === 1 ? '' : 's'}</span>{' '}
-                  <span className={styles.legKmTotal}>{formatKm(legTotalKm)}</span>
-                </h4>
-                {locked ? (
-                  /* Locked: the schedule renders as plain text rather than
-                     disabled inputs, per DESIGN_SPEC.md's "Created / locked"
-                     state ("render as plain text instead"), and the leg
-                     remove control disappears entirely -- there's nothing
-                     left to restructure once the job has run. */
-                  <div className={styles.legInputsLocked}>
-                    <span>Open: {leg.open_time || '—'}</span>
-                    <span>Close: {leg.close_time || '—'}</span>
-                    <span>Super Rally: {leg.super_rally}</span>
-                  </div>
-                ) : (
-                  <>
-                    {/* rbr-rally-creator-web#34: sits right next to the "Leg N"
-                        heading (rather than at the far right of the header row,
-                        past the open/close/super-rally inputs, per #29's
-                        original placement) so it visually reads as "this leg's
-                        remove control" instead of a stray action floating at the
-                        end of the row. #29: the only leg in the rally can't be
-                        removed -- a rally needs at least one -- so the control
-                        is disabled rather than hidden, which would otherwise
-                        read as "gone" instead of "not applicable right now". */}
-                    <div className={styles.legRemoveWrap}>
-                      <button
-                        type="button"
-                        className={styles.legRemoveButton}
-                        disabled={legSchedule.length <= 1}
-                        aria-label={legSchedule.length <= 1 ? `Can't remove Leg ${legIndex + 1} -- it's the only leg` : `Remove Leg ${legIndex + 1}`}
-                        title={legSchedule.length <= 1 ? "Can't remove the only leg" : `Remove Leg ${legIndex + 1}`}
-                        onClick={() => handleRemoveLegClick(legIndex)}
-                      >
-                        ×
-                      </button>
-                      {removeConfirm?.legIndex === legIndex && (
-                        <LegRemoveConfirmBubble
-                          legIndex={removeConfirm.legIndex}
-                          stageCount={removeConfirm.stageCount}
-                          targetLegIndex={removeConfirm.targetLegIndex}
-                          onConfirm={handleConfirmRemoveLeg}
-                          onCancel={handleCancelRemoveLeg}
-                        />
-                      )}
-                    </div>
-                    <div className={styles.legInputs}>
-                      {/* rbr-rally-creator-web#63: rallysimfans.hu itself
-                          schedules on Europe/Stockholm time regardless of where
-                          the browser viewing this app is -- a user outside
-                          Sweden would otherwise have no reason to know that
-                          "now" for these fields isn't their own wall clock (see
-                          stockholmNow()/isLegOpenTimeTooSoon in rallyPlan.js).
-                          Reuses the existing muted uppercase .legFieldLabel
-                          convention rather than introducing a new label style.
-                          rbr-rally-creator-web#104: the Open/Close text is
-                          visible again (#94 clip-hid it and leaned on green/red
-                          input borders instead) -- the labels are now what
-                          distinguishes the two fields, since status colors no
-                          longer identify them. */}
-                      <label className={styles.legFieldLabel}>
-                        <span>Open</span>
-                        <input
-                          type="datetime-local"
-                          placeholder="Open time"
-                          value={leg.open_time}
-                          onChange={(e) => onLegFieldChange(legIndex, 'open_time', e.target.value)}
-                        />
-                      </label>
-                      <label className={styles.legFieldLabel}>
-                        <span>Close</span>
-                        <input
-                          type="datetime-local"
-                          placeholder="Close time"
-                          value={leg.close_time}
-                          max={maxCloseTimeFor(leg.open_time)}
-                          onChange={(e) => onLegFieldChange(legIndex, 'close_time', e.target.value)}
-                        />
-                      </label>
-                      {/* rbr-rally-creator-web#61: options.superRally only ever
-                          has two entries in practice ('disabled'/'150%'), so a
-                          dropdown was overkill for a plain either/or choice --
-                          a single button that flips to the other value on click
-                          is the more direct control. Written generically against
-                          options.superRally.length (cycling to the *next* entry,
-                          wrapping around) rather than hardcoding the two known
-                          literal strings, so this keeps working even if that
-                          option list ever changes shape. rbr-rally-creator-web#94:
-                          .superRallyActive (keyed off super_rally !== 'disabled',
-                          not the exact '150%' string) marks the toggle as active,
-                          so its state reads at a glance instead of only via the
-                          button's text label. rbr-rally-creator-web#103: the
-                          class pair now carries the full state design -- OFF
-                          pulses on an outlined-blue base, ON is a solid blue
-                          fill (see RoadBook.module.css). */}
-                      <button
-                        type="button"
-                        className={[styles.superRallyToggle, leg.super_rally !== 'disabled' ? styles.superRallyActive : '']
-                          .filter(Boolean)
-                          .join(' ')}
-                        onClick={() => {
-                          const currentIndex = options.superRally.indexOf(leg.super_rally);
-                          const nextIndex = (currentIndex + 1 + options.superRally.length) % options.superRally.length;
-                          onLegFieldChange(legIndex, 'super_rally', options.superRally[nextIndex]);
-                        }}
-                      >
-                        Super Rally: {leg.super_rally}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <SortableContext items={legSequences[legIndex]} strategy={horizontalListSortingStrategy}>
-                <LegDropContainer legIndex={legIndex}>
-                  {legStages.map((stageConfig, i) => {
-                    const absoluteIndex = startIndex + i;
-                    const catalogStage = stageConfig.stage_id ? stageByCatalogId.get(stageConfig.stage_id) : null;
-                    // rbr-rally-creator-web#80: only the rally's true final
-                    // stage overall gets no service block, matching the
-                    // site's own isLastStage-driven disable behavior.
-                    // rbr-rally-creator-web#97: among the other stages, a
-                    // block only renders inline once it's actually assigned
-                    // -- an unassigned stage shows nothing, since assignment
-                    // now happens by dragging the leg's single +Add slot in,
-                    // not via an always-present per-stage placeholder.
-                    const isRallyLastStage = absoluteIndex === stagePlan.length - 1;
-                    const showServiceBlock = !isRallyLastStage && isServiceAssigned(stageConfig);
-                    return (
-                      // Fragment, not a sortable wrapper itself -- StageBrick
-                      // and ServiceBlock each carry their own useSortable id
-                      // (stageConfig._uid, and serviceSortableId(uid)
-                      // respectively), both listed in `legSequences[legIndex]`
-                      // above, so dnd-kit sees them as two independent drag
-                      // sources/drop targets rather than one paired unit.
-                      <Fragment key={stageConfig._uid}>
-                        <StageBrick
-                          uid={stageConfig._uid}
-                          stage={catalogStage}
-                          value={stageConfig}
-                          stageNumber={absoluteIndex + 1}
-                          locked={locked}
-                          onEdit={locked ? undefined : () => openEditModal(legIndex, stageConfig._uid)}
-                          onDelete={locked ? undefined : () => handleDeleteStage(legIndex, i, stageConfig)}
-                          hiddenStageNameEnabled={hiddenStageNameEnabled}
-                        />
-                        {/* rbr-rally-creator-web#80/#97 + locked: the same
-                            block serves both modes -- locked just renders it
-                            disabled with every affordance stripped (no
-                            sortable id, no click-to-edit, no clear cross),
-                            so a created rally's road book still reads the
-                            full service rhythm at a glance while staying
-                            read-only like everything else. */}
-                        {showServiceBlock && (
-                          <div className={styles.serviceBlockWrap}>
-                            <ServiceBlock
-                              serviceTime={stageConfig.service_time}
-                              disabled={locked}
-                              sortableId={locked ? null : serviceSortableId(stageConfig._uid)}
-                              onClick={locked ? undefined : () => openServiceModal(stageConfig._uid)}
-                              onClear={locked ? undefined : () => handleClearService(stageConfig._uid)}
-                            />
-                          </div>
-                        )}
-                      </Fragment>
-                    );
-                  })}
-
-                  {/* Everything past the placed bricks is edit-mode-only
-                      affordance -- a locked leg row simply ends after its
-                      last brick/service block, matching the read-only
-                      "Created / locked" rendering. */}
-                  {!locked && (
-                    <>
-                      {/* rbr-rally-creator-web#97: the leg's one always-present
-                          "+ Add service" slot, at the very end of the row --
-                          clicking it opens ServiceConfigModal directly, scoped
-                          to the leg's last stage that doesn't have one assigned
-                          yet (lastUnassignedServiceStageUid). Omitted once every
-                          assignable stage in the leg already has a service (or
-                          there's no assignable stage at all) -- nothing left for
-                          it to target. */}
-                      {(() => {
-                        const targetUid = lastUnassignedServiceStageUid(legIndex);
-                        if (!targetUid) return null;
-                        return (
-                          <div className={styles.serviceBlockWrap}>
-                            <ServiceBlock serviceTime="No Service" onClick={() => openServiceModal(targetUid)} />
-                          </div>
-                        );
-                      })()}
-
-                      <button
-                        type="button"
-                        className={[styles.addStageBrick, legStages.length === 0 ? styles.addStageBrickEmpty : '']
-                          .filter(Boolean)
-                          .join(' ')}
-                        onClick={() => openAddModal(legIndex)}
-                      >
-                        + Add stage
-                      </button>
-
-                      {legStages.length === 0 && (
-                        <p className={styles.emptyLegHint} aria-hidden="true">
-                          Add your first stage &rarr;
-                        </p>
-                      )}
-
-                      {/* rbr-rally-creator-web#96: only occupies space while a
-                          stage brick is actually being dragged -- see
-                          RemoveDropZone's own comment above for why. */}
-                      {activeDrag?.type === 'stage' && <RemoveDropZone legIndex={legIndex} />}
-                    </>
-                  )}
-                </LegDropContainer>
-              </SortableContext>
-            </div>
-          );
-        })}
-
-        {/* Whole-rally km total (rbr-rally-creator-web#18), sitting above
-            "+ Add Leg" as its own line -- keeps both visible/usable rather
-            than one crowding out the other, and reads naturally as "the
-            leg list is done, here's its grand total, and here's how to add
-            more to it." */}
-        <div className={styles.rallyTotal}>
-          <span className={styles.rallyTotalLabel}>Rally total</span>
-          <span className={styles.rallyTotalValue}>{formatKm(rallyTotalKm)}</span>
-        </div>
-
-        {/* Legs are additive too, per rbr-rally-creator-web#15's "Lego
-            bits" model -- appended one at a time here rather than pre-sized
-            by a rallyBasics.legs number input (RallyBasicsForm's "Legs"
-            field is now just a read-only display of legSchedule.length).
-            A new leg starts empty (0 stages); RallyBuilder's
-            readinessProblems flags it as not publishable until it has at
-            least one. Legs are removable too (rbr-rally-creator-web#29,
-            #15's flagged follow-up, polished in #34) via each leg's "x"
-            button above -- see handleRemoveLegClick for the
-            empty-vs-has-stages/merge-direction logic. */}
-        {/* rbr-rally-creator-web#37: the real site's wizard tops out at 6
-            legs (confirmed against the backend's discovery capture) and a
-            companion backend PR is enforcing that server-side -- disabling
-            here instead of letting the user find out via a 400 after
-            submit. Disabled rather than hidden, same reasoning as the
-            "Remove leg" button above. */}
-        {!locked && (
-          <button
-            type="button"
-            className={styles.addLegButton}
-            onClick={onAddLeg}
-            disabled={legSchedule.length >= MAX_LEGS}
-            title={legSchedule.length >= MAX_LEGS ? `Rallies can have at most ${MAX_LEGS} legs` : undefined}
-          >
-
-            + Add Leg
-          </button>
-        )}
-      </div>
-
-      {/* rbr-rally-creator-web#96: the dragged item's overlay is the real
-          StageBrick/ServiceBlock itself (via the same `locked`-style plain
-          rendering StageBrick already has for the read-only road book, and
-          ServiceBlock's non-sortable mode when sortableId is omitted) --
-          guarantees the floating preview matches the source block's shape
-          and size exactly, rather than a bespoke box that has to be kept in
-          sync by hand. */}
-      {/* The overlay/modal/toast layer only exists while editing -- gated
-          on !locked (not just on the state that opens each one) so that a
-          modal or undo toast left open at the exact moment a creation job
-          starts vanishes with the flip, exactly as it did when the locked
-          path was a separate early-return tree without this layer. */}
-      {!locked && (
-        <DragOverlay>
-          {activeDrag?.type === 'stage' && (
-            <StageBrick
-              uid={activeDrag.uid}
-              stage={activeDrag.stage}
-              value={activeDrag.value}
-              stageNumber={activeDrag.stageNumber}
-              locked
-              hiddenStageNameEnabled={hiddenStageNameEnabled}
-              dangerHighlight={activeDrag.overRemoveZone}
-            />
-          )}
-          {activeDrag?.type === 'service' && (
-            <div className={styles.serviceBlockWrap}>
-              <ServiceBlock serviceTime={activeDrag.value?.service_time} />
-            </div>
-          )}
-        </DragOverlay>
-      )}
+    <>
+      <Itinerary
+        detail="full"
+        stages={stages}
+        options={options}
+        stagePlan={stagePlan}
+        legSchedule={legSchedule}
+        hiddenStageNameEnabled={hiddenStageNameEnabled}
+        locked={locked}
+        onLegFieldChange={onLegFieldChange}
+        onRemoveLeg={handleRemoveLegClick}
+        onAddStage={openAddModal}
+        onEditStage={openEditModal}
+        onDeleteStage={handleDeleteStage}
+        onOpenService={openServiceModal}
+        onClearService={handleClearService}
+        onAddLeg={onAddLeg}
+        onReorderStage={handleReorderStage}
+        onReassignService={handleReassignService}
+        onDeleteStageViaDrag={handleDeleteStageViaDrag}
+        removeConfirm={removeConfirm}
+        onConfirmRemoveLeg={handleConfirmRemoveLeg}
+        onCancelRemoveLeg={handleCancelRemoveLeg}
+        rallyTotal
+        addLegDisabled={legSchedule.length >= MAX_LEGS}
+        addLegDisabledReason={legSchedule.length >= MAX_LEGS ? `Rallies can have at most ${MAX_LEGS} legs` : undefined}
+      />
 
       {/* rbr-rally-creator-web#107: openAddModal/openEditModal render the
           PickerWorkspace -- the only picker/editor flow now (the old
@@ -1131,6 +524,8 @@ export function RoadBook({
           onAddServiceToStage={handleAddServiceToStage}
           onAddLegFromWorkspace={handleAddLegFromWorkspace}
           onReorderStage={handleReorderStage}
+          onReassignService={handleReassignService}
+          onDeleteStageViaDrag={handleDeleteStageViaDrag}
           onClose={closeModal}
         />
       )}
@@ -1159,6 +554,6 @@ export function RoadBook({
           onDismiss={clearPendingUndo}
         />
       )}
-    </DndContext>
+    </>
   );
 }

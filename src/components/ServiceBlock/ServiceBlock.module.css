@@ -7,8 +7,10 @@
    stage bricks rather than a small inline chip. */
 .block {
   display: flex;
+  flex-direction: row;
   align-items: baseline;
   gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
   border: 1px solid var(--info-border);
   border-radius: 0;
   cursor: pointer;
@@ -82,13 +84,15 @@
 
 /* Compact block sitting inline after its stage brick, flowing in the same
    wrapped leg row rather than breaking onto its own full-width line -- a
-   first-class visual peer to the bricks that moves and wraps alongside them. */
+   first-class visual peer to the bricks that moves and wraps alongside them.
+   Label and time sit side by side (row, not column) so an assigned service
+   is one short line instead of two. */
 .bar {
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: baseline;
   min-width: 7rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.35rem 0.75rem;
   font-size: 0.85rem;
   flex-shrink: 0;
 }
@@ -112,4 +116,13 @@
   padding: 0.55rem 0.8rem;
   font-size: 0.85rem;
   align-self: flex-start;
+}
+
+/* Itinerary's vertical, full-width row layout -- overrides .bar's fixed
+   min-width/no-shrink sizing, which exists for RoadBook's older horizontal
+   wrapping row. */
+.bar.fullWidth {
+  width: 100%;
+  min-width: 0;
+  flex-shrink: 1;
 }

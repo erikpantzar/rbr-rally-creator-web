@@ -1,0 +1,590 @@
+/* ---- Full detail (main road book) ------------------------------------ */
+
+.book {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.legGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-top: 1.5rem;
+  border-top: 2px solid var(--ink);
+}
+
+.legGroup:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.legHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1.25rem;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg);
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.legHeader h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.legStageCount {
+  font-weight: 500;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.legKmTotal {
+  font-weight: 500;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+}
+
+.legInputs {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+  overflow-x: auto;
+}
+
+.legRemoveButton {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  font-family: inherit;
+  padding: 0.15rem 0.45rem;
+}
+
+.legRemoveButton:hover:not(:disabled) {
+  color: var(--danger-fg);
+  background: var(--danger-bg);
+}
+
+.legRemoveButton:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.legRemoveWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.legRemoveBubble {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 17rem;
+  padding: 0.75rem;
+  background: var(--card);
+  border: 1px solid var(--accent);
+  box-shadow: 0 10px 28px oklch(0% 0 0 / 0.22);
+}
+
+.legRemoveBubbleText {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--ink);
+}
+
+.legRemoveBubbleActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.legRemoveBubbleCancel,
+.legRemoveBubbleConfirm {
+  border-radius: 0;
+  font-size: 0.8rem;
+  font-family: inherit;
+  padding: 0.35rem 0.6rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.legRemoveBubbleCancel {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--ink);
+}
+
+.legRemoveBubbleCancel:hover {
+  border-color: var(--accent);
+}
+
+.legRemoveBubbleConfirm {
+  border: 1px solid var(--danger-fg);
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  font-weight: 600;
+}
+
+.legRemoveBubbleConfirm:hover {
+  filter: brightness(1.05);
+}
+
+.legFieldLabel {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.legInputs input,
+.legInputs select {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-family: inherit;
+}
+
+.superRallyToggle {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--info-fg);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+  animation: superRallyPulse 2s ease-in-out infinite;
+}
+
+.superRallyToggle:hover {
+  border-color: var(--accent);
+}
+
+@keyframes superRallyPulse {
+  0%,
+  100% {
+    background: var(--bg);
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    background: var(--info-bg);
+    box-shadow: 0 0 6px 1px var(--info-border);
+  }
+}
+
+.superRallyActive {
+  animation: none;
+  background: var(--info-fg);
+  border-color: var(--info-fg);
+  color: var(--info-ink);
+}
+
+.superRallyActive:hover {
+  border-color: var(--info-fg);
+}
+
+.legInputsLocked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+/* Vertical, full-width stage/service stack -- each row spans the leg's full
+   width instead of RoadBook's old horizontal wrapping brick row. */
+.stagesList {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.3rem;
+  min-height: 3rem;
+  padding-bottom: 0.4rem;
+  transition: background-color 0.15s ease;
+}
+
+.legDropActive {
+  background: var(--accent-soft-bg);
+  outline: 2px dashed var(--accent);
+  outline-offset: 4px;
+}
+
+.removeZone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.75rem 1.25rem;
+  border: 1px dashed var(--danger-fg);
+  color: var(--danger-fg);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.removeZoneOver {
+  background: var(--danger-bg);
+  border-style: solid;
+}
+
+.serviceBlockWrap {
+  display: flex;
+  width: 100%;
+}
+
+.addStageBrick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 3.5rem;
+  padding: 1rem 1.5rem;
+  border: 1px dashed var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.addStageBrick:hover {
+  border-color: var(--highlight-border);
+  color: var(--highlight-fg);
+  background: var(--highlight-bg);
+}
+
+.addStageBrickEmpty {
+  border: 1px solid var(--highlight-fg);
+  background: transparent;
+  color: var(--highlight-fg);
+}
+
+.addStageBrickEmpty:hover {
+  border-color: var(--highlight-fg);
+  color: var(--highlight-fg);
+  background: var(--highlight-bg);
+}
+
+.emptyLegHint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+.rallyTotal {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.6rem 0.1rem;
+  margin-top: 0.5rem;
+  border-top: 2px solid var(--ink);
+  font-size: 0.95rem;
+}
+
+.rallyTotalLabel {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.rallyTotalValue {
+  font-weight: 600;
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+
+.addLegButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 1.5rem;
+  margin-top: 0.5rem;
+  border: 1px dashed var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.addLegButton:hover {
+  border-color: var(--highlight-border);
+  color: var(--highlight-fg);
+  background: var(--highlight-bg);
+}
+
+.addLegButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- Compact detail (PickerWorkspace sidebar) ------------------------- */
+
+.compactBook {
+  display: flex;
+  flex-direction: column;
+}
+
+.compactLegGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.compactLegRow,
+.compactStageRow,
+.compactServiceRow {
+  display: flex;
+  align-items: baseline;
+  width: 100%;
+  border: none;
+  border-left: 3px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.compactLegRow:hover,
+.compactStageRow:hover,
+.compactServiceRow:hover {
+  background: var(--accent-soft-bg);
+}
+
+.compactLegRow {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.6rem 0.4rem 0.9rem;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  transition: background-color 0.15s ease;
+}
+
+.compactLegRowDropActive .compactLegRow {
+  background: var(--accent-soft-bg);
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+.compactLegRowMain {
+  display: flex;
+  align-items: baseline;
+  flex: 1;
+  min-width: 0;
+  gap: 0.6rem;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.compactLegRowMain:hover {
+  color: var(--ink);
+}
+
+.compactLegRowAddStage {
+  flex-shrink: 0;
+  padding: 0.3rem 0.55rem;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.compactLegRowAddStage:hover {
+  border-color: var(--highlight-border);
+  color: var(--highlight-fg);
+  background: var(--highlight-bg);
+}
+
+.compactLegRowName {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.compactLegRowMeta {
+  font-weight: 500;
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.compactLegRowMeta:last-child {
+  margin-left: auto;
+}
+
+.compactStageRow {
+  gap: 0.55rem;
+  padding: 0.45rem 0.9rem 0.45rem 1.1rem;
+  cursor: grab;
+  touch-action: none;
+}
+
+.compactStageRow:active,
+.compactServiceRow:active {
+  cursor: grabbing;
+}
+
+.compactRowDragging {
+  opacity: 0.5;
+}
+
+.compactStageRowNumber {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  min-width: 1.5em;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.compactStageRowName {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.85rem;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compactStageRowKm {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.compactServiceRow {
+  gap: 0.5rem;
+  padding: 0.3rem 0.9rem 0.3rem 2.5rem;
+  cursor: grab;
+  touch-action: none;
+}
+
+.compactServiceRow:hover {
+  background: var(--info-bg);
+}
+
+.compactServiceRowLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--info-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.compactServiceRowTime {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--info-fg);
+}
+
+.compactEmptyLegHint {
+  margin: 0;
+  padding: 0.35rem 0.9rem 0.5rem 1.1rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.compactAddLeg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.7rem 1rem;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.compactAddLeg:hover {
+  border-color: var(--highlight-border);
+  color: var(--highlight-fg);
+  background: var(--highlight-bg);
+}
+
+/* New sidebar row highlight-fade: a soft highlight wash that blooms in then
+   fades out, confirming a stage was just added via the leg-context picker.
+   onAnimationEnd (Itinerary's compact stage row) clears highlightUid once
+   this finishes, so the class is never left applied. */
+.compactStageRowAdded {
+  animation: compactStageRowAddedFade 2.2s ease-out;
+}
+
+@keyframes compactStageRowAddedFade {
+  0% {
+    background: var(--highlight-bg);
+    box-shadow: inset 3px 0 0 var(--highlight-border);
+  }
+  70% {
+    background: var(--highlight-bg);
+    box-shadow: inset 3px 0 0 var(--highlight-border);
+  }
+  100% {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+/* ---- Shared selection rail --------------------------------------------- */
+
+.rowSelected {
+  border-left-color: var(--accent);
+  background: var(--accent-soft-bg);
+}

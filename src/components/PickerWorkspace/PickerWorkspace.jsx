@@ -1,43 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { DndContext, PointerSensor, closestCenter, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
-import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { Modal } from '../Modal/Modal.jsx';
+import { Itinerary } from '../Itinerary/Itinerary.jsx';
 import { ServiceEntryForm } from '../ServiceEntryForm/ServiceEntryForm.jsx';
 import { StageEntryEditor } from '../StageEntryEditor/StageEntryEditor.jsx';
 import { StagePicker } from '../StagePicker/StagePicker.jsx';
-import {
-  buildWorkspaceRows,
-  resolveWorkspaceSelection,
-  workspaceSelectionKey,
-} from '../../lib/pickerWorkspace.js';
-import { formatKm, parseStageKm, sumStagePlanKm } from '../../lib/rallyPlan.js';
+import { resolveWorkspaceSelection, workspaceSelectionKey } from '../../lib/pickerWorkspace.js';
 import styles from './PickerWorkspace.module.css';
-
-function useLegHeaderDroppable(legIndex) {
-  return useDroppable({ id: `sidebar-leg-${legIndex}`, data: { type: 'sidebar-leg', legIndex } });
-}
-
-function SortableStageRow({ uid, className, children, ...rest }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: uid,
-    data: { type: 'sidebar-stage' },
-  });
-  const style = { transform: CSS.Transform.toString(transform), transition };
-  return (
-    <button
-      ref={setNodeRef}
-      style={style}
-      type="button"
-      className={[className, isDragging ? styles.stageRowDragging : ''].filter(Boolean).join(' ')}
-      {...attributes}
-      {...listeners}
-      {...rest}
-    >
-      {children}
-    </button>
-  );
-}
 
 // rbr-rally-creator-web#107, docs/redesign/07-picker-workspace.md Phase 1/2:
 // the "smarter modal" replacement for the StageConfigModal flow, behind the
@@ -121,11 +89,10 @@ export function PickerWorkspace({
   onAddServiceToStage,
   onAddLegFromWorkspace,
   onReorderStage,
+  onReassignService,
   onClose,
 }) {
   const [selection, setSelection] = useState(initialSelection ?? null);
-
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   // Transient "you just added this" feedback -- a toast (auto-dismissed)
   // plus a fading highlight on the new row (CSS animation, cleared from
@@ -147,7 +114,7 @@ export function PickerWorkspace({
   // plain object, so there's no reason to throw the count away here just
   // because today's only consumer doesn't need it. Recomputed from the live
   // stagePlan prop every render, same "never a stale local copy" rule as
-  // `rows`/`resolved` above.
+  // `resolved` below.
   const stagePlanCounts = useMemo(() => {
     const counts = new Map();
     for (const entry of stagePlan) {
@@ -155,31 +122,13 @@ export function PickerWorkspace({
     }
     return counts;
   }, [stagePlan]);
-  const stageByUid = useMemo(() => new Map(stagePlan.map((s) => [s._uid, s])), [stagePlan]);
 
-  // Both the sidebar rows and the effective selection are derived fresh
-  // from the live props every render -- the plan changes under this
-  // component with every live edit, so nothing plan-shaped is cached in
-  // state (see resolveWorkspaceSelection's own comment for the stale-uid
-  // guard this buys).
-  const rows = buildWorkspaceRows(stagePlan, legSchedule);
+  // The effective selection is derived fresh from the live props every
+  // render -- the plan changes under this component with every live edit,
+  // so nothing plan-shaped is cached in state (see resolveWorkspaceSelection's
+  // own comment for the stale-uid guard this buys).
   const resolved = resolveWorkspaceSelection(selection, stagePlan, legSchedule);
   const selectionKey = workspaceSelectionKey(resolved);
-
-  const legStageUids = rows.reduce((acc, row) => {
-    if (row.type !== 'stage') return acc;
-    acc[row.legIndex] = acc[row.legIndex] ? [...acc[row.legIndex], row.uid] : [row.uid];
-    return acc;
-  }, {});
-
-  const legRowGroups = [];
-  for (const row of rows) {
-    if (row.type === 'leg') {
-      legRowGroups.push({ legIndex: row.legIndex, rows: [row] });
-    } else {
-      legRowGroups[legRowGroups.length - 1].rows.push(row);
-    }
-  }
 
   // Live derivation of the selected entry's position facts (plan doc R5:
   // the old modal froze stageNumber/willBeLastStage at open time, which a
@@ -195,110 +144,6 @@ export function PickerWorkspace({
   function stageDisplayName(entry) {
     const catalogStage = entry.stage_id ? stageByCatalogId.get(entry.stage_id) : null;
     return entry._label || catalogStage?.name || 'Unassigned stage';
-  }
-
-  function stageKmText(entry) {
-    const catalogStage = entry.stage_id ? stageByCatalogId.get(entry.stage_id) : null;
-    return catalogStage ? formatKm(parseStageKm(catalogStage)) : null;
-  }
-
-  function isRowSelected(row) {
-    if (row.type === 'leg') return resolved.type === 'leg' && resolved.legIndex === row.legIndex;
-    return resolved.type === row.type && resolved.uid === row.uid;
-  }
-
-  function LegHeaderRow({ row, selected }) {
-    const { setNodeRef, isOver } = useLegHeaderDroppable(row.legIndex);
-    const legStages = stagePlan.slice(row.startIndex, row.endIndex);
-    const stageCount = legStages.length;
-    const legKm = sumStagePlanKm(legStages, stageByCatalogId);
-    return (
-      <div
-        ref={setNodeRef}
-        className={[styles.legRow, selected ? styles.rowSelected : '', isOver ? styles.legRowDropActive : '']
-          .filter(Boolean)
-          .join(' ')}
-      >
-        <button
-          type="button"
-          className={styles.legRowMain}
-          aria-current={selected || undefined}
-          onClick={() => setSelection({ type: 'leg', legIndex: row.legIndex })}
-        >
-          <span className={styles.legRowName}>Leg {row.legIndex + 1}</span>
-          <span className={styles.legRowMeta}>
-            {stageCount} stage{stageCount === 1 ? '' : 's'}
-          </span>
-          <span className={styles.legRowMeta}>{formatKm(legKm)}</span>
-        </button>
-        <button
-          type="button"
-          className={styles.legRowAddStage}
-          onClick={() => setSelection({ type: 'leg', legIndex: row.legIndex })}
-        >
-          + Add stage
-        </button>
-      </div>
-    );
-  }
-
-  // Sidebar rows are plain buttons -- Tab/Enter navigation comes for free,
-  // and the plan doc's defaults item 7 explicitly scopes v1 to exactly
-  // that (no arrow-key roving focus yet).
-  function renderRow(row) {
-    const selected = isRowSelected(row);
-
-    if (row.type === 'leg') {
-      return <LegHeaderRow key={`leg:${row.legIndex}`} row={row} selected={selected} />;
-    }
-
-    const entry = stageByUid.get(row.uid);
-
-    if (row.type === 'service') {
-      return (
-        <button
-          key={`service:${row.uid}`}
-          type="button"
-          className={[styles.serviceRow, selected ? styles.rowSelected : ''].filter(Boolean).join(' ')}
-          aria-current={selected || undefined}
-          onClick={() => setSelection({ type: 'service', uid: row.uid })}
-        >
-          <span className={styles.serviceRowLabel}>Service</span>
-          <span className={styles.serviceRowTime}>{entry.service_time}</span>
-        </button>
-      );
-    }
-
-    const km = stageKmText(entry);
-    const justAdded = row.uid === justAddedUid;
-    return (
-      <SortableStageRow
-        key={`stage:${row.uid}`}
-        uid={row.uid}
-        className={[styles.stageRow, selected ? styles.rowSelected : '', justAdded ? styles.stageRowAdded : '']
-          .filter(Boolean)
-          .join(' ')}
-        aria-current={selected || undefined}
-        onClick={() => setSelection({ type: 'stage', uid: row.uid })}
-        // Clears the highlight once its fade-out animation finishes, so it
-        // can never get stuck on a row (e.g. if the toast timeout and the
-        // animation duration ever drift apart, or the row is clicked mid-fade).
-        onAnimationEnd={justAdded ? () => setJustAddedUid(null) : undefined}
-      >
-        <span className={styles.stageRowNumber}>{row.stageNumber}</span>
-        <span className={styles.stageRowName}>{stageDisplayName(entry)}</span>
-        {km && <span className={styles.stageRowKm}>{km}</span>}
-      </SortableStageRow>
-    );
-  }
-
-  function renderEmptyLegHint(group) {
-    if (group.rows.length !== 1) return null;
-    return (
-      <p key={`empty:${group.legIndex}`} className={styles.emptyLegHint}>
-        No stages yet
-      </p>
-    );
   }
 
   // rbr-rally-creator-web#107: the stage editor pane's "+ Add service after
@@ -393,8 +238,7 @@ export function PickerWorkspace({
     // new brick onto the end of THIS leg and the workspace selects it
     // (handleAddCardSelect below), so repeated clicks feel like dealing
     // cards: stay on this leg, click, watch the sidebar grow, keep going.
-    const legRow = rows.find((r) => r.type === 'leg' && r.legIndex === resolved.legIndex);
-    const legStageCount = legRow ? legRow.endIndex - legRow.startIndex : 0;
+    const legStageCount = legSchedule[resolved.legIndex]?.stage_count || 0;
 
     function handleAddCardSelect(stageId) {
       const stage = stageByCatalogId.get(stageId);
@@ -435,26 +279,16 @@ export function PickerWorkspace({
     );
   }
 
-  function handleSidebarDragEnd(event) {
-    const { active, over } = event;
-    if (!over) return;
+  function handleSelectStage(uid) {
+    setSelection({ type: 'stage', uid });
+  }
 
-    const sourceUid = active.id;
-    if (over.data.current?.type === 'sidebar-leg') {
-      const destLegIndex = over.data.current.legIndex;
-      const destIndex = (legStageUids[destLegIndex] ?? []).length;
-      onReorderStage(sourceUid, destLegIndex, destIndex);
-      return;
-    }
+  function handleSelectService(uid) {
+    setSelection({ type: 'service', uid });
+  }
 
-    if (over.data.current?.type === 'sidebar-stage') {
-      const overUid = over.id;
-      if (overUid === sourceUid) return;
-      const destLegIndex = rows.find((r) => r.type === 'stage' && r.uid === overUid)?.legIndex;
-      if (destLegIndex === undefined) return;
-      const destIndex = legStageUids[destLegIndex].indexOf(overUid);
-      onReorderStage(sourceUid, destLegIndex, destIndex);
-    }
+  function handleSelectLeg(legIndex) {
+    setSelection({ type: 'leg', legIndex });
   }
 
   return (
@@ -484,22 +318,22 @@ export function PickerWorkspace({
 
       <div className={styles.body}>
         <nav className={styles.sidebar} aria-label="Rally itinerary">
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSidebarDragEnd}>
-            {legRowGroups.map((group) => (
-              <SortableContext
-                key={`sortable-leg-${group.legIndex}`}
-                items={legStageUids[group.legIndex] ?? []}
-                strategy={verticalListSortingStrategy}
-              >
-                {group.rows.map((row) => renderRow(row))}
-                {renderEmptyLegHint(group)}
-              </SortableContext>
-            ))}
-          </DndContext>
-
-          <button type="button" className={styles.sidebarAddLeg} onClick={handleAddLegShortcut}>
-            + Add leg
-          </button>
+          <Itinerary
+            detail="compact"
+            stages={stages}
+            options={options}
+            stagePlan={stagePlan}
+            legSchedule={legSchedule}
+            selection={resolved}
+            onSelectStage={handleSelectStage}
+            onSelectService={handleSelectService}
+            onSelectLeg={handleSelectLeg}
+            onReorderStage={onReorderStage}
+            onReassignService={onReassignService}
+            onAddLeg={handleAddLegShortcut}
+            highlightUid={justAddedUid}
+            onHighlightAnimationEnd={() => setJustAddedUid(null)}
+          />
         </nav>
 
         {/* Keyed on the selection identity so switching rows remounts the

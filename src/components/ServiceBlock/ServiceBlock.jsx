@@ -32,6 +32,7 @@ export function ServiceBlock({
   onClick,
   onClear,
   sortableId = null,
+  fullWidth = false,
 }) {
   const tier = getServiceTier(serviceTime);
   const hasService = tier.key !== 'none';
@@ -58,6 +59,7 @@ export function ServiceBlock({
     sortableId ? styles.draggable : '',
     isDragging ? styles.dragging : '',
     isOver ? styles.dropTarget : '',
+    fullWidth ? styles.fullWidth : '',
   ]
     .filter(Boolean)
     .join(' ');

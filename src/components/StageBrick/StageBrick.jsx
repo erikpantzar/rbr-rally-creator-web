@@ -82,6 +82,7 @@ export function StageBrick({
   // RoadBook.jsx) -- the brick still sitting in its row is never the
   // highlighted one.
   dangerHighlight = false,
+  fullWidth = false,
 }) {
   // Sortable hook is called unconditionally (Rules of Hooks) even though
   // its output is only used on the editable path below -- locked bricks
@@ -100,7 +101,11 @@ export function StageBrick({
   // no controls, no click-to-edit.
   if (locked) {
     const lockedNames = getStageNames(stage, value._label, value.hidden_name, hiddenStageNameEnabled);
-    const lockedClassName = [styles.brickLocked, dangerHighlight ? styles.brickLockedDanger : '']
+    const lockedClassName = [
+      styles.brickLocked,
+      dangerHighlight ? styles.brickLockedDanger : '',
+      fullWidth ? styles.fullWidth : '',
+    ]
       .filter(Boolean)
       .join(' ');
     return (
@@ -119,9 +124,11 @@ export function StageBrick({
             Hidden: {lockedNames.hidden}
           </span>
         )}
-        {stage && <span className={styles.stageMeta}>{formatKm(parseStageKm(stage))}</span>}
-        <span className={styles.stageMeta}>{value.tracksettings_id}</span>
-        <span className={styles.stageMeta}>{value.def_tyre_id}</span>
+        <span className={styles.stageMetaGroup}>
+          {stage && <span className={styles.stageMeta}>{formatKm(parseStageKm(stage))}</span>}
+          <span className={styles.stageMeta}>{value.tracksettings_id}</span>
+          <span className={styles.stageMeta}>{value.def_tyre_id}</span>
+        </span>
       </div>
     );
   }
@@ -136,6 +143,7 @@ export function StageBrick({
     isDragging ? styles.dragging : '',
     isOver ? styles.dropTarget : '',
     dangerHighlight ? styles.brickDanger : '',
+    fullWidth ? styles.fullWidth : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -194,9 +202,11 @@ export function StageBrick({
             Hidden: {brickNames.hidden}
           </span>
         )}
-        {stage && <span className={styles.stageMeta}>{formatKm(parseStageKm(stage))}</span>}
-        <span className={styles.stageMeta}>{value.tracksettings_id}</span>
-        <span className={styles.stageMeta}>{value.def_tyre_id}</span>
+        <span className={styles.stageMetaGroup}>
+          {stage && <span className={styles.stageMeta}>{formatKm(parseStageKm(stage))}</span>}
+          <span className={styles.stageMeta}>{value.tracksettings_id}</span>
+          <span className={styles.stageMeta}>{value.def_tyre_id}</span>
+        </span>
       </button>
     </div>
   );

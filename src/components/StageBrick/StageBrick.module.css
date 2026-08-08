@@ -2,9 +2,8 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
   min-width: 11rem;
-  padding: 0.6rem 0.7rem;
+  padding: 0.35rem 0.7rem;
   background: var(--accent-soft-bg);
   border-radius: 0;
   border-left: 4px solid var(--accent);
@@ -24,6 +23,17 @@
 .brick.dropTarget {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Itinerary's vertical, full-width row layout (shared by the main road book
+   and, at reduced detail, PickerWorkspace's sidebar) -- overrides the brick's
+   default fixed-width/no-shrink sizing, which exists for RoadBook's older
+   horizontal wrapping row. */
+.brick.fullWidth,
+.brickLocked.fullWidth {
+  width: 100%;
+  min-width: 0;
+  flex-shrink: 1;
 }
 
 /* rbr-rally-creator-web#96: the dragged brick's overlay copy while it's
@@ -69,14 +79,21 @@
   filter: brightness(1.1);
 }
 
+/* Single horizontal row instead of one field per line -- a stage used to
+   stack number/glyph/name/secondary-name/hidden-name/km/tracksettings/tyre
+   as up to 7 separate lines, which made a leg of several stages taller than
+   the viewport. Wrapping (not nowrap) is the escape valve for narrow
+   viewports/long names: fields drop to a second line in that case, but the
+   common case is one compact row. */
 .body {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.2rem;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 0.6rem;
   border: none;
   background: transparent;
-  padding: 0;
+  padding: 0.15rem 0;
   text-align: left;
   cursor: pointer;
   font-family: inherit;
@@ -87,6 +104,7 @@
   font-size: 0.7rem;
   font-weight: 600;
   color: var(--muted);
+  align-self: center;
 }
 
 /* rbr-rally-creator-web#97: --accent/--accent-ink (white-on-amber) reads as
@@ -99,13 +117,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.4rem;
-  height: 1.4rem;
+  width: 1.2rem;
+  height: 1.2rem;
   border-radius: 0;
   background: var(--ink);
   color: var(--bg);
   font-weight: 700;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
+  align-self: center;
+  flex-shrink: 0;
 }
 
 .stageName {
@@ -114,16 +134,25 @@
   font-size: 0.9rem;
 }
 
-/* rbr-rally-creator-web#64: the real catalog stage name, shown as a muted
-   secondary line under an optional nickname (.stageName) so the user never
-   loses track of which physical stage a brick maps to, even once it has a
-   nickname -- see getStageNames in StageBrick.jsx. Only rendered when a
+/* rbr-rally-creator-web#64: the real catalog stage name, next to the
+   optional nickname (.stageName) rather than stacked under it, so the user
+   never loses track of which physical stage a brick maps to even once it's
+   nicknamed -- see getStageNames in StageBrick.jsx. Only rendered when a
    nickname is actually set; with no nickname, .stageName alone already is
-   the real name. */
+   the real name. Parenthesized so it visually reads as "nickname (real
+   name)" on one line instead of needing its own separator. */
 .stageNameSecondary {
   font-size: 0.75rem;
   font-weight: 400;
   color: var(--muted);
+}
+
+.stageNameSecondary::before {
+  content: '(';
+}
+
+.stageNameSecondary::after {
+  content: ')';
 }
 
 /* rbr-rally-creator-web#95: the real public per-stage name (hidden_name)
@@ -138,9 +167,24 @@
   color: var(--accent);
 }
 
+/* Trailing facts (km, tracksettings, tyre) read as one loosely grouped
+   cluster, separated from the name group by a hairline divider rather than
+   each getting its own line -- this is the "group a bit" seam: name-ish
+   fields sit left of the divider, numeric/setup facts sit right of it. */
+.stageMetaGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.6rem;
+  padding-left: 0.6rem;
+  margin-left: auto;
+  border-left: 1px solid var(--border);
+}
+
 .stageMeta {
   font-size: 0.75rem;
   color: var(--muted);
+  white-space: nowrap;
 }
 
 /* Locked/summary brick, per DESIGN_SPEC.md ("bricks render in a plain
@@ -151,11 +195,12 @@
    have nothing active right now." */
 .brickLocked {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.2rem;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 0.6rem;
   min-width: 11rem;
-  padding: 0.6rem 0.7rem;
+  padding: 0.4rem 0.7rem;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 0;

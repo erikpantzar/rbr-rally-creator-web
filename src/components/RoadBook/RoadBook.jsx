@@ -18,6 +18,7 @@ import {
   applyServiceFieldsUpdate,
   applyAddStage,
   applyAddLeg,
+  applyReorderStage,
 } from '../../lib/pickerWorkspace.js';
 import { PickerWorkspace } from '../PickerWorkspace/PickerWorkspace.jsx';
 import { StageBrick } from '../StageBrick/StageBrick.jsx';
@@ -714,6 +715,25 @@ export function RoadBook({
     return legIndex;
   }
 
+  // rbr-rally-creator-web#107 Phase 4: the workspace sidebar's drag-to-
+  // reorder -- same write shape as handleDragEnd's own reorder branches
+  // below, just reached from PickerWorkspace's sidebar instead of a road-book
+  // brick drag. applyReorderStage does the same containers/arrayMove/splice
+  // math handleDragEnd does inline, pulled out as a pure helper (mirroring
+  // handleAddStageFromWorkspace/handleAddLegFromWorkspace's own split above)
+  // so this handler stays a one-liner.
+  function handleReorderStage(uid, destLegIndex, destIndex) {
+    const { stagePlan: nextStagePlan, legSchedule: nextLegSchedule } = applyReorderStage(
+      stagePlan,
+      legSchedule,
+      uid,
+      destLegIndex,
+      destIndex
+    );
+    onStagePlanChange(nextStagePlan);
+    onLegScheduleChange(nextLegSchedule);
+  }
+
   // rbr-rally-creator-web#80: opens ServiceConfigModal scoped to one stage
   // -- `uid` is implicit from whichever brick/block the user clicked, never
   // asked for via a picker inside the modal itself. isLastStage is the same
@@ -1117,6 +1137,7 @@ export function RoadBook({
           onAddStage={handleAddStageFromWorkspace}
           onAddServiceToStage={handleAddServiceToStage}
           onAddLegFromWorkspace={handleAddLegFromWorkspace}
+          onReorderStage={handleReorderStage}
           onClose={closeModal}
         />
       )}

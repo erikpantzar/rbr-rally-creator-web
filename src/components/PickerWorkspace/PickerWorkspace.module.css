@@ -117,20 +117,75 @@
 
 /* Leg headers stay pinned while their stages scroll under them -- the same
    sticky treatment RoadBook's .legHeader uses, for the same "which leg am
-   I in" reason. Also a real button here (leg context is selectable, it's
-   the future add-target per D3), unlike the road book's plain header. */
+   I in" reason.
+   rbr-rally-creator-web#107 Phase 4: this row is no longer one big button --
+   it's a div (also the sidebar drag-to-reorder's useDroppable target for
+   this leg, see useLegHeaderDroppable) containing two real buttons side by
+   side (.legRowMain for selection, .legRowAddStage for the new inline "+
+   Add stage" affordance), since a <button> can't nest another <button>. */
 .legRow {
   position: sticky;
   top: 0;
   z-index: 1;
-  gap: 0.6rem;
-  padding: 0.6rem 0.9rem 0.45rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.6rem 0.4rem 0.9rem;
   background: var(--card);
   border-bottom: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  transition: background-color 0.15s ease;
 }
 
-.legRow:hover {
+/* rbr-rally-creator-web#107 Phase 4: hovering while dragging a stage row
+   over this leg's header -- same dashed-accent "drop here" language as
+   RoadBook's own .legDropActive (RoadBook.module.css), since this plays
+   exactly that role for the sidebar's cross-leg move. */
+.legRowDropActive {
   background: var(--accent-soft-bg);
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+.legRowMain {
+  display: flex;
+  align-items: baseline;
+  flex: 1;
+  min-width: 0;
+  gap: 0.6rem;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.legRowMain:hover {
+  color: var(--ink);
+}
+
+/* rbr-rally-creator-web#107 Phase 4: a smaller, quieter sibling of
+   RoadBook's .addStageBrick -- same green "constructive action" hover
+   language (highlight ramp, see RoadBook.module.css's #104 comment) but
+   sized to sit inline in a sidebar row rather than as a full brick-sized
+   slot. */
+.legRowAddStage {
+  flex-shrink: 0;
+  padding: 0.3rem 0.55rem;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.legRowAddStage:hover {
+  border-color: var(--highlight-border);
+  color: var(--highlight-fg);
+  background: var(--highlight-bg);
 }
 
 .legRowName {
@@ -190,6 +245,23 @@
   flex-shrink: 0;
 }
 
+/* rbr-rally-creator-web#107 Phase 4: drag-to-reorder grab affordance and
+   in-flight dragging state -- same cursor/opacity language as StageBrick's
+   own .brick/.brick.dragging (StageBrick.module.css), so a row being dragged
+   in the sidebar reads the same as a brick being dragged in the road book. */
+.stageRow {
+  cursor: grab;
+  touch-action: none;
+}
+
+.stageRow:active {
+  cursor: grabbing;
+}
+
+.stageRowDragging {
+  opacity: 0.5;
+}
+
 /* Service rows: visually lighter and inset one step further than stage
    rows, in the service-blue family (--info-*, the road book's established
    "there's a service stop here" color, see tokens.css) so the itinerary's
@@ -232,6 +304,32 @@
   font-size: 0.75rem;
   color: var(--muted);
   font-style: italic;
+}
+
+/* rbr-rally-creator-web#107 Phase 4: same dashed-outline "+ Add" visual
+   language as RoadBook's own .addLegButton (RoadBook.module.css) -- a
+   full-width block below the itinerary list, green highlight-ramp hover to
+   match every other constructive "add" affordance in the app. */
+.sidebarAddLeg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.7rem 1rem;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.sidebarAddLeg:hover {
+  border-color: var(--highlight-border);
+  color: var(--highlight-fg);
+  background: var(--highlight-bg);
 }
 
 /* ---- Detail pane ------------------------------------------------------ */

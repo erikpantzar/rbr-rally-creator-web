@@ -377,15 +377,25 @@ runtime toggle for dogfooding) chooses which component `modalState` renders.
   - "Change stage" affordance on the stage entry form (defaults item 2), atomic swap (R6).
   - Verify R4's default (silent) — normalization behaves, nothing surprising in the sidebar.
 
-- **Phase 3 — flag flip + cleanup**
+- **Phase 3 — flag flip + cleanup** ✅ done
   - Flip `PICKER_WORKSPACE` on by default; delete the old StageConfigModal chrome path, the
     flag, and `stageConfigDraft.js` + its call sites once nothing edits through the old modal
     (R2/D1).
 
-- **Phase 4 — sidebar powers (later, additive; confirmed wanted per D6)**
-  - Per-leg "+ stage" and "+ leg" buttons in the sidebar; then drag-to-reorder emitting the
-    same `onStagePlanChange`/`onLegScheduleChange` shapes RoadBook's dnd already uses
-    (constraint 5). Each lands independently green.
+- **Phase 4 — sidebar powers (later, additive; confirmed wanted per D6)** ✅ done
+  - Per-leg "+ Add stage" button on every leg header (same add-target the leg row's own click
+    already opens) and a single "+ Add leg" button at the bottom of the sidebar list, both
+    reusing the existing `onAddStage`/`onAddLegFromWorkspace` callbacks.
+  - Drag-to-reorder for sidebar stage rows: same-leg reorder and cross-leg move, full parity
+    with RoadBook's own drag behavior. `applyReorderStage` (`pickerWorkspace.js`) mirrors
+    `RoadBook.jsx`'s `handleDragEnd` container/`arrayMove`/splice math as a pure, unit-tested
+    helper; `RoadBook.handleReorderStage` wraps it and routes the result through
+    `onStagePlanChange`/`onLegScheduleChange` (constraint 5), so `normalizeLastStageService`
+    still applies to every sidebar reorder the same way it does to every other plan edit.
+    Service rows are intentionally not draggable in this phase (RoadBook's service-block drag
+    is a separate, more involved mechanic left untouched).
+
+All five phases are now complete — the picker-workspace redesign (#107) is fully shipped.
 
 - **Deferred (D7)**: next/previous *leg* navigation — revisit after v1; sidebar likely already
   satisfies it. Delete-from-sidebar stays out entirely (D6).

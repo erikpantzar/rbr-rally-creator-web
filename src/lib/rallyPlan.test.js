@@ -11,7 +11,6 @@ import {
   formatKm,
   applyPickedStageToConfig,
   createDefaultServiceFields,
-  createDefaultStageConfig,
   MAX_LEG_SPAN_DAYS,
   MIN_LEG_LEAD_MINUTES,
   CLAMP_LEG_LEAD_MINUTES,

@@ -5,40 +5,177 @@
    hardcodes a color. Squared corners and flat fills on purpose -- the map
    should read like a printed inset on the rally document, not a widget. */
 
+/* Positioning context for the zoom controls and the clipping frame for the
+   panned/zoomed geometry (the svg root clips its own overflow, the border
+   lives out here so zoomed shapes can't sit on top of it). Transparent on
+   purpose: the ocean is just the page showing through, so the map sits on
+   the site like a printed figure instead of floating on its own white
+   card. */
+.viewport {
+  position: relative;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
 .map {
   display: block;
   width: 100%;
   height: auto;
-  border: 1px solid var(--border);
-  background: var(--card);
-  padding: 0.5rem;
+  /* On very wide windows the full-bleed map would outgrow the screen;
+     capping height letterboxes it (xMidYMid meet) against the page
+     background, which just reads as ocean margin. */
+  max-height: 72vh;
+  /* The map owns all touch gestures -- without this, a one-finger pan
+     scrolls the page instead of the map. */
+  touch-action: none;
+  cursor: grab;
+}
+
+.map[data-dragging='true'] {
+  cursor: grabbing;
 }
 
 /* Countries with no stages in the catalog: visible geography, nothing
-   more. Stroked in --card (the map's own background) so adjacent shapes
-   read as separate countries without introducing a new color. */
+   more. Stroked in --bg (the page background the transparent viewport
+   shows through) so adjacent shapes read as separate countries without
+   introducing a new color. non-scaling-stroke keeps every border
+   hairline-crisp at any zoom level instead of fattening 8x along with the
+   fill. */
 .land {
   fill: var(--border);
-  stroke: var(--card);
-  stroke-width: 0.5;
+  stroke: var(--bg);
+  stroke-width: 0.5px;
+  vector-effect: non-scaling-stroke;
 }
 
-/* Countries that have stages -- the soft accent pair keeps them clearly
-   distinct from .land in both themes while staying quieter than the
-   full-strength --accent, which is reserved for the selected state. */
+/* Countries that have stages -- the soft accent *fg* tone (not the wash
+   bg meant for text backgrounds) as the fill: still clearly a step below
+   the selected state's full --accent, but strong enough to read at a
+   glance across a whole country shape rather than only up close. */
 .country {
-  fill: var(--accent-soft-bg);
+  fill: var(--accent-soft-fg);
   stroke: var(--accent-soft-fg);
-  stroke-width: 0.6;
+  stroke-width: 0.6px;
+  vector-effect: non-scaling-stroke;
   cursor: pointer;
   transition: fill 120ms ease;
 }
 
 .country:hover {
-  fill: var(--accent-soft-fg);
+  fill: var(--accent);
+  stroke: var(--accent);
 }
 
 .country[data-selected='true'] {
   fill: var(--accent);
+  stroke: var(--ink);
+  stroke-width: 1.2px;
+}
+
+/* At least one of this country's stages is already in the rally draft --
+   the --highlight family ("this builds", per tokens.css) rather than
+   --accent, which already means "selected/interactive" on this map; a
+   country can be both at once and the two need to read as different
+   facts. Full-strength --highlight-fg (not the -bg wash) so it stands out
+   as clearly as the has-stages state above, just in green instead of
+   amber. data-selected wins the fill (below) so the two states don't mix
+   into a third color when a drafted country is also the selected one. */
+.country[data-drafted='true'] {
+  fill: var(--highlight-fg);
+  stroke: var(--highlight-fg);
+}
+
+.country[data-drafted='true']:hover {
+  fill: var(--highlight-border);
+  stroke: var(--highlight-border);
+}
+
+.country[data-drafted='true'][data-selected='true'] {
+  fill: var(--accent);
+  stroke: var(--highlight-fg);
+  stroke-width: 1.6px;
+}
+
+/* Zoom controls -- the keyboard-accessible path for zooming (the svg
+   itself is aria-hidden). Same flat, bordered timing-sheet language as
+   Button, small enough to sit inside the map like a printed legend. */
+.controls {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+
+.controlButton {
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.controlButton:last-child {
+  border-bottom: none;
+}
+
+.controlButton:hover {
+  background: var(--accent-soft-bg);
+  color: var(--ink);
+}
+
+.controlButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* 'beacon' variant -- the #okatwentytwo easter egg: everything dims to
+   background noise except the highlighted countries, which glow in the
+   full-strength accent like beacons on a night map. */
+.viewport[data-variant='beacon'] .map {
+  max-height: none;
+}
+
+.viewport[data-variant='beacon'] .land {
+  opacity: 0.45;
+}
+
+/* The drop-shadow blur is in pre-transform user units, so the <g scale()>
+   multiplies it -- at the egg's 6x opening zoom these sub-px radii render
+   as a soft ~1-2rem halo. Bigger values here explode into a screen-filling
+   bloom whose filter-region edges show up as rectangular banding. */
+.viewport[data-variant='beacon'] .country {
+  fill: var(--accent);
   stroke: var(--accent);
+  cursor: grab;
+  filter: drop-shadow(0 0 1.2px oklch(from var(--accent) l c h / 0.75));
+  animation: beaconPulse 2.4s ease-in-out infinite;
+}
+
+.viewport[data-variant='beacon'] .map[data-dragging='true'] .country {
+  cursor: grabbing;
+}
+
+@keyframes beaconPulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0.8px oklch(from var(--accent) l c h / 0.55));
+  }
+  50% {
+    filter: drop-shadow(0 0 2px oklch(from var(--accent) l c h / 0.9));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .viewport[data-variant='beacon'] .country {
+    animation: none;
+  }
 }

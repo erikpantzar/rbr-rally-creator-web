@@ -44,15 +44,19 @@
   font-size: 0.7rem;
 }
 
+/* The Explore view runs full window width (the map is the point), but
+   prose-and-numbers columns shouldn't stretch with it -- the detail column
+   caps at a readable measure and the pair sits left-aligned under the map,
+   like a results table printed beneath a wall chart. */
 .columns {
   display: grid;
-  grid-template-columns: minmax(11rem, 14rem) 1fr;
+  grid-template-columns: minmax(11rem, 14rem) minmax(0, 42rem);
   gap: 1.5rem;
   align-items: start;
 }
 
-/* The app column is 46rem max; below ~34rem of viewport the two columns
-   crowd each other, so they stack -- list first, since it's the control. */
+/* Below ~34rem of viewport the two columns crowd each other, so they
+   stack -- list first, since it's the control. */
 @media (max-width: 34rem) {
   .columns {
     grid-template-columns: 1fr;
@@ -107,6 +111,27 @@
   background: var(--accent-soft-bg);
   color: var(--accent-soft-fg);
   font-weight: 600;
+}
+
+/* At least one of this country's stages is already in the rally draft --
+   a light wash in the "this builds" highlight tokens (matching the map's
+   own drafted-country fill), subtle enough not to fight the selected
+   state's stronger accent wash above. */
+.countryButton[data-drafted='true'] {
+  background: var(--highlight-bg);
+}
+
+.countryButton[data-drafted='true']:hover {
+  background: var(--highlight-bg);
+  filter: brightness(0.97);
+}
+
+.draftedDot {
+  flex: none;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--highlight-fg);
 }
 
 .countryName {
@@ -198,13 +223,65 @@
   border-bottom: 1px solid var(--border);
 }
 
+/* Light background wash for a row already in the draft -- reinforces the
+   ✓ tag without needing scan-and-read on every row's text. Negative
+   margin/matching padding keeps the wash flush with the row edges the
+   list's own padding: 0 already exposes. */
+.stageRow[data-drafted='true'] {
+  margin: 0 -0.4rem;
+  padding: 0.4rem 0.4rem;
+  background: var(--highlight-bg);
+}
+
 .stageName {
   font-size: 0.78rem;
   color: var(--ink);
 }
 
+.draftedTag {
+  flex: none;
+  color: var(--highlight-fg);
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
 .stageMeta {
+  /* Right-aligned against the Add button (auto margin soaks up the row's
+     slack) so surface/distance form a scannable column instead of
+     floating mid-row after each name. */
+  margin-left: auto;
   font-size: 0.7rem;
   color: var(--muted);
   white-space: nowrap;
+}
+
+/* Per-row "add to draft" action -- quiet bordered chip in the same
+   timing-sheet voice as the offMapTag, lighting up in accent on hover the
+   way the country buttons do. */
+.addButton {
+  flex: none;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: inherit;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.addButton:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft-bg);
+  color: var(--accent-soft-fg);
+}
+
+.addButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }

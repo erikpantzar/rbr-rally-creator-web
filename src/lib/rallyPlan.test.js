@@ -4,12 +4,13 @@ import {
   clampLegTimes,
   isLegOpenTimeTooSoon,
   computeLegStageRanges,
+  createDefaultStageConfig,
+  createStageConfigForCatalogStage,
   normalizeLastStageService,
   parseStageKm,
   formatKm,
   applyPickedStageToConfig,
   createDefaultServiceFields,
-  createDefaultStageConfig,
   MAX_LEG_SPAN_DAYS,
   MIN_LEG_LEAD_MINUTES,
   CLAMP_LEG_LEAD_MINUTES,
@@ -169,6 +170,30 @@ describe('parseStageKm / formatKm', () => {
   it('formats km back in the catalog display style with one decimal', () => {
     expect(formatKm(13.4)).toBe('13.4 km');
     expect(formatKm(5)).toBe('5.0 km');
+  });
+});
+
+describe('createStageConfigForCatalogStage', () => {
+  it('arrives assigned to the catalog stage with a surface-matched tyre, defaults otherwise', () => {
+    const config = createStageConfigForCatalogStage({ id: 42, surface: 'tarmac', name: 'Col de Turini' });
+    const defaults = createDefaultStageConfig();
+    expect(config.stage_id).toBe(42);
+    expect(config.def_tyre_id).toBe('Tarmac Dry');
+    expect(config.wetness_id).toBe(defaults.wetness_id);
+    expect(config.service_time).toBe(defaults.service_time);
+    expect(config._label).toBe('');
+  });
+
+  it('keeps the generic tyre default when the surface has no mapping', () => {
+    const config = createStageConfigForCatalogStage({ id: 7, surface: 'moon dust' });
+    expect(config.def_tyre_id).toBe(createDefaultStageConfig().def_tyre_id);
+  });
+
+  it('mints a fresh _uid per call so repeated adds of one stage stay distinct bricks', () => {
+    const stage = { id: 42, surface: 'gravel' };
+    expect(createStageConfigForCatalogStage(stage)._uid).not.toBe(
+      createStageConfigForCatalogStage(stage)._uid
+    );
   });
 });
 

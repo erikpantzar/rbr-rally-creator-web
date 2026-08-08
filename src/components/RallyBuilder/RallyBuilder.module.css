@@ -40,26 +40,68 @@
   content: 'Test run';
 }
 
-/* Header block -- title/description (RallyBasicsForm) and car-group
-   selection (CarGroupPicker) merged into one visually unified unit, per
-   the spec: car groups are a rally-level property styled like the rest of
-   the header, not their own section. A single rule below the whole block
-   separates it from Leg 1, instead of each child having its own border. */
-/* A <fieldset> so `disabled` cascades to every RallyBasicsForm/CarGroupPicker
-   input once locked (see RallyBuilder.jsx) -- reset to look exactly like
-   the plain div it replaces, since fieldset ships its own border/padding/
-   min-width by default. */
-.headerBlock {
+/* rbr-rally-creator-web#followup: the page's four numbered sections
+   (General settings / Cars / Road book / Create rally). Each is its own
+   card-like block, rule-separated top to bottom -- same flat-rule
+   "timing sheet" language as App.module.css's .section, just repeated here
+   since RallyBuilder now owns sections 1-4 (App.jsx only owns the
+   credentials markup it hands down as `credentialsSlot`). */
+.numberedSection {
   display: flex;
   flex-direction: column;
-  gap: 1.75rem;
-  padding-bottom: 2rem;
-  border: none;
+  gap: 1rem;
+  padding: 1.75rem 0;
   border-bottom: 2px solid var(--ink);
-  margin: 0 0 2rem;
-  padding-left: 0;
-  padding-right: 0;
+}
+
+.numberedSection:first-of-type {
   padding-top: 0;
+}
+
+.numberedSection:last-of-type {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+/* Matches App.module.css's .section h2 small-caps convention exactly, so
+   a numbered heading here and "rallysimfans.hu credentials" (if it were
+   still its own App.jsx section) would read as the same visual language. */
+.numberedHeading {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Subtle one/two-sentence explainer under each numbered heading -- same
+   weight as JobProgress's .note (muted ink-soft, slightly smaller than
+   body text), deliberately not louder than that. */
+.sectionIntro {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+/* Separates credentials (App.jsx's slot) from the rally-wide fields below
+   it inside the merged section 1 card -- a plain rule, same weight as the
+   rules between sections elsewhere in the app. */
+.sectionDivider {
+  border-top: 1px solid var(--border);
+}
+
+/* A <fieldset> so `disabled` cascades to every descendant form control once
+   locked (see RallyBuilder.jsx) -- reset to look exactly like the plain div
+   it replaces, since fieldset ships its own border/padding/min-width by
+   default. */
+.sectionFieldset {
+  display: flex;
+  flex-direction: column;
+  border: none;
+  margin: 0;
+  padding: 0;
   min-width: 0;
 }
 
@@ -69,12 +111,19 @@
   gap: 1.5rem;
 }
 
+/* Save / New Rally (or, once locked, Duplicate as new draft) -- always-
+   available utilities rendered ahead of section 1, not part of the
+   numbered flow. */
+.utilityRow {
+  display: flex;
+  gap: 0.75rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
 .actions {
   display: flex;
   gap: 0.75rem;
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--border);
 }
 
 /* Metrics + the uppercase treatment only -- the accent-filled look comes

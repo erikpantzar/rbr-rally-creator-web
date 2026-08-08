@@ -9,6 +9,9 @@ import {
   normalizeLastStageService,
   parseStageKm,
   formatKm,
+  applyPickedStageToConfig,
+  createDefaultServiceFields,
+  createDefaultStageConfig,
   MAX_LEG_SPAN_DAYS,
   MIN_LEG_LEAD_MINUTES,
   CLAMP_LEG_LEAD_MINUTES,
@@ -195,9 +198,59 @@ describe('createStageConfigForCatalogStage', () => {
   });
 });
 
+describe('applyPickedStageToConfig', () => {
+  const config = { _uid: 'u1', stage_id: null, def_tyre_id: 'Gravel Dry', wetness_id: 'wet', tracksettings_id: 'Evening' };
+
+  it('sets stage_id, surface-matched tyre default, and resets wetness/weather to the new stage\'s first option', () => {
+    const stage = { id: 's-tarmac', surface: 'tarmac', wetnessOptions: ['dry', 'damp'], weatherOptions: ['Morning Clear'] };
+    const result = applyPickedStageToConfig(config, stage);
+    expect(result).toMatchObject({
+      stage_id: 's-tarmac',
+      def_tyre_id: 'Tarmac Dry',
+      wetness_id: 'dry',
+      tracksettings_id: 'Morning Clear',
+    });
+    expect(result).not.toBe(config); // no mutation of the input
+    expect(config.stage_id).toBe(null);
+  });
+
+  it('leaves def_tyre_id untouched when the surface has no known default (defensive fallback)', () => {
+    const stage = { id: 's-x', surface: 'lava', wetnessOptions: [], weatherOptions: [] };
+    const result = applyPickedStageToConfig(config, stage);
+    expect(result.def_tyre_id).toBe('Gravel Dry'); // carried over from config, not clobbered
+  });
+
+  it('resolves to a null stage_id and empty wetness/weather for a null stage (defensive)', () => {
+    const result = applyPickedStageToConfig(config, null);
+    expect(result).toMatchObject({ stage_id: null, wetness_id: '', tracksettings_id: '' });
+  });
+});
+
 describe('constants', () => {
   it('keeps the leg span cap safely under the site 7-day open-to-close limit', () => {
     expect(MAX_LEG_SPAN_DAYS).toBe(6);
     expect(CLAMP_LEG_LEAD_MINUTES).toBeGreaterThan(MIN_LEG_LEAD_MINUTES);
+  });
+});
+
+// rbr-rally-creator-web#107: extracted so the workspace's "Add service after
+// this stage" shortcut and a brand-new stage's seed config can never drift
+// apart -- see the two assertions below.
+describe('createDefaultServiceFields', () => {
+  it('gives a real (non-"No Service") starting tier', () => {
+    const fields = createDefaultServiceFields();
+    expect(fields.service_time).toBe('60 minutes');
+    expect(fields.nummechanics).toBe('6 mechanic');
+    expect(fields.mechanicsSkill).toBe('Expert');
+  });
+
+  it('matches exactly the service fields a freshly-created stage config seeds', () => {
+    const fresh = createDefaultStageConfig();
+    const shortcut = createDefaultServiceFields();
+    expect({
+      service_time: fresh.service_time,
+      nummechanics: fresh.nummechanics,
+      mechanicsSkill: fresh.mechanicsSkill,
+    }).toEqual(shortcut);
   });
 });

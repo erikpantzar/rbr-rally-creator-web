@@ -24,7 +24,7 @@
 
 /* Same disclosure treatment as JobProgress.module.css's .details/.details
    summary (the "Debug snippet" toggle), extended with a bordered card and
-   a summary line that also carries the live selected-count text. */
+   a summary line that also carries the live selected-items tags. */
 .details {
   padding: 0.6rem 0.75rem;
   border: 1px solid var(--border);
@@ -32,18 +32,37 @@
   cursor: pointer;
 }
 
+/* list-style/::-webkit-details-marker suppress the browser's own default
+   disclosure triangle in favor of the explicit ▲/▼ .disclosureArrow below
+   -- its glyph/position differs per engine, where an explicit character
+   reads identically everywhere and is easy to flip on `open`. */
 .summary {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 0.75rem;
   font-size: 0.85rem;
+  list-style: none;
+}
+
+.summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosureArrow {
+  display: inline-block;
+  margin-right: 0.4rem;
+  font-size: 0.7rem;
+  color: var(--muted);
 }
 
 .summaryTitle {
+  display: flex;
+  align-items: baseline;
   font-weight: 600;
   text-decoration: underline;
   color: var(--ink);
+  flex-shrink: 0;
 }
 
 .summaryMeta {
@@ -51,16 +70,28 @@
   font-style: italic;
   font-size: 0.8rem;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.summaryMetaActive {
-  color: var(--ink-soft);
-  font-size: 0.8rem;
+/* Selected items as individual tag chips (see DisclosureSection's
+   MAX_VISIBLE_TAGS) instead of one comma-joined text string -- wraps onto
+   multiple lines rather than truncating with an ellipsis, since a chip
+   mid-truncation reads worse than a chip wrapping to its own line. */
+.summaryTags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.summaryTag {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--accent-soft-bg);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 500;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .sectionBody {

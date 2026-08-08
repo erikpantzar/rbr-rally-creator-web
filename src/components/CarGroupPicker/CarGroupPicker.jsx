@@ -2,27 +2,15 @@ import { useMemo, useState } from 'react';
 import { Input } from '../Input/Input.jsx';
 import styles from './CarGroupPicker.module.css';
 
-// Builds the live selected-summary text shown in a <summary>, whether the
-// <details> is open or collapsed -- so the count/names are visible either
-// way, per the maintainer's plan on issue #60:
-//   0 selected -> muted "None selected"
-//   1-3 selected -> comma-joined names
-//   4+ selected -> first 2 names + "+N more" (full list in title= on hover)
-function summarizeSelection(items) {
-  if (items.length === 0) {
-    return { text: 'None selected', title: undefined, muted: true };
-  }
-  const names = items.map((item) => item.name);
-  if (items.length <= 3) {
-    return { text: names.join(', '), title: undefined, muted: false };
-  }
-  const shown = names.slice(0, 2).join(', ');
-  const more = names.length - 2;
-  return { text: `${shown}, +${more} more`, title: names.join(', '), muted: false };
-}
+// Selected items in the <summary> render as individual tag chips (see
+// .summaryTags/.summaryTag in the CSS) instead of one comma-joined text
+// string -- capped at a handful visible plus a "+N more" tag (title= holds
+// the full list) so a long selection doesn't blow out the summary line's
+// height.
+const MAX_VISIBLE_TAGS = 4;
 
-// A single <details>/<summary> disclosure with a live selected-count
-// summary baked into the <summary> itself (title + count/names), reusing
+// A single <details>/<summary> disclosure with a live selected-items
+// summary (tag chips, not text) baked into the <summary> itself, reusing
 // the native disclosure element already used for JobProgress's "Debug
 // snippet" (see JobProgress.module.css's .details/.details summary).
 // Native <details> keeps working inside the header block's disabled
@@ -33,18 +21,37 @@ function summarizeSelection(items) {
 // so the "Open rally" checkbox below can force sections open/closed, while
 // a manual click on <summary> still works normally -- the native toggle
 // event just flows back into onToggle and updates the owning state.
+//
+// The explicit ▲/▼ marker (.disclosureArrow) replaces the browser's own
+// default triangle (suppressed via list-style: none/::-webkit-details-marker
+// in the CSS) so the expanded/collapsed state reads the same way in every
+// browser rather than relying on each engine's own marker glyph.
 function DisclosureSection({ title, open, onToggle, selectedItems, children }) {
-  const summary = summarizeSelection(selectedItems);
+  const visible = selectedItems.slice(0, MAX_VISIBLE_TAGS);
+  const overflowCount = selectedItems.length - visible.length;
+  const fullTitle = selectedItems.length > 0 ? selectedItems.map((item) => item.name).join(', ') : undefined;
+
   return (
     <details className={styles.details} open={open} onToggle={(e) => onToggle(e.target.open)}>
       <summary className={styles.summary}>
-        <span className={styles.summaryTitle}>{title}</span>
-        <span
-          className={summary.muted ? styles.summaryMeta : styles.summaryMetaActive}
-          title={summary.title}
-        >
-          {summary.text}
+        <span className={styles.summaryTitle}>
+          <span className={styles.disclosureArrow} aria-hidden="true">
+            {open ? '▲' : '▼'}
+          </span>
+          {title}
         </span>
+        {selectedItems.length === 0 ? (
+          <span className={styles.summaryMeta}>None selected</span>
+        ) : (
+          <span className={styles.summaryTags} title={fullTitle}>
+            {visible.map((item) => (
+              <span key={item.id} className={styles.summaryTag}>
+                {item.name}
+              </span>
+            ))}
+            {overflowCount > 0 && <span className={styles.summaryTag}>+{overflowCount} more</span>}
+          </span>
+        )}
       </summary>
       <div className={styles.sectionBody}>{children}</div>
     </details>

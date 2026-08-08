@@ -715,13 +715,6 @@ export function RoadBook({
     return legIndex;
   }
 
-  // rbr-rally-creator-web#107 Phase 4: the workspace sidebar's drag-to-
-  // reorder -- same write shape as handleDragEnd's own reorder branches
-  // below, just reached from PickerWorkspace's sidebar instead of a road-book
-  // brick drag. applyReorderStage does the same containers/arrayMove/splice
-  // math handleDragEnd does inline, pulled out as a pure helper (mirroring
-  // handleAddStageFromWorkspace/handleAddLegFromWorkspace's own split above)
-  // so this handler stays a one-liner.
   function handleReorderStage(uid, destLegIndex, destIndex) {
     const { stagePlan: nextStagePlan, legSchedule: nextLegSchedule } = applyReorderStage(
       stagePlan,

@@ -14,24 +14,10 @@ import {
 import { formatKm, parseStageKm, sumStagePlanKm } from '../../lib/rallyPlan.js';
 import styles from './PickerWorkspace.module.css';
 
-// rbr-rally-creator-web#107 Phase 4: a leg header is also a drop target for
-// the sidebar's stage-row drag -- dropping directly on the header (rather
-// than on another stage row) means "append to the end of this leg", the
-// same role RoadBook's own LegDropContainer plays for its stage list.
-// Mirrors LegDropContainer's shape exactly (RoadBook.jsx), just without the
-// dedicated wrapper div RoadBook needs (the leg row already is one).
 function useLegHeaderDroppable(legIndex) {
   return useDroppable({ id: `sidebar-leg-${legIndex}`, data: { type: 'sidebar-leg', legIndex } });
 }
 
-// One sortable sidebar stage row. Kept as its own component (rather than
-// inlining useSortable into renderRow) because hooks can't be called
-// conditionally inside a function that also handles leg/service rows --
-// same reasoning as StageBrick's unconditional useSortable call. The drag
-// listeners (pointer-down based) and the row's own onClick coexist fine,
-// same as StageBrick's bricks: a plain click (no meaningful pointer travel)
-// still fires onClick, PointerSensor's activationConstraint distance is what
-// tells dnd-kit a drag was actually intended.
 function SortableStageRow({ uid, className, children, ...rest }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: uid,
@@ -139,10 +125,6 @@ export function PickerWorkspace({
 }) {
   const [selection, setSelection] = useState(initialSelection ?? null);
 
-  // rbr-rally-creator-web#107 Phase 4: sidebar drag-to-reorder, same sensor
-  // config as RoadBook's own DndContext (RoadBook.jsx) so a drag "feels" the
-  // same wherever it's picked up -- the small activation distance keeps a
-  // plain click from ever being mistaken for a drag.
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   // Transient "you just added this" feedback -- a toast (auto-dismissed)
@@ -184,22 +166,12 @@ export function PickerWorkspace({
   const resolved = resolveWorkspaceSelection(selection, stagePlan, legSchedule);
   const selectionKey = workspaceSelectionKey(resolved);
 
-  // rbr-rally-creator-web#107 Phase 4: per-leg stage-uid arrays for the
-  // sidebar's SortableContext items -- service rows are deliberately left
-  // out of these (this phase's drag-to-reorder is scoped to stages only,
-  // mirroring the doc's Phase 4 line item; RoadBook's own service-block drag
-  // is a separate, more involved feature this phase doesn't touch).
   const legStageUids = rows.reduce((acc, row) => {
     if (row.type !== 'stage') return acc;
     acc[row.legIndex] = acc[row.legIndex] ? [...acc[row.legIndex], row.uid] : [row.uid];
     return acc;
   }, {});
 
-  // rbr-rally-creator-web#107 Phase 4: `rows` is already one contiguous run
-  // per leg (buildWorkspaceRows walks legs in order) -- sliced into groups
-  // once here so the sidebar can give each leg its own SortableContext
-  // without re-filtering the whole flat list per leg (which the naive
-  // `rows.filter(...)` per group would do, O(legs * rows)).
   const legRowGroups = [];
   for (const row of rows) {
     if (row.type === 'leg') {
@@ -235,10 +207,6 @@ export function PickerWorkspace({
     return resolved.type === row.type && resolved.uid === row.uid;
   }
 
-  // rbr-rally-creator-web#107 Phase 4: dropping a dragged stage row directly
-  // on a leg header means "move it to the end of this leg" -- the sidebar's
-  // equivalent of RoadBook's LegDropContainer catch-all. A real component
-  // (not inlined) since useDroppable is a hook.
   function LegHeaderRow({ row, selected }) {
     const { setNodeRef, isOver } = useLegHeaderDroppable(row.legIndex);
     const legStages = stagePlan.slice(row.startIndex, row.endIndex);
@@ -324,12 +292,6 @@ export function PickerWorkspace({
     );
   }
 
-  // Sits right after an empty leg's header -- same "this leg is empty"
-  // legibility the road book's own emptyLegHint provides, minus the arrow
-  // (there's no add affordance in the sidebar to point at yet, per D6).
-  // A group is empty exactly when it holds only its own leg header row --
-  // legRowGroups (below) already slices `rows` into contiguous per-leg
-  // chunks, so there's no next-row lookahead needed anymore.
   function renderEmptyLegHint(group) {
     if (group.rows.length !== 1) return null;
     return (
@@ -473,16 +435,6 @@ export function PickerWorkspace({
     );
   }
 
-  // rbr-rally-creator-web#107 Phase 4: the sidebar's drag-to-reorder end
-  // handler -- mirrors RoadBook's own handleDragEnd (RoadBook.jsx) but
-  // simplified to just this phase's scope (stage rows only; no remove-zone,
-  // no service-block branch). Dropping on another stage row targets that
-  // row's position within its leg; dropping on a leg header (the
-  // useLegHeaderDroppable target) means "append to the end of this leg".
-  // The actual array math lives in applyReorderStage (pickerWorkspace.js) --
-  // this handler only figures out (destLegIndex, destIndex) from the drop
-  // target and hands off to onReorderStage, same division of labor as
-  // handleAddCardSelect handing off to onAddStage above.
   function handleSidebarDragEnd(event) {
     const { active, over } = event;
     if (!over) return;
@@ -497,7 +449,7 @@ export function PickerWorkspace({
 
     if (over.data.current?.type === 'sidebar-stage') {
       const overUid = over.id;
-      if (overUid === sourceUid) return; // dropped on itself, no-op
+      if (overUid === sourceUid) return;
       const destLegIndex = rows.find((r) => r.type === 'stage' && r.uid === overUid)?.legIndex;
       if (destLegIndex === undefined) return;
       const destIndex = legStageUids[destLegIndex].indexOf(overUid);
@@ -532,14 +484,6 @@ export function PickerWorkspace({
 
       <div className={styles.body}>
         <nav className={styles.sidebar} aria-label="Rally itinerary">
-          {/* rbr-rally-creator-web#107 Phase 4: one DndContext for the whole
-              sidebar (mirrors RoadBook's single book-wide DndContext) -- a
-              drag can land on a different leg's header/rows (the cross-leg
-              move), closestCenter just decides which row is "over" at any
-              given pointer position, same as RoadBook's own collision
-              detection. Each leg gets its own SortableContext scoped to
-              just that leg's stage uids (legRowGroups below), grouped from
-              `rows` once rather than re-filtering the whole list per leg. */}
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSidebarDragEnd}>
             {legRowGroups.map((group) => (
               <SortableContext
@@ -553,10 +497,6 @@ export function PickerWorkspace({
             ))}
           </DndContext>
 
-          {/* rbr-rally-creator-web#107 Phase 4: same append-an-empty-leg
-              action as the stage editor pane's "+ Add leg" shortcut
-              (handleAddLegShortcut above), just reachable straight from the
-              sidebar without opening a stage form first. */}
           <button type="button" className={styles.sidebarAddLeg} onClick={handleAddLegShortcut}>
             + Add leg
           </button>

@@ -117,12 +117,7 @@
 
 /* Leg headers stay pinned while their stages scroll under them -- the same
    sticky treatment RoadBook's .legHeader uses, for the same "which leg am
-   I in" reason.
-   rbr-rally-creator-web#107 Phase 4: this row is no longer one big button --
-   it's a div (also the sidebar drag-to-reorder's useDroppable target for
-   this leg, see useLegHeaderDroppable) containing two real buttons side by
-   side (.legRowMain for selection, .legRowAddStage for the new inline "+
-   Add stage" affordance), since a <button> can't nest another <button>. */
+   I in" reason. */
 .legRow {
   position: sticky;
   top: 0;
@@ -137,10 +132,6 @@
   transition: background-color 0.15s ease;
 }
 
-/* rbr-rally-creator-web#107 Phase 4: hovering while dragging a stage row
-   over this leg's header -- same dashed-accent "drop here" language as
-   RoadBook's own .legDropActive (RoadBook.module.css), since this plays
-   exactly that role for the sidebar's cross-leg move. */
 .legRowDropActive {
   background: var(--accent-soft-bg);
   outline: 2px dashed var(--accent);
@@ -164,11 +155,6 @@
   color: var(--ink);
 }
 
-/* rbr-rally-creator-web#107 Phase 4: a smaller, quieter sibling of
-   RoadBook's .addStageBrick -- same green "constructive action" hover
-   language (highlight ramp, see RoadBook.module.css's #104 comment) but
-   sized to sit inline in a sidebar row rather than as a full brick-sized
-   slot. */
 .legRowAddStage {
   flex-shrink: 0;
   padding: 0.3rem 0.55rem;
@@ -245,10 +231,6 @@
   flex-shrink: 0;
 }
 
-/* rbr-rally-creator-web#107 Phase 4: drag-to-reorder grab affordance and
-   in-flight dragging state -- same cursor/opacity language as StageBrick's
-   own .brick/.brick.dragging (StageBrick.module.css), so a row being dragged
-   in the sidebar reads the same as a brick being dragged in the road book. */
 .stageRow {
   cursor: grab;
   touch-action: none;
@@ -306,10 +288,6 @@
   font-style: italic;
 }
 
-/* rbr-rally-creator-web#107 Phase 4: same dashed-outline "+ Add" visual
-   language as RoadBook's own .addLegButton (RoadBook.module.css) -- a
-   full-width block below the itinerary list, green highlight-ramp hover to
-   match every other constructive "add" affordance in the app. */
 .sidebarAddLeg {
   display: flex;
   align-items: center;

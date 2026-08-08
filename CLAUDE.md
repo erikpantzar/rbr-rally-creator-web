@@ -17,5 +17,11 @@ up piece by piece, per `DESIGN_SPEC.md`), while RSF itself never has to change.
 - `ideas-and-projects/active/rally-creation-automation/NOTES.md` (sibling repo) — the overall
   plan and phase breakdown spanning both this repo and the service.
 
-Keep `README.md`'s Status section current as features land — that's the source of truth for
-what's actually built, not this file.
+Do not update `README.md`. Instructions and rationale live in the code itself.
+
+## Code style
+
+- No comments in code — the code and its structure are the documentation.
+- Write in a functional, atomic-design style: small, pure, replaceable pieces over large
+  stateful ones. Favor composition over inheritance/config objects. Keep components and
+  functions small and single-purpose so they're easy to swap out.

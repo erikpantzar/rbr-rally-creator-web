@@ -154,20 +154,6 @@ export function applyAddLeg(legSchedule) {
   return { legSchedule: nextLegSchedule, legIndex };
 }
 
-// rbr-rally-creator-web#107 Phase 4: the sidebar's drag-to-reorder math,
-// mirroring RoadBook's own handleDragEnd (RoadBook.jsx) exactly -- same
-// per-leg uid "containers" derived from computeLegStageRanges, same-leg
-// reorder via arrayMove, cross-leg move via filter-out + splice-in, then
-// rebuild the flat stagePlan from the containers. Kept as one function
-// (rather than splitting same-leg/cross-leg) since the destination leg is
-// just a parameter -- same leg index in and out is simply the reorder case
-// with no stage_count shift. Always returns both stagePlan and legSchedule
-// (mirroring applyAddStage's shape) even when legSchedule is unchanged, so
-// callers have one consistent shape to destructure.
-//
-// Callers MUST route the result through onStagePlanChange (not hold it) so
-// normalizeLastStageService still runs -- same contract as every other
-// helper in this file; this function never calls it.
 export function applyReorderStage(stagePlan, legSchedule, uid, destLegIndex, destIndex) {
   const ranges = computeLegStageRanges(legSchedule);
   const containers = ranges.map(({ startIndex, endIndex }) =>

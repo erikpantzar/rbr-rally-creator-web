@@ -82,9 +82,10 @@
   gap: 0.5rem;
   border: none;
   background: transparent;
-  color: var(--muted);
+  color: var(--danger-fg);
   font-family: inherit;
   font-size: 0.64rem;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   cursor: pointer;
@@ -94,18 +95,21 @@
 
 .credentialsToggle[data-saved='true'] {
   color: var(--ink-soft);
+  font-weight: 400;
 }
 
 .credentialsDot {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--danger-fg);
+  box-shadow: 0 0 8px 1px oklch(from var(--danger-fg) l c h / 0.7);
   flex-shrink: 0;
 }
 
 .credentialsDot[data-saved='true'] {
   background: var(--launch-fg, var(--success-fg));
+  box-shadow: 0 0 6px 1px oklch(from var(--launch-fg, var(--success-fg)) l c h / 0.55);
 }
 
 .center {

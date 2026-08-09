@@ -88,6 +88,7 @@ const DEFAULT_RALLY_BASICS = {
 export function RallyBuilder({
   baseUrl,
   credentialsSaved,
+  credentialsUsername,
   initialPayload,
   credentialsSlot,
   sidebarOpen,
@@ -856,6 +857,7 @@ export function RallyBuilder({
         baseUrl={baseUrl}
         rallyName={rallyBasics.rally_name}
         credentialsSaved={credentialsSaved}
+        credentialsUsername={credentialsUsername}
         credentialsSlot={credentialsSlot}
         sidebarOpen={sidebarOpen}
         onOpenSidebar={onOpenSidebar}

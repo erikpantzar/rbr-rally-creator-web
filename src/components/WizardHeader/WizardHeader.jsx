@@ -11,15 +11,17 @@ import styles from './WizardHeader.module.css';
 //
 // Credentials used to be the first thing inside Step 1 ("1. General
 // settings") -- the Hyper mockup's step 1 is pure rally fields, so they move
-// here instead as a disclosure: collapsed, the header just shows whether
-// they're saved (credentialsSaved), same glanceable role as ServiceStatus's
-// dot; expanded, it reveals `credentialsSlot` (the actual CredentialForm/
-// CredentialStatus markup, still owned/built by App.jsx exactly as before --
-// only *where* it renders changed, not who builds it).
+// here instead as a disclosure: collapsed, the header shows saved/needed
+// state plus the saved username (credentialsSaved/credentialsUsername), same
+// glanceable role as ServiceStatus's dot -- so "who's saved in" doesn't
+// require expanding; expanded, it reveals `credentialsSlot` (the actual
+// CredentialForm/CredentialStatus markup, still owned/built by App.jsx
+// exactly as before -- only *where* it renders changed, not who builds it).
 export function WizardHeader({
   baseUrl,
   rallyName,
   credentialsSaved,
+  credentialsUsername,
   credentialsSlot,
   sidebarOpen,
   onOpenSidebar,
@@ -56,7 +58,11 @@ export function WizardHeader({
           onClick={() => setCredentialsOpen((open) => !open)}
         >
           <span className={styles.credentialsDot} data-saved={credentialsSaved} />
-          {credentialsSaved ? 'Credentials saved' : 'Credentials needed'}
+          {credentialsSaved
+            ? credentialsUsername
+              ? `Credentials saved · ${credentialsUsername}`
+              : 'Credentials saved'
+            : 'Credentials needed'}
         </button>
       </div>
 

@@ -20,6 +20,7 @@ export function RallyWizard({
   baseUrl,
   rallyName,
   credentialsSaved,
+  credentialsUsername,
   credentialsSlot,
   sidebarOpen,
   onOpenSidebar,
@@ -56,6 +57,7 @@ export function RallyWizard({
         baseUrl={baseUrl}
         rallyName={rallyName}
         credentialsSaved={credentialsSaved}
+        credentialsUsername={credentialsUsername}
         credentialsSlot={credentialsSlot}
         sidebarOpen={sidebarOpen}
         onOpenSidebar={onOpenSidebar}

@@ -34,42 +34,136 @@
 
 .track {
   position: relative;
-  height: 16px;
+  height: 28px;
 }
 
 .trackLine {
   position: absolute;
-  top: 7px;
-  left: 0;
-  right: 0;
+  top: 5px;
+  left: 9px;
+  right: 9px;
   height: 2px;
   background: var(--border-hair);
 }
 
 .fill {
   position: absolute;
-  top: 7px;
-  left: 0;
+  top: 5px;
+  left: 9px;
   height: 2px;
   background: var(--accent);
   transition: width var(--motion-panel, 480ms) cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.marker {
+.waypoints {
   position: absolute;
-  top: 0;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.waypoint {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  width: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+
+.waypointDot {
+  display: block;
   width: 12px;
   height: 12px;
-  margin-left: -6px;
   border-radius: 50%;
+  border: 2px solid var(--border-hair);
+  background: var(--bg);
+  transition:
+    background var(--motion-base, 220ms) ease,
+    border-color var(--motion-base, 220ms) ease,
+    box-shadow var(--motion-base, 220ms) ease,
+    transform var(--motion-base, 220ms) ease;
+}
+
+.waypointNumber {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  transition: color var(--motion-base, 220ms) ease;
+}
+
+.waypoint[data-state='done'] .waypointDot {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.waypoint[data-state='done'] .waypointNumber {
+  color: var(--ink-soft);
+}
+
+.waypoint[data-state='active'] .waypointDot {
+  border-color: var(--accent);
   background: var(--accent);
   box-shadow: 0 0 10px 1px oklch(from var(--accent) l c h / 0.6);
-  transition: left var(--motion-panel, 480ms) cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform: scale(1.3);
+}
+
+.waypoint[data-state='active'] .waypointNumber {
+  color: var(--accent);
+}
+
+.waypoint:hover .waypointDot {
+  border-color: var(--accent);
+  transform: scale(1.15);
+}
+
+.waypoint:hover .waypointNumber {
+  color: var(--ink);
+}
+
+.waypoint:focus-visible .waypointDot {
+  box-shadow: var(--accent-glow);
+}
+
+.waypointLabel {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--border-hair);
+  background: var(--card);
+  color: var(--ink-soft);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--motion-base, 220ms) ease,
+    transform var(--motion-base, 220ms) ease;
+}
+
+.waypoint:hover .waypointLabel,
+.waypoint:focus-visible .waypointLabel {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .fill,
-  .marker {
+  .waypointDot,
+  .waypointNumber,
+  .waypointLabel {
     transition: none;
   }
 }

@@ -78,9 +78,11 @@ export function RallyWizard({
         step={step}
         stepCount={stepCount}
         stepTitle={stepTitles[step]}
+        stepTitles={stepTitles}
         stepNote={stepNotes?.[step]}
         onBack={() => onStepChange(Math.max(0, step - 1))}
         onNext={() => onStepChange(Math.min(stepCount - 1, step + 1))}
+        onStepChange={onStepChange}
         isLastStep={isLastStep}
         onPublish={onPublish}
         canPublish={canPublish}

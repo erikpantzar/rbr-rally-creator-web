@@ -9,9 +9,11 @@ export function WizardFooter({
   step,
   stepCount,
   stepTitle,
+  stepTitles,
   stepNote,
   onBack,
   onNext,
+  onStepChange,
   isLastStep,
   onPublish,
   canPublish,
@@ -24,7 +26,14 @@ export function WizardFooter({
         ◂ Back
       </button>
 
-      <WizardProgressRail step={step} stepCount={stepCount} stepTitle={stepTitle} stepNote={stepNote} />
+      <WizardProgressRail
+        step={step}
+        stepCount={stepCount}
+        stepTitle={stepTitle}
+        stepTitles={stepTitles}
+        stepNote={stepNote}
+        onStepChange={onStepChange}
+      />
 
       {isLastStep ? (
         <button

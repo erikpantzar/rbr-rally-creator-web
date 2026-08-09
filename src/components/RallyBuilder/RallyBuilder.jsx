@@ -498,6 +498,18 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
     await cancelJob(baseUrl, jobId);
   }
 
+  // rbr-rally-creator-web#120: the only way off a terminal job screen used
+  // to be reloading the page. Clearing job/jobId here is enough to get back
+  // to the wizard -- rallyBasics/carGroupIds/stagePlan/legSchedule were
+  // never touched by the job overlay, so whatever the user built is still
+  // right there once it's dismissed.
+  function handleDismissJob() {
+    setJobId(null);
+    setJob(null);
+    setSubmitting(false);
+    setCancelRequested(false);
+  }
+
   if (loading) {
     return <div className={styles.container}>Loading catalog...</div>;
   }
@@ -869,6 +881,7 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
             job={job}
             onCancel={handleCancelJob}
             cancelRequested={cancelRequested || job.cancellationRequested}
+            onDismiss={handleDismissJob}
           />
         </div>
       )}

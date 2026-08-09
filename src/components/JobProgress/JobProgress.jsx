@@ -1,10 +1,42 @@
+import { useEffect, useRef, useState } from 'react';
 import styles from './JobProgress.module.css';
+
+// rbr-rally-creator-web#120: pulses the percentage label for a beat whenever
+// a new step lands, so the HUD feels like it's actively reporting telemetry
+// rather than a bar that occasionally jumps. Keyed off stepIndex rather than
+// the rendered progress % since two different stepIndex values can round to
+// the same %.
+function useAdvancingPulse(stepIndex) {
+  const [pulsing, setPulsing] = useState(false);
+  const previousStepIndex = useRef(stepIndex);
+
+  useEffect(() => {
+    if (previousStepIndex.current === stepIndex) return undefined;
+    previousStepIndex.current = stepIndex;
+    setPulsing(true);
+    const timeoutId = setTimeout(() => setPulsing(false), 600);
+    return () => clearTimeout(timeoutId);
+  }, [stepIndex]);
+
+  return pulsing;
+}
 
 // rbr-rally-creator-web#31: `onCancel`/`cancelRequested` are only relevant
 // while the job is still queued/running -- callers can pass them
 // unconditionally, they're simply unused for every other status branch
 // below.
-export function JobProgress({ job, onCancel, cancelRequested }) {
+// rbr-rally-creator-web#120: `onDismiss` is the mirror image -- only
+// relevant once the job has reached a terminal state, since queued/running
+// already has its own way out (Cancel). Terminal branches each render it
+// with their own state's color treatment so it never reads as a neutral
+// "OK" button on top of an error/warning card.
+export function JobProgress({ job, onCancel, cancelRequested, onDismiss }) {
+  // Called unconditionally (rules of hooks) even though the pulse only ever
+  // shows up in the queued/running branch below -- job?.progress?.stepIndex
+  // is undefined for every other status, so the effect inside just never
+  // fires for them.
+  const advancing = useAdvancingPulse(job?.progress?.stepIndex);
+
   if (!job) {
     return null;
   }
@@ -20,7 +52,9 @@ export function JobProgress({ job, onCancel, cancelRequested }) {
           {cancelRequested ? 'Cancelling...' : job.progress.currentStepLabel}
         </p>
         {job.progress.note && !cancelRequested && <p className={styles.note}>{job.progress.note}</p>}
-        <p className={styles.percentage}>{progress}%</p>
+        <p className={advancing ? `${styles.percentage} ${styles.advancing}` : styles.percentage}>
+          {progress}%
+        </p>
         {onCancel && (
           // Cancel is cooperative-only (DELETE /jobs/:id) and does not wait
           // for the job to actually stop -- once requested, re-clicking does
@@ -51,6 +85,11 @@ export function JobProgress({ job, onCancel, cancelRequested }) {
             </a>
             .
           </p>
+          {onDismiss && (
+            <button type="button" className={styles.dismissButtonSuccess} onClick={onDismiss}>
+              Back to rally overview
+            </button>
+          )}
         </div>
       </div>
     );
@@ -68,6 +107,11 @@ export function JobProgress({ job, onCancel, cancelRequested }) {
                 View final page reached during the test
               </a>
             </p>
+          )}
+          {onDismiss && (
+            <button type="button" className={styles.dismissButtonAmber} onClick={onDismiss}>
+              Back to wizard
+            </button>
           )}
         </div>
       </div>
@@ -94,6 +138,11 @@ export function JobProgress({ job, onCancel, cancelRequested }) {
               <pre className={styles.snippet}>{job.result.bodyTextSnippet}</pre>
             </details>
           )}
+          {onDismiss && (
+            <button type="button" className={styles.dismissButtonAmber} onClick={onDismiss}>
+              Back to wizard
+            </button>
+          )}
         </div>
       </div>
     );
@@ -116,6 +165,11 @@ export function JobProgress({ job, onCancel, cancelRequested }) {
                 Check final page
               </a>
             </p>
+          )}
+          {onDismiss && (
+            <button type="button" className={styles.dismissButtonError} onClick={onDismiss}>
+              Back to wizard
+            </button>
           )}
         </div>
       </div>
@@ -147,6 +201,11 @@ export function JobProgress({ job, onCancel, cancelRequested }) {
                 Check final page
               </a>
             </p>
+          )}
+          {onDismiss && (
+            <button type="button" className={styles.dismissButtonNeutral} onClick={onDismiss}>
+              Back to wizard
+            </button>
           )}
         </div>
       </div>

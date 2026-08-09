@@ -1,35 +1,86 @@
+/* Hyper restyle: grid-reflow the form's flat list of .formGroups into the
+   mockup's layout (big rally-name field full-width, description full-width,
+   then a 3-column row for damage/pacenotes/road-side-service, then a
+   2-column row for password/hidden-stage-name) without touching the JSX
+   order -- nth-child grid-column/row placement below does the reflow, so
+   RallyBasicsForm.jsx's field order (which also matters for tab order)
+   stays the natural top-to-bottom order a keyboard user expects. */
 .form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.75rem 1.5rem;
 }
 
 .formGroup {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+/* Rally name: full width, own row. */
+.form .formGroup:nth-child(1) {
+  grid-column: 1 / -1;
+}
+
+/* Description: full width, own row. */
+.form .formGroup:nth-child(2) {
+  grid-column: 1 / -1;
+}
+
+/* Damage / pacenotes / road-side-service: the mockup's 3-column select
+   row. Each already occupies one grid column by default (3-col grid) --
+   this just groups them onto the same row explicitly so the row doesn't
+   split if an earlier group's content wraps. */
+.form .formGroup:nth-child(3),
+.form .formGroup:nth-child(4),
+.form .formGroup:nth-child(5) {
+  grid-row: 3;
+}
+
+/* Hidden-stage-name checkbox + password section: the mockup's 2-column
+   row, checkbox on the left so it reads next to the rule it affects
+   (stage names), password (the wider control) on the right. */
+.form .formGroup:nth-child(6) {
+  grid-column: 1 / span 1;
+  grid-row: 4;
+  align-self: end;
+}
+
+.form .passwordSection {
+  grid-column: 2 / span 2;
+  grid-row: 4;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 
 .formGroup label {
+  font-size: 0.62rem;
   font-weight: 600;
-  color: var(--ink-soft);
-  font-size: 0.75rem;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: var(--ink-soft);
 }
 
-/* Title + description read as the document's own header -- same mono
-   family as the rest of the app (index.css sets it globally) but larger
-   and un-boxed, distinct from the ordinary field inputs below them. Layered
-   on top of Input's own base/size styling (its `size="lg"` class already
-   handles font-size/weight/padding) -- this just swaps the full border for
-   a bottom-only rule and drops the background, so the shared glow-on-focus
-   behavior still applies underneath. */
+/* Rally name reads as the step's own oversized display field -- Input's
+   size="lg" already sets font-size/weight; this swaps its full border for
+   a bottom-only rule in the display font, echoing the mockup's big
+   uppercase field. */
+.form .formGroup:first-child label {
+  font-size: 0.62rem;
+}
+
 .form .formGroup:first-child input {
-  padding: 0.25rem 0;
+  padding: 0.4rem 0;
   border: none;
   border-bottom: 1px solid var(--border);
   background: transparent;
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .form .formGroup:nth-child(2) textarea {
@@ -45,13 +96,13 @@
 }
 
 .formGroup select {
-  padding: 0.5rem 0.7rem;
+  padding: 0.6rem 0.7rem;
   border: 1px solid var(--border);
   border-radius: 0;
-  background: var(--bg);
+  background: var(--card);
   color: var(--ink);
-  font-size: 0.9rem;
-  font-family: inherit;
+  font-size: 0.82rem;
+  font-family: var(--font-mono);
 }
 
 .formGroup select:disabled {
@@ -68,8 +119,13 @@
 .checkboxLabel {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border);
+  background: var(--card);
   font-weight: 400;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
   cursor: pointer;
 }
 
@@ -82,16 +138,14 @@
 .passwordSection {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
-  padding-top: 0.75rem;
-  border-top: 1px dashed var(--border);
+  gap: 0.55rem;
 }
 
 .passwordNote {
   margin: 0;
-  font-size: 0.8rem;
-  color: var(--ink-soft);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
 }
 
 /* The password row + visibility toggle moved into the shared PasswordInput

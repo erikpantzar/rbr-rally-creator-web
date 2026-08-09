@@ -10,12 +10,15 @@ import {
 } from '../../lib/rallyApi.js';
 import {
   createDefaultLegConfig,
+  buildRallyConfig,
   computeLegStageRanges,
   normalizeLastStageService,
   cloneStageConfigWithNewUid,
   isLegOpenTimeTooSoon,
   clampLegTimes,
   applyLegFieldChange,
+  sumStagePlanKm,
+  formatKm,
   MAX_LEGS,
   MIN_LEG_LEAD_MINUTES,
   CLAMP_LEG_LEAD_MINUTES,
@@ -26,7 +29,6 @@ import {
   clearCurrentDraft,
   saveRally,
 } from '../../lib/rallyStorage.js';
-import { SECTION_IDS, jumpToSection } from '../../lib/sectionJump.js';
 import { Button } from '../Button/Button.jsx';
 import { RallyBasicsForm } from '../RallyBasicsForm/RallyBasicsForm.jsx';
 import { CarGroupPicker } from '../CarGroupPicker/CarGroupPicker.jsx';
@@ -34,7 +36,23 @@ import { RoadBook } from '../RoadBook/RoadBook.jsx';
 import { JobProgress } from '../JobProgress/JobProgress.jsx';
 import { ReadinessBanner } from '../ReadinessBanner/ReadinessBanner.jsx';
 import { Toast } from '../Toast/Toast.jsx';
+import { RallyWizard } from '../RallyWizard/RallyWizard.jsx';
+import { RallyTelemetryRail } from '../RallyTelemetryRail/RallyTelemetryRail.jsx';
 import styles from './RallyBuilder.module.css';
+
+// One entry per wizard step, in order -- shared by RallyWizard's footer
+// (title/step-count readout) and the readiness banner below (a problem's
+// `target` is one of these ids, same idea as the old SECTION_IDS but
+// resolving to a step index via handleReadinessJump instead of a
+// scrollIntoView target now that the page is a stepper, not one long
+// document).
+const WIZARD_STEPS = [
+  { id: 'rally', title: 'The rally', note: 'Name & global rules' },
+  { id: 'field', title: 'The field', note: 'Car groups' },
+  { id: 'roadBook', title: 'Road book', note: 'Stages & legs' },
+  { id: 'launch', title: 'Launch', note: 'Publish to rallysimfans.hu' },
+];
+const STEP_INDEX = Object.fromEntries(WIZARD_STEPS.map((s, i) => [s.id, i]));
 
 // Matches index.html's <title> -- used as the "at rest" tab title that the
 // progress/blink effect below always restores once it's done doing its
@@ -67,13 +85,26 @@ const DEFAULT_RALLY_BASICS = {
   password2: '',
 };
 
-export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, credentialsSlot }) {
+export function RallyBuilder({
+  baseUrl,
+  credentialsSaved,
+  initialPayload,
+  credentialsSlot,
+  sidebarOpen,
+  onOpenSidebar,
+}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stages, setStages] = useState([]);
   const [carGroups, setCarGroups] = useState([]);
   const [cars, setCars] = useState([]);
   const [rallyOptions, setRallyOptions] = useState(null);
+
+  // Which wizard step is currently active. Navigation is always free (Back/
+  // Next never blocked by per-step validation) -- all blocking stays on the
+  // last step's readiness banner/Publish button, exactly as it gated Create
+  // Rally before this rebuild into a stepper.
+  const [step, setStep] = useState(0);
 
   // rbr-rally-creator-web#78: handleNewRally focuses this after the reset
   // renders, so the ref itself never triggers a re-render.
@@ -387,38 +418,7 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
     // (button disabled) -- this function only runs once canSubmit is true,
     // so no need to re-check/alert() those cases here. Only genuine
     // runtime/network failures below still use alert().
-    const legRanges = computeLegStageRanges(legSchedule);
-
-    // Only open_time/close_time/super_rally/start_stage_no are part of the
-    // shared payload contract -- stage_count is a frontend-only control for
-    // deriving start_stage_no, not sent to the service.
-    const legSchedulePayload = legSchedule.map((leg, i) => ({
-      open_time: leg.open_time,
-      close_time: leg.close_time,
-      super_rally: leg.super_rally,
-      start_stage_no: legRanges[i].startStageNo,
-    }));
-
-    // _uid is a client-only drag-and-drop identity (see lib/rallyPlan.js) --
-    // strip it so the submitted payload shape is exactly what it was before
-    // Phase 3, unchanged from what the service validates against.
-    //
-    // _label (rbr-rally-creator-web#64) is a client-only planning nickname,
-    // stripped here for the same reason: it's a private "what am I looking
-    // at" label for the person building the rally, never sent site-side.
-    // hidden_name (a different field, not stripped) is the real per-stage
-    // public name rallyWizard.js fills into rallysimfans.hu's own
-    // #stage_name field when hidden_stage_name is checked -- it's part of
-    // `...rest` below and flows straight through.
-    const stagePlanPayload = stagePlan.map(({ _uid, _label, ...rest }) => rest);
-
-    const config = {
-      rallyBasics,
-      carGroupIds,
-      legSchedule: legSchedulePayload,
-      stagePlan: stagePlanPayload,
-      ...(dryRun ? { dryRun: true } : {}),
-    };
+    const config = buildRallyConfig({ rallyBasics, carGroupIds, stagePlan, legSchedule, dryRun });
 
     setSubmitting(true);
     setCancelRequested(false);
@@ -509,6 +509,15 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
   const legRanges = computeLegStageRanges(legSchedule);
   const assignedStages = legRanges.length > 0 ? legRanges[legRanges.length - 1].endIndex : 0;
   const legStagesBalanced = assignedStages === stagePlan.length;
+
+  // Step 4's stat grid -- same stageByCatalogId + sumStagePlanKm pairing
+  // Itinerary.jsx already uses internally for its own rally-total display,
+  // rebuilt here since Itinerary doesn't expose that total upward. Not a
+  // useMemo: this runs after the loading/error early returns above, where
+  // hooks can't be called, and the map is cheap enough (rebuilt every
+  // render, same as legRanges just above) not to need memoizing anyway.
+  const stageByCatalogId = new Map(stages.map((s) => [s.id, s]));
+  const totalKm = sumStagePlanKm(stagePlan, stageByCatalogId);
   // Per rbr-rally-creator-web#15: legs are now added freely via "+ Add Leg",
   // so it's easy to end up with a leg nobody has put a stage into yet -- that
   // wouldn't count as valid to publish, per the issue's own wording.
@@ -555,58 +564,62 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
   //
   // rbr-rally-creator-web#105: every problem is { message, target, action? }
   // (ReadinessBanner's normalized shape) -- clicking a problem jumps to the
-  // section that owns it. The explicit problem -> section mapping:
-  //   credentials missing        -> SECTION_IDS.credentials (App.jsx's
-  //                                 credentialsSlot, rendered inside this
-  //                                 builder's "1. General settings" section)
-  //   rally name missing         -> SECTION_IDS.rallyBasics (RallyBasicsForm)
-  //   no car groups selected     -> SECTION_IDS.carGroups (CarGroupPicker)
-  //   every stage/leg problem    -> SECTION_IDS.roadBook (RoadBook): no
+  // step that owns it. `target` used to be a SECTION_IDS dom id (scrolled to
+  // via jumpToSection); now that the page is a stepper it's a STEP_INDEX key
+  // instead, resolved to setStep(index) by handleReadinessJump below. The
+  // explicit problem -> step mapping:
+  //   credentials missing        -> STEP_INDEX.rally (credentials now live in
+  //                                 WizardHeader, expandable from any step,
+  //                                 but step 1 is the contextually nearest
+  //                                 place to land on)
+  //   rally name missing         -> STEP_INDEX.rally (RallyBasicsForm)
+  //   no car groups selected     -> STEP_INDEX.field (CarGroupPicker)
+  //   every stage/leg problem    -> STEP_INDEX.roadBook (RoadBook): no
   //     stages yet, leg/stage counts out of balance, empty legs, too many
   //     legs, and legs opening too soon are all fixed by editing the road
-  //     book's bricks/legs, so they all point at the same section.
+  //     book's bricks/legs, so they all point at the same step.
   const readinessProblems = [];
   if (!credentialsSaved) {
     readinessProblems.push({
-      message: 'Save your rallysimfans.hu credentials above before creating a rally.',
-      target: SECTION_IDS.credentials,
+      message: 'Save your rallysimfans.hu credentials (top of the page) before creating a rally.',
+      target: STEP_INDEX.rally,
     });
   }
   if (!rallyBasics.rally_name.trim()) {
     readinessProblems.push({
       message: 'Rally name is required.',
-      target: SECTION_IDS.rallyBasics,
+      target: STEP_INDEX.rally,
     });
   }
   if (carGroupIds.length === 0) {
     readinessProblems.push({
       message: 'Select at least one car group.',
-      target: SECTION_IDS.carGroups,
+      target: STEP_INDEX.field,
     });
   }
   if (stagePlan.length === 0) {
     readinessProblems.push({
       message: 'Add at least one stage before creating the rally.',
-      target: SECTION_IDS.roadBook,
+      target: STEP_INDEX.roadBook,
     });
   }
   if (!legStagesBalanced) {
     readinessProblems.push({
       message: `Leg stage counts add up to ${assignedStages}, but the rally has ${stagePlan.length} stages — drag a stage across a leg divider to move it into the right leg.`,
-      target: SECTION_IDS.roadBook,
+      target: STEP_INDEX.roadBook,
     });
   }
   if (emptyLegNumbers.length > 0) {
     const legWord = emptyLegNumbers.length === 1 ? 'Leg' : 'Legs';
     readinessProblems.push({
       message: `${legWord} ${emptyLegNumbers.join(', ')} ${emptyLegNumbers.length === 1 ? 'has' : 'have'} no stages — add at least one stage to every leg (or remove the empty one).`,
-      target: SECTION_IDS.roadBook,
+      target: STEP_INDEX.roadBook,
     });
   }
   if (tooManyLegs) {
     readinessProblems.push({
       message: `Rallies can have at most ${MAX_LEGS} legs — remove ${legSchedule.length - MAX_LEGS} leg${legSchedule.length - MAX_LEGS === 1 ? '' : 's'}.`,
-      target: SECTION_IDS.roadBook,
+      target: STEP_INDEX.roadBook,
     });
   }
   if (legsOpeningTooSoon.length > 0) {
@@ -618,7 +631,7 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
     // whole banner.
     readinessProblems.push({
       message: `${legWord} ${legsOpeningTooSoon.join(', ')} ${verbWord} in less than ${MIN_LEG_LEAD_MINUTES} minutes (or already in the past) — rallysimfans.hu will automatically push it out to ${CLAMP_LEG_LEAD_MINUTES} minutes from now and shift the close time to match, so update the start time here if you want control over the exact time.`,
-      target: SECTION_IDS.roadBook,
+      target: STEP_INDEX.roadBook,
       action: {
         label:
           legsOpeningTooSoon.length === 1
@@ -687,175 +700,175 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
 
   const locked = job?.status === 'succeeded';
 
+  // ReadinessBanner is presentational (props in, callback out) -- it used to
+  // call jumpToSection(target) directly; now `target` is a STEP_INDEX value
+  // and this just moves the stepper there.
+  function handleReadinessJump(target) {
+    setStep(target);
+  }
+
+  const stepPanels = [
+    // Step 1: The rally. Save/New Rally (or, once locked, Duplicate as new
+    // draft) live here as the always-available utility row, same role they
+    // had ahead of the old document's section 1. Credentials moved out of
+    // this step into WizardHeader (see RallyWizard) -- the mockup's step 1
+    // is pure rally fields, and credentials status/entry reads more like
+    // header chrome (alongside ServiceStatus/StockholmClock) than a wizard
+    // step of its own.
+    <div key="rally" className={styles.stepPanel}>
+      {locked ? (
+        <div className={styles.utilityRow}>
+          <Button variant="primary" className={styles.submitButton} onClick={handleDuplicateAsNewDraft}>
+            Duplicate as new draft
+          </Button>
+        </div>
+      ) : (
+        <div className={styles.utilityRow}>
+          <button type="button" className={styles.saveButton} onClick={handleSaveRally} disabled={submitting}>
+            {savedNotice ? 'Saved!' : 'Save'}
+          </button>
+          <button type="button" className={styles.saveButton} onClick={handleNewRally} disabled={submitting}>
+            New Rally
+          </button>
+        </div>
+      )}
+
+      <p className={styles.sectionIntro}>
+        Name it, set the rules that apply everywhere. Everything here is pushed to
+        rallysimfans.hu exactly as typed.
+      </p>
+
+      {/* Once locked, these fields have nothing left to submit -- wrapping
+          RallyBasicsForm in a plain disabled fieldset freezes every input
+          without needing the component to know about "locked" itself
+          (native fieldset disabling cascades to all descendant controls). */}
+      <fieldset className={styles.sectionFieldset} disabled={locked}>
+        <RallyBasicsForm
+          value={rallyBasics}
+          onChange={setRallyBasics}
+          options={rallyOptions}
+          rallyNameInputRef={rallyNameInputRef}
+        />
+      </fieldset>
+    </div>,
+
+    // Step 2: The field.
+    <div key="field" className={styles.stepPanel}>
+      <p className={styles.sectionIntro}>Pick which car groups (or individual cars) drivers can enter with.</p>
+
+      <fieldset className={styles.sectionFieldset} disabled={locked}>
+        <CarGroupPicker carGroups={carGroups} cars={cars} selectedIds={carGroupIds} onChange={setCarGroupIds} />
+      </fieldset>
+    </div>,
+
+    // Step 3: Road book. Stage/service editing itself lives in
+    // PickerWorkspace (opened from here) -- this panel is just the step
+    // shell around RoadBook's existing top-level rendering, plus
+    // RallyTelemetryRail as a sticky read-only summary alongside it (wider
+    // max-width than the other steps' .stepPanel, since it's a two-column
+    // layout rather than a single form column).
+    <div key="roadBook" className={`${styles.stepPanel} ${styles.roadBookPanel}`}>
+      <p className={styles.sectionIntro}>
+        Build the route leg by leg -- add stages, arrange service, and set each leg's start
+        time.
+      </p>
+
+      <div className={styles.roadBookLayout}>
+        <div className={styles.stagesSection}>
+          <RoadBook
+            stages={stages}
+            options={rallyOptions}
+            stagePlan={stagePlan}
+            legSchedule={legSchedule}
+            onStagePlanChange={updateStagePlan}
+            onLegScheduleChange={setLegSchedule}
+            onLegFieldChange={handleLegFieldChange}
+            onAddLeg={handleAddLeg}
+            hiddenStageNameEnabled={rallyBasics.hidden_stage_name}
+            locked={locked}
+          />
+        </div>
+
+        <RallyTelemetryRail stages={stages} stagePlan={stagePlan} legSchedule={legSchedule} />
+      </div>
+    </div>,
+
+    // Step 4: Launch -- a glanceable stat grid, then the readiness banner,
+    // then the publish-time note and test-run toggle. Publish itself is a
+    // single control, the footer's Publish button (WizardFooter/RallyWizard)
+    // rather than a second copy here -- the mockup shows both a footer nav
+    // button and a big in-panel button doing the same thing, but that's
+    // redundant once canSubmit/submitting already gate one real button.
+    <div key="launch" className={styles.stepPanel}>
+      {locked ? (
+        <p className={styles.sectionIntro}>
+          This rally has been created. Use "Duplicate as new draft" (step 1) to start a new
+          build from this one.
+        </p>
+      ) : (
+        <>
+          <div className={styles.launchStats}>
+            <div className={styles.launchStat}>
+              <p className={styles.launchStatValue}>{stagePlan.length}</p>
+              <p className={styles.launchStatLabel}>Stages</p>
+            </div>
+            <div className={styles.launchStat}>
+              <p className={styles.launchStatValue}>{legSchedule.length}</p>
+              <p className={styles.launchStatLabel}>Legs</p>
+            </div>
+            <div className={`${styles.launchStat} ${styles.launchStatAccent}`}>
+              <p className={styles.launchStatValue}>{formatKm(totalKm)}</p>
+              <p className={styles.launchStatLabel}>Total distance</p>
+            </div>
+            <div className={styles.launchStat}>
+              <p className={styles.launchStatValue}>{carGroupIds.length}</p>
+              <p className={styles.launchStatLabel}>Car groups/cars selected</p>
+            </div>
+          </div>
+
+          <ReadinessBanner problems={readinessProblems} onJump={handleReadinessJump} />
+
+          <p className={styles.sectionIntro}>
+            Publishing to rallysimfans.hu runs through the same automation that drives the
+            real site, so it usually takes 3-6 minutes -- this tab can stay open in the
+            background while it works.
+          </p>
+
+          <div className={styles.actions}>
+            <label className={styles.testRunLabel}>
+              <input
+                type="checkbox"
+                checked={dryRun}
+                onChange={(e) => setDryRun(e.target.checked)}
+                disabled={submitting}
+              />
+              Test run (validate everything, don't actually create the rally)
+            </label>
+          </div>
+        </>
+      )}
+    </div>,
+  ];
+
   return (
     <div className={styles.container}>
-      {/* rbr-rally-creator-web#followup: the page reorganized into four
-          numbered sections (general settings, cars, road book, create
-          rally) -- see DESIGN_SPEC.md's document model, now grouped under
-          explicit numbering instead of an unbroken flow. Save/New Rally
-          moved out of the numbered flow entirely (utilityRow below,
-          rendered ahead of section 1) since they're always-available
-          utilities rather than steps in the four-part sequence. */}
-      <div className={styles.document}>
-        {locked ? (
-          // Nothing left to submit once locked -- readiness/submit are
-          // replaced by the "Duplicate as new draft" escape hatch from
-          // DESIGN_SPEC.md's UX review note, rather than disappearing with
-          // no replacement action.
-          <div className={styles.utilityRow}>
-            <Button variant="primary" className={styles.submitButton} onClick={handleDuplicateAsNewDraft}>
-              Duplicate as new draft
-            </Button>
-          </div>
-        ) : (
-          <div className={styles.utilityRow}>
-            <button
-              type="button"
-              className={styles.saveButton}
-              onClick={handleSaveRally}
-              disabled={submitting}
-            >
-              {savedNotice ? 'Saved!' : 'Save'}
-            </button>
-
-            <button
-              type="button"
-              className={styles.saveButton}
-              onClick={handleNewRally}
-              disabled={submitting}
-            >
-              New Rally
-            </button>
-          </div>
-        )}
-
-        {/* Section 1: General settings -- credentials (owned/rendered by
-            App.jsx, handed down as `credentialsSlot`) first, then a divider,
-            then the rally-wide fields RallyBasicsForm already covered
-            (damage level, pacenotes, road-side service, hidden-stage-name,
-            passwords). One physical card; two components render into it
-            (App.jsx owns credentials fetch/localStorage, RallyBuilder owns
-            the rest) -- see the top of this file's props for why that split
-            stays put rather than moving credentials logic in here. */}
-        <section className={styles.numberedSection}>
-          <h2 className={styles.numberedHeading}>1. General settings</h2>
-          <p className={styles.sectionIntro}>
-            Your rallysimfans.hu login and the rules that apply to the whole rally --
-            damage, pacenotes, road-side service, and an optional password.
-          </p>
-
-          <div id={SECTION_IDS.credentials} data-jump-target="">
-            {credentialsSlot}
-          </div>
-
-          <div className={styles.sectionDivider} />
-
-          {/* Once locked, these fields have nothing left to submit --
-              wrapping RallyBasicsForm/CarGroupPicker in a plain disabled
-              fieldset freezes every input without needing either component
-              to know about "locked" itself (native fieldset disabling
-              cascades to all descendant form controls). */}
-          <fieldset className={styles.sectionFieldset} disabled={locked}>
-            <div id={SECTION_IDS.rallyBasics} data-jump-target="">
-              <RallyBasicsForm
-                value={rallyBasics}
-                onChange={setRallyBasics}
-                options={rallyOptions}
-                rallyNameInputRef={rallyNameInputRef}
-              />
-            </div>
-          </fieldset>
-        </section>
-
-        {/* Section 2: Cars. */}
-        <section className={styles.numberedSection}>
-          <h2 className={styles.numberedHeading}>2. Cars</h2>
-          <p className={styles.sectionIntro}>Pick which car groups (or individual cars) drivers can enter with.</p>
-
-          <fieldset className={styles.sectionFieldset} disabled={locked}>
-            <div id={SECTION_IDS.carGroups} data-jump-target="">
-              <CarGroupPicker
-                carGroups={carGroups}
-                cars={cars}
-                selectedIds={carGroupIds}
-                onChange={setCarGroupIds}
-              />
-            </div>
-          </fieldset>
-        </section>
-
-        {/* Section 3: Road book. Stage/service editing itself lives in
-            PickerWorkspace (opened from here) -- this section is just the
-            numbered shell around RoadBook's existing top-level rendering. */}
-        <section className={styles.numberedSection}>
-          <h2 className={styles.numberedHeading}>3. Road book</h2>
-          <p className={styles.sectionIntro}>
-            Build the route leg by leg -- add stages, arrange service, and set each leg's
-            start time.
-          </p>
-
-          <div className={styles.stagesSection} id={SECTION_IDS.roadBook} data-jump-target="">
-            <RoadBook
-              stages={stages}
-              options={rallyOptions}
-              stagePlan={stagePlan}
-              legSchedule={legSchedule}
-              onStagePlanChange={updateStagePlan}
-              onLegScheduleChange={setLegSchedule}
-              onLegFieldChange={handleLegFieldChange}
-              onAddLeg={handleAddLeg}
-              hiddenStageNameEnabled={rallyBasics.hidden_stage_name}
-              locked={locked}
-            />
-          </div>
-        </section>
-
-        {/* Section 4: Create rally -- readiness banner, then the publish-time
-            note, then the actual submit control. Save/New Rally live in the
-            utility row above, not here -- they're not part of this numbered
-            step. */}
-        {!locked && (
-          <section className={styles.numberedSection}>
-            <h2 className={styles.numberedHeading}>4. Create rally</h2>
-
-            {/* onJump comes from here rather than the banner importing
-                jumpToSection itself, keeping ReadinessBanner presentational
-                (props in, callbacks out) like everything under components/. */}
-            <ReadinessBanner problems={readinessProblems} onJump={jumpToSection} />
-
-            <p className={styles.sectionIntro}>
-              Publishing to rallysimfans.hu runs through the same automation that drives
-              the real site, so it usually takes 3-6 minutes -- this tab can stay open in
-              the background while it works.
-            </p>
-
-            <div className={styles.actions}>
-              <Button
-                variant="primary"
-                className={styles.submitButton}
-                onClick={handleCreateRally}
-                disabled={!canSubmit}
-              >
-                {submitting
-                  ? dryRun
-                    ? 'Running test...'
-                    : 'Creating rally...'
-                  : 'Create Rally'}
-              </Button>
-
-              <label className={styles.testRunLabel}>
-                <input
-                  type="checkbox"
-                  checked={dryRun}
-                  onChange={(e) => setDryRun(e.target.checked)}
-                  disabled={submitting}
-                />
-                Test run (validate everything, don't actually create the rally)
-              </label>
-            </div>
-          </section>
-        )}
-      </div>
+      <RallyWizard
+        baseUrl={baseUrl}
+        rallyName={rallyBasics.rally_name}
+        credentialsSaved={credentialsSaved}
+        credentialsSlot={credentialsSlot}
+        sidebarOpen={sidebarOpen}
+        onOpenSidebar={onOpenSidebar}
+        step={step}
+        stepTitles={WIZARD_STEPS.map((s) => s.title)}
+        stepNotes={WIZARD_STEPS.map((s) => s.note)}
+        onStepChange={setStep}
+        canPublish={canSubmit}
+        onPublish={handleCreateRally}
+        submitting={submitting}
+        publishLabel={dryRun ? 'Running test...' : 'Creating rally...'}
+        panels={stepPanels}
+      />
 
       {job && (
         <div

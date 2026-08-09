@@ -4,11 +4,15 @@ import {
   clampLegTimes,
   isLegOpenTimeTooSoon,
   computeLegStageRanges,
+  buildRallyConfig,
   createDefaultStageConfig,
   createStageConfigForCatalogStage,
   normalizeLastStageService,
   parseStageKm,
   formatKm,
+  sumStagePlanKmBySurface,
+  parseServiceMinutes,
+  summarizeServicePlan,
   applyPickedStageToConfig,
   createDefaultServiceFields,
   MAX_LEG_SPAN_DAYS,
@@ -173,6 +177,46 @@ describe('parseStageKm / formatKm', () => {
   });
 });
 
+describe('sumStagePlanKmBySurface', () => {
+  const stageByCatalogId = new Map([
+    [1, { id: 1, surface: 'gravel', length: '10.0 km' }],
+    [2, { id: 2, surface: 'Snow', length: '5.0 km' }],
+    [3, { id: 3, surface: 'tarmac', length: '3.0 km' }],
+    [4, { id: 4, surface: 'moon dust', length: '1.0 km' }],
+  ]);
+
+  it('buckets km and stage counts per known surface, case-insensitively', () => {
+    const stagePlan = [{ stage_id: 1 }, { stage_id: 2 }, { stage_id: 1 }];
+    const totals = sumStagePlanKmBySurface(stagePlan, stageByCatalogId);
+    expect(totals.gravel).toEqual({ km: 20, count: 2 });
+    expect(totals.snow).toEqual({ km: 5, count: 1 });
+    expect(totals.tarmac).toEqual({ km: 0, count: 0 });
+  });
+
+  it('buckets an unrecognized catalog surface and an unassigned stage_id under unknown', () => {
+    const stagePlan = [{ stage_id: 4 }, { stage_id: null }];
+    const totals = sumStagePlanKmBySurface(stagePlan, stageByCatalogId);
+    expect(totals.unknown).toEqual({ km: 1, count: 2 });
+  });
+});
+
+describe('parseServiceMinutes / summarizeServicePlan', () => {
+  it('parses the numeric minutes out of a service_time and falls back to 0', () => {
+    expect(parseServiceMinutes('45 minutes')).toBe(45);
+    expect(parseServiceMinutes('No Service')).toBe(0);
+    expect(parseServiceMinutes(undefined)).toBe(0);
+  });
+
+  it('counts and sums only stages with an assigned service tier', () => {
+    const stagePlan = [
+      { service_time: 'No Service' },
+      { service_time: '45 minutes' },
+      { service_time: '5 minutes' },
+    ];
+    expect(summarizeServicePlan(stagePlan)).toEqual({ count: 2, minutes: 50 });
+  });
+});
+
 describe('createStageConfigForCatalogStage', () => {
   it('arrives assigned to the catalog stage with a surface-matched tyre, defaults otherwise', () => {
     const config = createStageConfigForCatalogStage({ id: 42, surface: 'tarmac', name: 'Col de Turini' });
@@ -251,5 +295,166 @@ describe('createDefaultServiceFields', () => {
       nummechanics: fresh.nummechanics,
       mechanicsSkill: fresh.mechanicsSkill,
     }).toEqual(shortcut);
+  });
+});
+
+describe('buildRallyConfig', () => {
+  const rallyBasics = {
+    rally_name: 'Test Rally',
+    description: 'A test rally',
+    damage_id: '2',
+    stages: 2,
+    legs: 1,
+    pacenotes_options: 'Normal Pacenotes',
+    hidden_stage_name: false,
+    road_side_service: 'no',
+    password1: '',
+    password2: '',
+  };
+
+  function stage(overrides = {}) {
+    return {
+      _uid: 'uid-should-be-stripped',
+      _label: 'my private nickname',
+      stage_id: '123',
+      surface_age_id: '2',
+      wetness_id: 'dry',
+      tracksettings_id: 'Morning Clear Crisp',
+      def_tyre_id: 'Gravel Dry',
+      choose_tyre: true,
+      choose_setup: true,
+      service_time: '60 minutes',
+      nummechanics: '6 mechanic',
+      mechanicsSkill: 'Expert',
+      hidden_name: '',
+      ...overrides,
+    };
+  }
+
+  it('produces the exact JSON shape sent to POST /rallies for a single-leg, two-stage rally', () => {
+    const config = buildRallyConfig({
+      rallyBasics,
+      carGroupIds: ['2'],
+      stagePlan: [stage(), stage({ stage_id: '456' })],
+      legSchedule: [{ open_time: '2026-05-01T10:00', close_time: '2026-05-07T10:00', super_rally: 'disabled', stage_count: 2 }],
+      dryRun: false,
+    });
+
+    expect(config).toEqual({
+      rallyBasics,
+      carGroupIds: ['2'],
+      legSchedule: [
+        { open_time: '2026-05-01T10:00', close_time: '2026-05-07T10:00', super_rally: 'disabled', start_stage_no: 1 },
+      ],
+      stagePlan: [
+        {
+          stage_id: '123',
+          surface_age_id: '2',
+          wetness_id: 'dry',
+          tracksettings_id: 'Morning Clear Crisp',
+          def_tyre_id: 'Gravel Dry',
+          choose_tyre: true,
+          choose_setup: true,
+          service_time: '60 minutes',
+          nummechanics: '6 mechanic',
+          mechanicsSkill: 'Expert',
+          hidden_name: '',
+        },
+        {
+          stage_id: '456',
+          surface_age_id: '2',
+          wetness_id: 'dry',
+          tracksettings_id: 'Morning Clear Crisp',
+          def_tyre_id: 'Gravel Dry',
+          choose_tyre: true,
+          choose_setup: true,
+          service_time: '60 minutes',
+          nummechanics: '6 mechanic',
+          mechanicsSkill: 'Expert',
+          hidden_name: '',
+        },
+      ],
+    });
+  });
+
+  it('strips _uid and _label from every stage but keeps hidden_name', () => {
+    const config = buildRallyConfig({
+      rallyBasics,
+      carGroupIds: ['2'],
+      stagePlan: [stage({ hidden_name: 'SS1 Public Name' })],
+      legSchedule: [{ open_time: '2026-05-01T10:00', close_time: '2026-05-07T10:00', super_rally: 'disabled', stage_count: 1 }],
+      dryRun: false,
+    });
+
+    expect(config.stagePlan[0]).not.toHaveProperty('_uid');
+    expect(config.stagePlan[0]).not.toHaveProperty('_label');
+    expect(config.stagePlan[0].hidden_name).toBe('SS1 Public Name');
+  });
+
+  it('drops stage_count from legSchedule and sends only the derived start_stage_no', () => {
+    const config = buildRallyConfig({
+      rallyBasics,
+      carGroupIds: ['2'],
+      stagePlan: [stage(), stage(), stage()],
+      legSchedule: [
+        { open_time: '2026-05-01T10:00', close_time: '2026-05-03T10:00', super_rally: 'disabled', stage_count: 2 },
+        { open_time: '2026-05-04T10:00', close_time: '2026-05-06T10:00', super_rally: 'disabled', stage_count: 1 },
+      ],
+      dryRun: false,
+    });
+
+    expect(config.legSchedule).toEqual([
+      { open_time: '2026-05-01T10:00', close_time: '2026-05-03T10:00', super_rally: 'disabled', start_stage_no: 1 },
+      { open_time: '2026-05-04T10:00', close_time: '2026-05-06T10:00', super_rally: 'disabled', start_stage_no: 3 },
+    ]);
+    config.legSchedule.forEach((leg) => expect(leg).not.toHaveProperty('stage_count'));
+  });
+
+  it('omits dryRun entirely when false (not just falsy) -- the service treats its mere presence as a signal', () => {
+    const config = buildRallyConfig({
+      rallyBasics,
+      carGroupIds: ['2'],
+      stagePlan: [],
+      legSchedule: [],
+      dryRun: false,
+    });
+    expect(config).not.toHaveProperty('dryRun');
+  });
+
+  it('includes dryRun: true when requested', () => {
+    const config = buildRallyConfig({
+      rallyBasics,
+      carGroupIds: ['2'],
+      stagePlan: [],
+      legSchedule: [],
+      dryRun: true,
+    });
+    expect(config.dryRun).toBe(true);
+  });
+
+  it('is pure: identical input state reproduces byte-identical output every time', () => {
+    const input = {
+      rallyBasics,
+      carGroupIds: ['2', '4'],
+      stagePlan: [stage(), stage({ stage_id: '789' })],
+      legSchedule: [{ open_time: '2026-05-01T10:00', close_time: '2026-05-07T10:00', super_rally: 'disabled', stage_count: 2 }],
+      dryRun: false,
+    };
+
+    const first = buildRallyConfig(input);
+    const second = buildRallyConfig(input);
+    expect(second).toEqual(first);
+    expect(JSON.stringify(second)).toBe(JSON.stringify(first));
+  });
+
+  it('handles an empty document (no cars, no stages, no legs) without throwing', () => {
+    const config = buildRallyConfig({
+      rallyBasics,
+      carGroupIds: [],
+      stagePlan: [],
+      legSchedule: [],
+      dryRun: false,
+    });
+    expect(config).toEqual({ rallyBasics, carGroupIds: [], legSchedule: [], stagePlan: [] });
   });
 });

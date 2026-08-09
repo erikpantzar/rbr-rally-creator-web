@@ -20,6 +20,17 @@ function surfaceGlyph(surface) {
   return SURFACE_GLYPHS[surface.toLowerCase()] ?? surface[0].toUpperCase();
 }
 
+// data-surface drives the Hyper theme's colored left rail (StageBrick.module.css)
+// -- 'unknown' for anything outside the three recognized surfaces, matching
+// tokens.css's --surface-unknown-* fallback family, rather than leaving an
+// unrecognized surface with no rail color at all.
+const KNOWN_SURFACES = new Set(['gravel', 'tarmac', 'snow']);
+
+function surfaceKey(surface) {
+  const lower = surface?.toLowerCase();
+  return lower && KNOWN_SURFACES.has(lower) ? lower : 'unknown';
+}
+
 // rbr-rally-creator-web#64: per the maintainer's own comment on the issue,
 // an optional per-stage nickname (`_label`, set via StageConfigModal's
 // "Nickname (optional)" field) is a purely local planning label -- never
@@ -109,7 +120,7 @@ export function StageBrick({
       .filter(Boolean)
       .join(' ');
     return (
-      <div className={lockedClassName}>
+      <div className={lockedClassName} data-surface={surfaceKey(stage?.surface)}>
         <span className={styles.stageNumber}>{stageNumber}</span>
         <span className={styles.surfaceGlyph} title={stage?.surface ?? 'Unknown surface'}>
           {surfaceGlyph(stage?.surface)}
@@ -165,7 +176,14 @@ export function StageBrick({
   }
 
   return (
-    <div ref={setNodeRef} style={style} className={rootClassName} {...listeners} {...attributes}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={rootClassName}
+      data-surface={surfaceKey(stage?.surface)}
+      {...listeners}
+      {...attributes}
+    >
       {/* rbr-rally-creator-web#96: a plain cross glyph, not a <button> --
           the issue asked to remove the button-styled delete affordance in
           favor of a red cross, while drag-to-delete (via the remove zone,

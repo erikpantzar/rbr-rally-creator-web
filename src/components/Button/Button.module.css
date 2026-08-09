@@ -42,6 +42,23 @@
   border-color: var(--accent);
 }
 
+/* Wizard step 4's Publish action -- only meaningfully distinct from
+   .primary in the Hyper theme, where --launch-* is defined as its own
+   "clear to go" green family (see tokens.css) separate from --accent's
+   general interactive amber. Falls back to --accent's colors outside the
+   Hyper theme (--launch-* is undefined there), so this variant degrades
+   safely rather than rendering unstyled if ever used elsewhere. */
+.launch {
+  border: 1px solid var(--launch-border, var(--accent));
+  background: var(--launch-bg, var(--accent));
+  color: var(--launch-fg, var(--accent-ink));
+  font-weight: 700;
+}
+
+.launch:not(:disabled):hover {
+  filter: brightness(1.1);
+}
+
 /* The config modals' actions-row metrics (Cancel/Save pairs). */
 .md {
   padding: 0.55rem 1rem;

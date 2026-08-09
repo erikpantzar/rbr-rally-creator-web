@@ -161,14 +161,34 @@ export function StagePicker({ stages, selectedStageId, onSelect, stagePlanCounts
             </option>
           ))}
         </select>
-        <select value={surface} onChange={(e) => setSurface(e.target.value)}>
-          <option value="">All surfaces</option>
+        {/* Pill toggle group instead of a <select> -- same `surface` state,
+            same filteredStages effect, just markup: a surface's identity
+            already reads as a color category everywhere else in the Hyper
+            theme (the road book's rail/telemetry mix), so picking one here
+            reads the same way rather than falling back to a generic
+            dropdown. */}
+        <div className={styles.surfacePills} role="group" aria-label="Filter by surface">
+          <button
+            type="button"
+            className={styles.surfacePill}
+            data-active={surface === ''}
+            onClick={() => setSurface('')}
+          >
+            All
+          </button>
           {surfaces.map((s) => (
-            <option key={s} value={s}>
+            <button
+              key={s}
+              type="button"
+              className={styles.surfacePill}
+              data-surface={s.toLowerCase()}
+              data-active={surface === s}
+              onClick={() => setSurface(s)}
+            >
               {s}
-            </option>
+            </button>
           ))}
-        </select>
+        </div>
       </div>
 
       <div className={styles.pickerToolbar}>

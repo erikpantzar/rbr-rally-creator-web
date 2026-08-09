@@ -124,64 +124,76 @@ function App() {
     // data-view lets App.module.css widen the page for map-first views
     // (Explore, #okatwentytwo) while the builder keeps its 46rem document
     // column -- one attribute instead of view-conditional class juggling.
+    // The builder view no longer renders this header at all (see below) --
+    // RallyWizard's WizardHeader replaces it there, so 'builder' widens the
+    // page the same way 'explore'/'okatwentytwo' already do, just for a
+    // different reason (WizardHeader is its own fixed-position chrome, not
+    // page content that wants the 46rem column).
     <div className={styles.page} data-view={pageView}>
-      <header className={styles.header}>
-        {/* rbr-rally-creator-web#77: top-left, small and subtle -- secondary
-            to the title/primary actions rather than competing buttons, so
-            they sit ahead of .titleGroup styled as plain text-links.
-            rbr-rally-creator-web#106 wraps them in .headerNav: the header's
-            space-between distributes its direct children, so the two links
-            must be one flex child to keep the left/center/right rhythm. */}
-        <div className={styles.headerNav}>
-          <button
-            type="button"
-            className={styles.historyButton}
-            data-active={sidebarOpen}
-            aria-pressed={sidebarOpen}
-            onClick={() => setSidebarOpen(true)}
-          >
-            My Rallies
-          </button>
-          {/* rbr-rally-creator-web#106: Explore is the second entry of the
-              same quiet nav row (shared .historyButton styling on purpose --
-              two entries of one nav, not two different controls). A real
-              route now (/explorer) -- NavLink sets aria-current="page" on
-              the active link automatically, which App.module.css's
-              .historyButton[aria-current] hook styles the same way
-              data-active used to. */}
-          <NavLink to="/explorer" className={styles.historyButton}>
-            Explore
-          </NavLink>
-        </div>
-        <div className={styles.titleGroup}>
-          {/* The logo/title doubles as the "back to the builder" link --
-              Explore (and the egg) otherwise have no way home except the
-              browser's back button. Plain Link, not NavLink: the root route
-              is "active" on every screen that isn't Explore, so an
-              aria-current highlight here would be meaningless noise. */}
-          <h1>
-            <Link to="/" className={styles.titleLink}>
-              RBR Rally Creator
-            </Link>
-          </h1>
-          {/* Build-time commit hash (see vite.config.js's __COMMIT_HASH__
-              define) -- links to the actual diff so "what's live right now"
-              is always one click away, no changelog to keep in sync. */}
-          <a
-            className={styles.commitHash}
-            href={`https://github.com/erikpantzar/rbr-rally-creator-web/commit/${__COMMIT_HASH__}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="View this build's commit on GitHub"
-          >
-            {__COMMIT_HASH__}
-          </a>
-        </div>
-        <div className={styles.headerActions}>
-          <ServiceStatus baseUrl={baseUrl} />
-          <StockholmClock />
-        </div>
-      </header>
+      {/* Only /explorer and the #okatwentytwo egg use this header --
+          RallyWizard's WizardHeader (fixed HUD bar) replaces it for the
+          builder route, carrying the same My Rallies/Explore nav and
+          ServiceStatus/StockholmClock, so nothing here is builder-only
+          functionality lost, just relocated. */}
+      {pageView !== 'builder' && (
+        <header className={styles.header}>
+          {/* rbr-rally-creator-web#77: top-left, small and subtle -- secondary
+              to the title/primary actions rather than competing buttons, so
+              they sit ahead of .titleGroup styled as plain text-links.
+              rbr-rally-creator-web#106 wraps them in .headerNav: the header's
+              space-between distributes its direct children, so the two links
+              must be one flex child to keep the left/center/right rhythm. */}
+          <div className={styles.headerNav}>
+            <button
+              type="button"
+              className={styles.historyButton}
+              data-active={sidebarOpen}
+              aria-pressed={sidebarOpen}
+              onClick={() => setSidebarOpen(true)}
+            >
+              My Rallies
+            </button>
+            {/* rbr-rally-creator-web#106: Explore is the second entry of the
+                same quiet nav row (shared .historyButton styling on purpose --
+                two entries of one nav, not two different controls). A real
+                route now (/explorer) -- NavLink sets aria-current="page" on
+                the active link automatically, which App.module.css's
+                .historyButton[aria-current] hook styles the same way
+                data-active used to. */}
+            <NavLink to="/explorer" className={styles.historyButton}>
+              Explore
+            </NavLink>
+          </div>
+          <div className={styles.titleGroup}>
+            {/* The logo/title doubles as the "back to the builder" link --
+                Explore (and the egg) otherwise have no way home except the
+                browser's back button. Plain Link, not NavLink: the root route
+                is "active" on every screen that isn't Explore, so an
+                aria-current highlight here would be meaningless noise. */}
+            <h1>
+              <Link to="/" className={styles.titleLink}>
+                RBR Rally Creator
+              </Link>
+            </h1>
+            {/* Build-time commit hash (see vite.config.js's __COMMIT_HASH__
+                define) -- links to the actual diff so "what's live right now"
+                is always one click away, no changelog to keep in sync. */}
+            <a
+              className={styles.commitHash}
+              href={`https://github.com/erikpantzar/rbr-rally-creator-web/commit/${__COMMIT_HASH__}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="View this build's commit on GitHub"
+            >
+              {__COMMIT_HASH__}
+            </a>
+          </div>
+          <div className={styles.headerActions}>
+            <ServiceStatus baseUrl={baseUrl} />
+            <StockholmClock />
+          </div>
+        </header>
+      )}
 
       {/* Reachable only by typing the hash (see the hashchange effect
           above); fetches the catalog like ExploreView so its Sweden/
@@ -215,15 +227,15 @@ function App() {
               </section>
             }
           />
-          {/* rbr-rally-creator-web#followup: credentials no longer get their
-              own top-level App.jsx section -- they're now the first thing
-              inside RallyBuilder's numbered "1. General settings" section, so
-              the merged section reads as one card even though two components
-              render into it. App.jsx still owns the credentials fetch/
-              localStorage logic (per the app's convention, see the comment atop
-              this file) and builds the actual markup here; RallyBuilder just
-              places it via `credentialsSlot`, so neither component has to know
-              about the other's internals.
+          {/* Credentials don't get their own top-level App.jsx section --
+              RallyBuilder passes this markup down into RallyWizard, which
+              renders it as an expandable disclosure in the wizard's fixed
+              header (see WizardHeader.jsx) rather than inside any one step.
+              App.jsx still owns the credentials fetch/localStorage logic (per
+              the app's convention, see the comment atop this file) and builds
+              the actual markup here; RallyBuilder just places it via
+              `credentialsSlot`, so neither component has to know about the
+              other's internals.
 
               key forces a clean remount whenever the user opens a different
               saved rally (or switches back to "new") -- RallyBuilder's state
@@ -245,6 +257,8 @@ function App() {
                     <CredentialStatus username={credState.username} onClear={handleClearCredentials} />
                   )
                 }
+                sidebarOpen={sidebarOpen}
+                onOpenSidebar={() => setSidebarOpen(true)}
               />
             }
           />

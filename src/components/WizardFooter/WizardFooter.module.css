@@ -1,0 +1,74 @@
+.footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 88px;
+  z-index: var(--z-wizard-chrome);
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr) 11rem;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0 1.6rem;
+  border-top: 1px solid var(--border-hair);
+  background: oklch(from var(--bg) calc(l + 0.02) c h / 0.94);
+  backdrop-filter: blur(10px);
+  font-family: var(--font-mono);
+}
+
+.backButton,
+.nextButton {
+  padding: 0.7rem 1rem;
+  border-radius: 0;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.backButton {
+  justify-self: start;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink-soft);
+}
+
+.backButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.backButton:not(:disabled):hover {
+  background: var(--card);
+}
+
+.nextButton {
+  justify-self: end;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+}
+
+.nextButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.nextButton:not(:disabled):hover {
+  filter: brightness(1.05);
+}
+
+/* Publish (the last step's Next-button slot) uses the same --launch-*
+   "clear to go" family as Step 4's stat grid accent and Button's `launch`
+   variant -- distinct from the amber Next uses on every other step, so
+   reaching the terminal action reads as a different kind of button, not
+   just another Next. */
+.publishButton {
+  border-color: var(--launch-border, var(--accent));
+  background: var(--launch-bg, var(--accent));
+  color: var(--launch-fg, var(--accent-ink));
+}

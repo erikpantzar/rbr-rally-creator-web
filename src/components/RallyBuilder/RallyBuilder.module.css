@@ -1,26 +1,33 @@
-/* Document shell: header block, then one heading per leg, then the leg's
-   stage row (rendered by RoadBook) -- a single continuous document rather
-   than a stack of boxed/carded sections. See DESIGN_SPEC.md "Document
-   structure (top to bottom)". */
 .container {
   display: flex;
   flex-direction: column;
   gap: 0;
 }
 
-.document {
+/* One wizard step's content, laid out inside RallyWizard's panel shell
+   (RallyWizard.module.css owns the panel's own positioning/transform --
+   this is just the step's internal vertical rhythm, same idea as the old
+   .numberedSection had but without the rule/heading, since the step's
+   title now lives in the footer's progress rail instead of inline). */
+.stepPanel {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 1.5rem;
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 2.6rem 2rem 3rem;
 }
 
-/* Job progress is its own distinct screen/step-list, not layered onto the
-   document -- a clear break (heading + top margin/rule) rather than
-   another item in the document flow. */
+/* Job progress is a full takeover above the wizard chrome, not layered
+   into a step -- it can start from any step and must stay visible above
+   the fixed header/footer (see --z-modal on .jobProgressScreen below). */
 .jobProgressScreen {
-  margin-top: 2.5rem;
-  padding-top: 1.5rem;
-  border-top: 2px solid var(--ink);
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  overflow-y: auto;
+  background: var(--bg);
+  padding: 2.5rem 2rem;
 }
 
 .jobProgressScreen::before {
@@ -40,56 +47,14 @@
   content: 'Test run';
 }
 
-/* rbr-rally-creator-web#followup: the page's four numbered sections
-   (General settings / Cars / Road book / Create rally). Each is its own
-   card-like block, rule-separated top to bottom -- same flat-rule
-   "timing sheet" language as App.module.css's .section, just repeated here
-   since RallyBuilder now owns sections 1-4 (App.jsx only owns the
-   credentials markup it hands down as `credentialsSlot`). */
-.numberedSection {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 1.75rem 0;
-  border-bottom: 2px solid var(--ink);
-}
-
-.numberedSection:first-of-type {
-  padding-top: 0;
-}
-
-.numberedSection:last-of-type {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-/* Matches App.module.css's .section h2 small-caps convention exactly, so
-   a numbered heading here and "rallysimfans.hu credentials" (if it were
-   still its own App.jsx section) would read as the same visual language. */
-.numberedHeading {
-  margin: 0;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--ink-soft);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-/* Subtle one/two-sentence explainer under each numbered heading -- same
-   weight as JobProgress's .note (muted ink-soft, slightly smaller than
-   body text), deliberately not louder than that. */
+/* Subtle one/two-sentence explainer at the top of a step -- same weight as
+   JobProgress's .note (muted ink-soft, slightly smaller than body text),
+   deliberately not louder than that. */
 .sectionIntro {
   margin: 0;
   color: var(--ink-soft);
   font-size: 0.85rem;
   line-height: 1.5;
-}
-
-/* Separates credentials (App.jsx's slot) from the rally-wide fields below
-   it inside the merged section 1 card -- a plain rule, same weight as the
-   rules between sections elsewhere in the app. */
-.sectionDivider {
-  border-top: 1px solid var(--border);
 }
 
 /* A <fieldset> so `disabled` cascades to every descendant form control once
@@ -109,6 +74,27 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  min-width: 0;
+}
+
+/* Wider than the other steps' .stepPanel default (64rem) -- this is a
+   two-column layout (road book + RallyTelemetryRail), not a single form
+   column, so it wants the extra room. */
+.roadBookPanel {
+  max-width: 80rem;
+}
+
+.roadBookLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: 1.6rem;
+  align-items: start;
+}
+
+@media (max-width: 60rem) {
+  .roadBookLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* Save / New Rally (or, once locked, Duplicate as new draft) -- always-
@@ -182,4 +168,47 @@
 
 .testRunLabel input {
   cursor: pointer;
+}
+
+/* Step 4's glanceable stat grid -- stages/legs/total-distance/car-groups,
+   all values RallyBuilder.jsx already had on hand (stagePlan.length,
+   legSchedule.length, sumStagePlanKm, carGroupIds.length), just surfaced
+   here as a quick pre-publish summary rather than making the user re-derive
+   them from the road book. */
+.launchStats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.9rem;
+}
+
+.launchStat {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+
+.launchStatAccent {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, var(--accent-soft-bg), transparent);
+}
+
+.launchStatValue {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.8rem;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.launchStatAccent .launchStatValue {
+  color: var(--accent-soft-fg);
+}
+
+.launchStatLabel {
+  margin: 0.35rem 0 0;
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
 }

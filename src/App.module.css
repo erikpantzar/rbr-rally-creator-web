@@ -18,10 +18,22 @@
 /* Map-first views (Explore, #okatwentytwo) get the full window -- the
    46rem document column is the *builder's* shape, and squeezing a world
    map into it wastes the map. Side padding stays so the header rule and
-   map frame never touch the window edge. */
+   map frame never touch the window edge.
+
+   'builder' widens for a different reason: RallyWizard is its own
+   fixed-position, full-viewport shell (fixed header/footer, absolutely
+   positioned step panels) with zero use for this column's padding/max-width
+   -- it would just clip the wizard's fixed chrome to a 46rem-wide box
+   centered on the page. */
 .page[data-view='explore'],
-.page[data-view='okatwentytwo'] {
+.page[data-view='okatwentytwo'],
+.page[data-view='builder'] {
   max-width: none;
+}
+
+.page[data-view='builder'] {
+  padding: 0;
+  gap: 0;
 }
 
 .header {

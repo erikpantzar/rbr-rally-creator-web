@@ -1,7 +1,10 @@
 .toast {
   position: fixed;
   left: 50%;
-  bottom: 1.5rem;
+  /* 88px clears the wizard's fixed footer (WizardFooter.module.css) --
+     every Toast in this app renders from inside RallyBuilder, which is
+     always wrapped by RallyWizard, so the footer is always present. */
+  bottom: calc(88px + 1rem);
   transform: translateX(-50%);
   display: flex;
   align-items: center;

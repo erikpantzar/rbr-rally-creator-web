@@ -154,6 +154,17 @@
   color: var(--ink);
 }
 
+/* Preview-then-confirm's Cancel/Add row, foot of the leg-context preview
+   pane -- Add is the pane's one primary action, so it gets the same
+   --launch-* "clear to go" treatment as step 4's Publish button rather than
+   the ordinary accent-filled primary. */
+.previewActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+}
+
 /* Narrow viewports: the plan doc's defaults item 6 defers the real
    collapsible-drawer treatment past v1 -- until then, stack the itinerary
    above the pane at a capped height so the workspace stays usable instead

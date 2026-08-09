@@ -45,6 +45,33 @@
   border-left-color: var(--danger-fg);
 }
 
+/* Hyper theme only: colour the brick's left rail (and tint its background)
+   by the stage's own catalog surface (data-surface, set in StageBrick.jsx)
+   -- an intrinsic property of the data, like a category swatch on a chart,
+   distinct from --accent's "interactive/highlighted" meaning that the base
+   .brick styling above still uses everywhere else. Not scoped to
+   .brickDanger/.dragging so the surface colour stays visible through drag
+   feedback, same as the mockup's rows keep their surface tint mid-drag. */
+:global([data-theme='hyper']) .brick:not(.brickDanger) {
+  border-left-color: var(--surface-gravel-fg);
+  background: linear-gradient(90deg, var(--surface-gravel-tint), transparent 72%);
+}
+
+:global([data-theme='hyper']) .brick[data-surface='snow']:not(.brickDanger) {
+  border-left-color: var(--surface-snow-fg);
+  background: linear-gradient(90deg, var(--surface-snow-tint), transparent 72%);
+}
+
+:global([data-theme='hyper']) .brick[data-surface='tarmac']:not(.brickDanger) {
+  border-left-color: var(--surface-tarmac-fg);
+  background: linear-gradient(90deg, var(--surface-tarmac-tint), transparent 72%);
+}
+
+:global([data-theme='hyper']) .brick[data-surface='unknown']:not(.brickDanger) {
+  border-left-color: var(--surface-unknown-fg);
+  background: linear-gradient(90deg, var(--surface-unknown-tint), transparent 72%);
+}
+
 /* rbr-rally-creator-web#96: a plain cross glyph in the brick's top-right
    corner, replacing the old button-styled .controls/.controlButton pair.
    Hidden at rest, same :hover/:focus-within reveal trick .controls used --

@@ -52,6 +52,53 @@
   background: var(--card);
 }
 
+.surfacePills {
+  display: flex;
+  border: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+
+.surfacePill {
+  padding: 0.5rem 0.85rem;
+  border: none;
+  border-left: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.surfacePill:first-child {
+  border-left: none;
+}
+
+.surfacePill[data-active='true'] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.surfacePill[data-surface='gravel'] {
+  color: var(--surface-gravel-fg, var(--ink-soft));
+}
+
+.surfacePill[data-surface='snow'] {
+  color: var(--surface-snow-fg, var(--ink-soft));
+}
+
+.surfacePill[data-surface='tarmac'] {
+  color: var(--surface-tarmac-fg, var(--ink-soft));
+}
+
+.surfacePill[data-surface][data-active='true'] {
+  background: var(--card-2, var(--accent-soft-bg));
+  color: inherit;
+}
+
 .pickerToolbar {
   display: flex;
   align-items: center;

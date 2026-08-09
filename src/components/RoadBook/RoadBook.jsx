@@ -363,11 +363,19 @@ export function RoadBook({
   // end of that leg (D4) via applyAddStage. Returns the new brick's _uid so
   // the workspace can select it immediately (the doc's Phase 2 spec: one
   // click per stage, no re-navigating to find what you just added).
-  function handleAddStageFromWorkspace(legIndex, stageId) {
+  //
+  // `overrides` (Hyper preview-then-confirm): PickerWorkspace's leg-context
+  // pane no longer adds the instant a card is clicked -- it lets the user
+  // adjust weather/wetness/tyre/nickname in a preview first, then calls this
+  // with that edited config merged in on top of the same auto-derived
+  // seed/pick above (never in place of it -- the seeded/picked fields are
+  // still the right starting point for whatever the preview form doesn't
+  // itself cover, e.g. surface_age_id/service fields).
+  function handleAddStageFromWorkspace(legIndex, stageId, overrides = null) {
     const { endIndex } = legRanges[legIndex];
     const seeded = createStageConfigFromPrevious(stagePlan[endIndex - 1]);
     const stage = stages.find((s) => s.id === stageId) ?? null;
-    const config = applyPickedStageToConfig(seeded, stage);
+    const config = { ...applyPickedStageToConfig(seeded, stage), ...overrides };
 
     const { stagePlan: nextStagePlan, legSchedule: nextLegSchedule } = applyAddStage(
       stagePlan,

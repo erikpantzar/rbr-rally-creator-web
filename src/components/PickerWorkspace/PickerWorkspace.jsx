@@ -4,7 +4,9 @@ import { Itinerary } from '../Itinerary/Itinerary.jsx';
 import { ServiceEntryForm } from '../ServiceEntryForm/ServiceEntryForm.jsx';
 import { StageEntryEditor } from '../StageEntryEditor/StageEntryEditor.jsx';
 import { StagePicker } from '../StagePicker/StagePicker.jsx';
+import { Button } from '../Button/Button.jsx';
 import { resolveWorkspaceSelection, workspaceSelectionKey } from '../../lib/pickerWorkspace.js';
+import { createStageConfigForCatalogStage } from '../../lib/rallyPlan.js';
 import styles from './PickerWorkspace.module.css';
 
 // rbr-rally-creator-web#107, docs/redesign/07-picker-workspace.md Phase 1/2:
@@ -93,6 +95,16 @@ export function PickerWorkspace({
   onClose,
 }) {
   const [selection, setSelection] = useState(initialSelection ?? null);
+
+  // Preview-then-confirm (Hyper redesign): clicking a catalog card in the
+  // leg-context pane no longer adds instantly -- it stages a not-yet-committed
+  // draft config here first, previewed with the same weather/wetness/tyre/
+  // nickname fields StageEntryEditor already renders for a real stage, behind
+  // an explicit "Add to Leg N" button. null means no card is currently
+  // previewed (the plain catalog grid shows). Local, not plan state: nothing
+  // here exists in stagePlan until the confirm button actually calls
+  // onAddStage.
+  const [previewDraft, setPreviewDraft] = useState(null);
 
   // Transient "you just added this" feedback -- a toast (auto-dismissed)
   // plus a fading highlight on the new row (CSS animation, cleared from
@@ -233,28 +245,80 @@ export function PickerWorkspace({
 
     // Leg context (opened from "+ Add stage", or a leg header click) --
     // plan doc §5 defaults item 1 puts the picker here, scoped as the
-    // leg's add-target (D3: sidebar selection is the cursor). Phase 2
-    // (D2/D4): a card click here really adds now -- onAddStage splices a
-    // new brick onto the end of THIS leg and the workspace selects it
-    // (handleAddCardSelect below), so repeated clicks feel like dealing
-    // cards: stay on this leg, click, watch the sidebar grow, keep going.
+    // leg's add-target (D3: sidebar selection is the cursor).
+    //
+    // Preview-then-confirm (Hyper redesign, superseding the old Phase 2
+    // instant-add): a card click no longer splices a brick into the plan by
+    // itself -- it stages `previewDraft` (a real, catalog-assigned config
+    // built via createStageConfigForCatalogStage, same seed
+    // StageEntryEditor's own card-pick uses) and shows it in a preview pane
+    // with the same weather/wetness/tyre/nickname fields a committed stage
+    // gets. Nothing lands in stagePlan until "Add to Leg N" explicitly
+    // confirms it (handleConfirmAdd below), which is the point where
+    // onAddStage actually runs and the sidebar grows. Only the fields this
+    // preview pane edits travel as `overrides` -- RoadBook's
+    // handleAddStageFromWorkspace still derives everything else (seeded
+    // service/surface-age fields, the fresh _uid) exactly as it always has,
+    // so this is additive on top of that pipeline, not a replacement for it.
     const legStageCount = legSchedule[resolved.legIndex]?.stage_count || 0;
 
-    function handleAddCardSelect(stageId) {
+    function handlePreviewCardSelect(stageId) {
       const stage = stageByCatalogId.get(stageId);
-      const newUid = onAddStage(resolved.legIndex, stageId);
+      if (!stage) return;
+      setPreviewDraft(createStageConfigForCatalogStage(stage));
+    }
 
-      // Selection deliberately does NOT move to the new brick (see the
-      // Phase 2 comment above) -- only the toast + row highlight change.
-      // Re-triggering on every add (even the same uid twice in a row,
-      // which can't actually happen here since each add gets a fresh uid)
-      // clears any in-flight timeout first so a rapid string of adds each
-      // gets its own full toast duration rather than the first one's timer
-      // cutting a later toast short.
+    function handleConfirmAdd() {
+      if (!previewDraft) return;
+      const stage = stageByCatalogId.get(previewDraft.stage_id);
+      // eslint-disable-next-line no-unused-vars -- destructured only to
+      // exclude both from `overrides` (RoadBook's handleAddStageFromWorkspace
+      // already derives _uid and stage_id itself; overrides must not clobber
+      // either).
+      const { _uid, stage_id: _stageId, ...overrides } = previewDraft;
+      const newUid = onAddStage(resolved.legIndex, previewDraft.stage_id, overrides);
+      setPreviewDraft(null);
+
+      // Same "stay put, toast + highlight" feedback the old instant-add flow
+      // gave -- confirming a preview is still meant to feel like dealing the
+      // next card, not a navigation.
       clearTimeout(toastTimeoutRef.current);
       setAddedToast(stage ? `${stage.name} added` : 'Stage added');
       setJustAddedUid(newUid);
       toastTimeoutRef.current = setTimeout(() => setAddedToast(null), 2200);
+    }
+
+    if (previewDraft) {
+      const previewStage = stageByCatalogId.get(previewDraft.stage_id);
+      return (
+        <>
+          <header className={styles.paneHeader}>
+            <p className={styles.paneKicker}>Adding to Leg {resolved.legIndex + 1}</p>
+            <h4 className={styles.paneTitle}>{previewStage?.name ?? 'Unknown stage'}</h4>
+          </header>
+          <div className={styles.paneForm}>
+            <StageEntryEditor
+              value={previewDraft}
+              onChange={setPreviewDraft}
+              stages={stages}
+              options={options}
+              isLastStage={false}
+              stageNumber={legStageCount + 1}
+              hiddenStageNameEnabled={hiddenStageNameEnabled}
+              pickerMode="affordance"
+              stagePlanCounts={stagePlanCounts}
+            />
+            <div className={styles.previewActions}>
+              <Button type="button" variant="secondary" onClick={() => setPreviewDraft(null)}>
+                Cancel
+              </Button>
+              <Button type="button" variant="launch" onClick={handleConfirmAdd}>
+                Add to Leg {resolved.legIndex + 1} &#9656;
+              </Button>
+            </div>
+          </div>
+        </>
+      );
     }
 
     return (
@@ -266,28 +330,34 @@ export function PickerWorkspace({
           </h4>
         </header>
         <p className={styles.addHint}>
-          Pick a stage to add it to the end of Leg {resolved.legIndex + 1}. Filters stay put, so picking
-          again keeps adding here.
+          Pick a stage to preview it, then confirm to add it to the end of Leg {resolved.legIndex + 1}.
         </p>
         <StagePicker
           stages={stages}
           selectedStageId={null}
-          onSelect={handleAddCardSelect}
+          onSelect={handlePreviewCardSelect}
           stagePlanCounts={stagePlanCounts}
         />
       </>
     );
   }
 
+  // previewDraft lives in this component, not inside renderDetail(), so the
+  // key-remount trick on the <section> below doesn't reset it on its own --
+  // navigating away from an in-progress preview (to a different sidebar row)
+  // must explicitly discard it here, same as clicking Cancel would.
   function handleSelectStage(uid) {
+    setPreviewDraft(null);
     setSelection({ type: 'stage', uid });
   }
 
   function handleSelectService(uid) {
+    setPreviewDraft(null);
     setSelection({ type: 'service', uid });
   }
 
   function handleSelectLeg(legIndex) {
+    setPreviewDraft(null);
     setSelection({ type: 'leg', legIndex });
   }
 

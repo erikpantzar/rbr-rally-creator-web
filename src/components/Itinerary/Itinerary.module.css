@@ -33,6 +33,18 @@
   border-bottom: 1px solid var(--border);
 }
 
+/* Hyper theme only: the leg header reads as its own panel (card background,
+   accent left rail) rather than a plain in-flow heading, echoing the
+   mockup's boxed leg bar -- kept a CSS-only addition (no new markup) so it
+   layers on top of the same sticky/z-index behavior above. */
+:global([data-theme='hyper']) .legHeader {
+  padding: 0.7rem 0.95rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-bottom: 1px solid var(--border);
+}
+
 .legHeader h4 {
   margin: 0;
   font-size: 1.1rem;

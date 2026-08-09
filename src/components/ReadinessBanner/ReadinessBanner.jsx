@@ -10,9 +10,9 @@ import styles from './ReadinessBanner.module.css';
 // prop (#63's compat shim, no longer worth its branching now that every
 // entry needs a `target` anyway):
 //   message  what's wrong, also the jump link's label
-//   target   id of the section that owns the problem (see
-//            lib/sectionJump.js's SECTION_IDS); clicking the message calls
-//            onJump(target), which scrolls there and pulses the glow beacon
+//   target   RallyBuilder's STEP_INDEX value for the wizard step that owns
+//            the problem; clicking the message calls onJump(target), which
+//            RallyBuilder wires to setStep to jump the wizard there
 //   action   optional one-click automatic fix (currently just "legs opening
 //            too soon" -> RallyBuilder's handleFixStaleStartTimes), rendered
 //            as its own button after the jump link

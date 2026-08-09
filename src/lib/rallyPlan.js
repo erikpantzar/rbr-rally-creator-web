@@ -427,6 +427,38 @@ export function computeLegStageRanges(legSchedule) {
   });
 }
 
+// The exact JSON shape sent to rbr-rally-creator-service's POST /rallies,
+// pulled out of RallyBuilder's handleCreateRally so the same document state
+// always reproduces the same submit payload -- both for tests and so the
+// builder itself can't drift between two call sites.
+export function buildRallyConfig({ rallyBasics, carGroupIds, stagePlan, legSchedule, dryRun }) {
+  const legRanges = computeLegStageRanges(legSchedule);
+
+  // Only open_time/close_time/super_rally/start_stage_no are part of the
+  // shared payload contract -- stage_count is a frontend-only control for
+  // deriving start_stage_no, not sent to the service.
+  const legSchedulePayload = legSchedule.map((leg, i) => ({
+    open_time: leg.open_time,
+    close_time: leg.close_time,
+    super_rally: leg.super_rally,
+    start_stage_no: legRanges[i].startStageNo,
+  }));
+
+  // _uid is a client-only drag-and-drop identity, _label a client-only
+  // planning nickname (rbr-rally-creator-web#64) -- neither is ever sent to
+  // the service. hidden_name (a different field) is the real per-stage
+  // public name and flows straight through as part of `...rest`.
+  const stagePlanPayload = stagePlan.map(({ _uid, _label, ...rest }) => rest);
+
+  return {
+    rallyBasics,
+    carGroupIds,
+    legSchedule: legSchedulePayload,
+    stagePlan: stagePlanPayload,
+    ...(dryRun ? { dryRun: true } : {}),
+  };
+}
+
 // Real business rule (confirmed live against rallysimfans.hu, see
 // rbr-rally-creator-service's discovery/capabilities/rally-wizard-schema.json
 // step4_stageConfig.businessRule): every service_time option except
@@ -508,4 +540,53 @@ export function sumStagePlanKm(stagePlanSlice, stageByCatalogId) {
 // (e.g. 13.4 -> "13.4 km") so that format only lives in one place.
 export function formatKm(km) {
   return `${km.toFixed(1)} km`;
+}
+
+// Breaks a stagePlan down by catalog surface -- gravel/snow/tarmac/unknown,
+// each with a running km total and stage count -- for the road book's
+// telemetry rail (RallyTelemetryRail.jsx). 'unknown' catches both a stage
+// brick with no stage_id assigned yet and a catalog surface outside the
+// three the app recognizes (mirrors StageBrick.jsx's own surfaceKey
+// fallback, kept in sync deliberately rather than each guessing separately).
+const KNOWN_SURFACES = ['gravel', 'snow', 'tarmac'];
+
+export function sumStagePlanKmBySurface(stagePlan, stageByCatalogId) {
+  const totals = Object.fromEntries(
+    [...KNOWN_SURFACES, 'unknown'].map((key) => [key, { km: 0, count: 0 }])
+  );
+
+  for (const stageConfig of stagePlan) {
+    const catalogStage = stageConfig.stage_id ? stageByCatalogId.get(stageConfig.stage_id) : null;
+    const surface = catalogStage?.surface?.toLowerCase();
+    const key = surface && KNOWN_SURFACES.includes(surface) ? surface : 'unknown';
+    totals[key].km += parseStageKm(catalogStage);
+    totals[key].count += 1;
+  }
+
+  return totals;
+}
+
+// Parses the numeric minutes out of a stage's service_time (e.g. "45
+// minutes" -> 45, "No Service" -> 0) -- same permissive digit-extraction
+// approach as parseStageKm, for the telemetry rail's service-park summary.
+export function parseServiceMinutes(serviceTime) {
+  if (typeof serviceTime !== 'string') return 0;
+  const match = serviceTime.match(/\d+/);
+  return match ? parseInt(match[0], 10) : 0;
+}
+
+// Counts assigned service stops and sums their minutes across a stagePlan --
+// getServiceTier's 'none' tier already covers "No Service"/unset, so this
+// only counts stages with a real roadside/full-service tier.
+export function summarizeServicePlan(stagePlan) {
+  return stagePlan.reduce(
+    (summary, stageConfig) => {
+      if (getServiceTier(stageConfig.service_time).key === 'none') return summary;
+      return {
+        count: summary.count + 1,
+        minutes: summary.minutes + parseServiceMinutes(stageConfig.service_time),
+      };
+    },
+    { count: 0, minutes: 0 }
+  );
 }

@@ -1,0 +1,173 @@
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-boot, 500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(80% 60% at 50% 55%, oklch(20% 0.03 250) 0%, oklch(9% 0.01 250) 70%);
+  animation: bootOut 3.1s ease forwards;
+}
+
+.trails {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.trailFar {
+  position: absolute;
+  top: calc(50% + 34px);
+  left: 0;
+  width: 22vw;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent));
+  animation: trailRun 1.5s cubic-bezier(0.3, 0, 0.7, 1) 1.35s backwards;
+}
+
+.trailNear {
+  position: absolute;
+  top: calc(50% + 44px);
+  left: 0;
+  width: 16vw;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, oklch(88% 0.09 92));
+  animation: trailRun 1.5s cubic-bezier(0.3, 0, 0.7, 1) 1.45s backwards;
+}
+
+.car {
+  position: absolute;
+  top: calc(50% + 26px);
+  left: 0;
+  width: 250px;
+  height: 34px;
+  background: linear-gradient(100deg, var(--accent), oklch(96% 0.05 92));
+  clip-path: polygon(0 100%, 8% 46%, 26% 30%, 44% 12%, 66% 10%, 80% 30%, 100% 44%, 100% 100%);
+  animation: carLaunch 1.6s cubic-bezier(0.34, 0, 0.66, 1) 1.3s backwards;
+  filter: drop-shadow(0 0 22px oklch(80% 0.17 92 / 0.6));
+}
+
+.content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2.2rem;
+}
+
+.kicker {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.lights {
+  display: flex;
+  gap: 1.1rem;
+}
+
+.light {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: oklch(26% 0.02 250);
+  animation: lampOn 0.28s ease calc(0.3s + var(--light-index) * 0.22s) forwards;
+}
+
+.go {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 5.5rem;
+  line-height: 0.9;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--launch-fg, var(--accent));
+  text-shadow: 0 0 50px oklch(82% 0.16 145 / 0.5);
+  opacity: 0;
+  animation: goFlash 0.5s ease 1.3s forwards;
+}
+
+.skipHint {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+@keyframes lampOn {
+  from {
+    background: oklch(26% 0.02 250);
+    box-shadow: none;
+    transform: scale(0.86);
+  }
+  to {
+    background: var(--accent);
+    box-shadow: 0 0 22px 4px oklch(80% 0.17 92 / 0.55);
+    transform: scale(1);
+  }
+}
+
+@keyframes goFlash {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  18% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes carLaunch {
+  0% {
+    transform: translateX(-34vw) skewX(-14deg) scaleX(1);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  55% {
+    transform: translateX(38vw) skewX(-22deg) scaleX(1.5);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(132vw) skewX(-26deg) scaleX(2.2);
+    opacity: 0;
+  }
+}
+
+@keyframes trailRun {
+  0% {
+    opacity: 0;
+    transform: translateX(-40vw) scaleX(0.2);
+  }
+  40% {
+    opacity: 0.75;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(130vw) scaleX(3);
+  }
+}
+
+@keyframes bootOut {
+  0%,
+  72% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+  100% {
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+  }
+}

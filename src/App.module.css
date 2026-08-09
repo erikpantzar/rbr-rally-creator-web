@@ -95,6 +95,29 @@
   gap: 1rem;
 }
 
+/* rbr-rally-creator-web#118: unlike .historyButton's quiet text-link
+   treatment, this is the one control whose whole job is to look clickable
+   -- a border and accent color give it real button affordance so it doesn't
+   read as just another nav label next to My Rallies/Explore. */
+.backButton {
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.7rem;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.backButton:hover {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
 .historyButton {
   padding: 0.2rem 0;
   border: none;

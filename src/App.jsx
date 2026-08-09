@@ -133,6 +133,18 @@ function App() {
             space-between distributes its direct children, so the two links
             must be one flex child to keep the left/center/right rhythm. */}
         <div className={styles.headerNav}>
+          {/* rbr-rally-creator-web#118: Explore (and the egg) are full-window
+              map views with no other way back -- the title link technically
+              already routes to "/", but reads as a plain page title, not a
+              clickable control. This is the one unmistakable "go back"
+              affordance, so it leads the nav row rather than sitting level
+              with My Rallies/Explore. Only rendered once there's somewhere
+              to go back *to*. */}
+          {pageView !== 'builder' && (
+            <Link to="/" className={styles.backButton}>
+              ◂ Back to builder
+            </Link>
+          )}
           <button
             type="button"
             className={styles.historyButton}

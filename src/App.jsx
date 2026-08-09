@@ -249,6 +249,7 @@ function App() {
                 key={activeRally?.id ?? 'new'}
                 baseUrl={baseUrl}
                 credentialsSaved={credState.status === 'saved'}
+                credentialsUsername={credState.username}
                 initialPayload={activeRally?.payload}
                 credentialsSlot={
                   credState.status === 'unsaved' ? (

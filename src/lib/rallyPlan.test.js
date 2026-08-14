@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
   applyLegFieldChange,
+  applySharedLegFieldChange,
+  isLegSynced,
+  getSharedLegTimes,
+  setLegSynced,
+  createDefaultLegConfig,
+  createLegConfigForAppend,
   clampLegTimes,
   isLegOpenTimeTooSoon,
   computeLegStageRanges,
@@ -21,8 +27,8 @@ import {
 // stable, and every `now` is an explicit Date -- never Date.now()/stockholmNow().
 const fixedNow = () => new Date(2026, 4, 10, 12, 0, 0); // 2026-05-10T12:00
 
-function leg(open_time, close_time, stage_count = 0) {
-  return { open_time, close_time, super_rally: 'disabled', stage_count };
+function leg(open_time, close_time, stage_count = 0, synced = true) {
+  return { open_time, close_time, super_rally: 'disabled', stage_count, synced };
 }
 
 describe('applyLegFieldChange', () => {
@@ -43,28 +49,124 @@ describe('applyLegFieldChange', () => {
     expect(result[0].close_time).toBe('2026-05-07T10:00'); // open + 6d
   });
 
-  it('editing a leg open_time to at/after the next leg resets every following leg to the edited leg times', () => {
+  // rbr-rally-creator-web#127: the pre-sync version of this function used to
+  // cascade an edited leg's times onto every FOLLOWING leg once it collided
+  // with the next leg's open_time. That's gone now -- keeping legs in step
+  // is the shared control's job, and a leg reachable through this function
+  // is by definition either already overridden or being toggled between
+  // sync states, so touching an unrelated sibling here would be wrong.
+  it('touches only the edited leg, even when the new open_time collides with the next leg', () => {
     const legs = [
       leg('2026-05-01T10:00', '2026-05-06T10:00'),
       leg('2026-05-03T12:00', '2026-05-05T12:00'),
       leg('2026-05-05T14:00', '2026-05-07T14:00'),
     ];
-    // New open (05-04) stays before leg 0's own close (05-06), so only the
-    // cascade rule fires: legs 1 and 2 are reset to leg 0's exact times.
     const result = applyLegFieldChange(legs, 0, 'open_time', '2026-05-04T10:00');
-    expect(result[1]).toMatchObject({ open_time: '2026-05-04T10:00', close_time: '2026-05-06T10:00' });
-    expect(result[2]).toMatchObject({ open_time: '2026-05-04T10:00', close_time: '2026-05-06T10:00' });
+    expect(result[0].open_time).toBe('2026-05-04T10:00');
+    expect(result[1]).toEqual(legs[1]);
+    expect(result[2]).toEqual(legs[2]);
+    expect(legs[0].open_time).toBe('2026-05-01T10:00'); // input array not mutated
+  });
+});
+
+describe('isLegSynced', () => {
+  it('is true when synced is explicitly true, and false only when explicitly false', () => {
+    expect(isLegSynced({ synced: true })).toBe(true);
+    expect(isLegSynced({ synced: false })).toBe(false);
   });
 
-  it('leaves following legs untouched when the edited open_time stays before the next leg', () => {
+  it('defaults to true for legs with no synced key at all (pre-#127 saved drafts)', () => {
+    expect(isLegSynced({ open_time: '', close_time: '' })).toBe(true);
+  });
+});
+
+describe('getSharedLegTimes', () => {
+  it("reads the first synced leg's open/close, ignoring overridden legs before it", () => {
+    const legs = [leg('2026-05-01T10:00', '2026-05-06T10:00', 0, false), leg('2026-05-02T10:00', '2026-05-07T10:00')];
+    expect(getSharedLegTimes(legs)).toEqual({ open_time: '2026-05-02T10:00', close_time: '2026-05-07T10:00' });
+  });
+
+  it('falls back to the first leg when every leg has broken sync', () => {
+    const legs = [leg('2026-05-01T10:00', '2026-05-06T10:00', 0, false)];
+    expect(getSharedLegTimes(legs)).toEqual({ open_time: '2026-05-01T10:00', close_time: '2026-05-06T10:00' });
+  });
+
+  it('is empty-safe for an empty schedule', () => {
+    expect(getSharedLegTimes([])).toEqual({ open_time: '', close_time: '' });
+  });
+});
+
+describe('applySharedLegFieldChange', () => {
+  it('applies the edit to every synced leg identically, leaving overridden legs untouched', () => {
     const legs = [
-      leg('2026-05-01T10:00', '2026-05-03T10:00'),
-      leg('2026-05-03T12:00', '2026-05-05T12:00'),
+      leg('2026-05-01T10:00', '2026-05-06T10:00'),
+      leg('2026-05-01T10:00', '2026-05-06T10:00', 0, false), // overridden, different close on purpose below
+      leg('2026-05-01T10:00', '2026-05-06T10:00'),
     ];
-    const result = applyLegFieldChange(legs, 0, 'open_time', '2026-05-02T10:00');
-    expect(result[0].open_time).toBe('2026-05-02T10:00');
-    expect(result[1]).toEqual(legs[1]);
-    expect(legs[0].open_time).toBe('2026-05-01T10:00'); // input array not mutated
+    legs[1].close_time = '2026-05-20T10:00';
+
+    const result = applySharedLegFieldChange(legs, 'open_time', '2026-05-03T10:00');
+
+    expect(result[0]).toMatchObject({ open_time: '2026-05-03T10:00', close_time: '2026-05-06T10:00' });
+    expect(result[2]).toMatchObject({ open_time: '2026-05-03T10:00', close_time: '2026-05-06T10:00' });
+    expect(result[1]).toEqual(legs[1]); // overridden leg is completely untouched
+  });
+
+  it('applies the same max-span clamp per synced leg as a single-leg edit would', () => {
+    const legs = [leg('2026-05-01T10:00', '2026-05-05T10:00'), leg('2026-05-01T10:00', '2026-05-05T10:00')];
+    const result = applySharedLegFieldChange(legs, 'close_time', '2026-05-09T10:00'); // +8d
+    expect(result[0].close_time).toBe('2026-05-07T10:00'); // open + 6d
+    expect(result[1].close_time).toBe('2026-05-07T10:00');
+  });
+
+  it('is a no-op when no leg is synced', () => {
+    const legs = [leg('2026-05-01T10:00', '2026-05-06T10:00', 0, false)];
+    const result = applySharedLegFieldChange(legs, 'open_time', '2026-05-03T10:00');
+    expect(result).toEqual(legs);
+  });
+});
+
+describe('setLegSynced', () => {
+  it('breaking sync (false) flips only that leg\'s flag, leaving its current times as-is', () => {
+    const legs = [leg('2026-05-01T10:00', '2026-05-06T10:00'), leg('2026-05-01T10:00', '2026-05-06T10:00')];
+    const result = setLegSynced(legs, 1, false);
+    expect(result[1]).toEqual({ ...legs[1], synced: false });
+    expect(result[0]).toEqual(legs[0]);
+  });
+
+  it('re-syncing (true) snaps the leg to the CURRENT shared value, even if it had drifted while overridden', () => {
+    const legs = [
+      leg('2026-05-01T10:00', '2026-05-06T10:00'),
+      leg('2026-06-15T09:00', '2026-06-20T09:00', 0, false), // drifted while overridden
+    ];
+    const result = setLegSynced(legs, 1, true);
+    expect(result[1]).toEqual({ open_time: '2026-05-01T10:00', close_time: '2026-05-06T10:00', super_rally: 'disabled', stage_count: 0, synced: true });
+  });
+});
+
+describe('createDefaultLegConfig', () => {
+  it('defaults synced to true (rule 1: every leg starts sharing the default)', () => {
+    expect(createDefaultLegConfig(0).synced).toBe(true);
+  });
+});
+
+describe('createLegConfigForAppend', () => {
+  it('joins the shared group, inheriting the current shared open/close rather than a fresh "now"', () => {
+    const legs = [leg('2026-05-01T10:00', '2026-05-06T10:00', 2)];
+    const appended = createLegConfigForAppend(legs, 0);
+    expect(appended).toEqual({
+      open_time: '2026-05-01T10:00',
+      close_time: '2026-05-06T10:00',
+      super_rally: 'disabled',
+      stage_count: 0,
+      synced: true,
+    });
+  });
+
+  it('falls back to createDefaultLegConfig for an empty schedule', () => {
+    const appended = createLegConfigForAppend([], 0);
+    expect(appended.synced).toBe(true);
+    expect(appended.open_time).toBeTruthy();
   });
 });
 

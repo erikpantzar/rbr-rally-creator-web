@@ -47,6 +47,8 @@ export function RoadBook({
   onStagePlanChange,
   onLegScheduleChange,
   onLegFieldChange,
+  onSharedLegFieldChange,
+  onSetLegSynced,
   onAddLeg,
   hiddenStageNameEnabled = false,
   locked = false,
@@ -470,6 +472,8 @@ export function RoadBook({
         hiddenStageNameEnabled={hiddenStageNameEnabled}
         locked={locked}
         onLegFieldChange={onLegFieldChange}
+        onSharedLegFieldChange={onSharedLegFieldChange}
+        onSetLegSynced={onSetLegSynced}
         onRemoveLeg={handleRemoveLegClick}
         onAddStage={openAddModal}
         onEditStage={openEditModal}

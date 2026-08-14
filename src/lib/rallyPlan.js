@@ -293,76 +293,118 @@ export function clampLegTimes(openTime, closeTime, now = stockholmNow()) {
   };
 }
 
-// rbr-rally-creator-web#89: applies a manual edit to one leg's open_time/
-// close_time field, then two validation rules the issue asks for:
+// Shared open/close consistency math, factored out of the old #89
+// applyLegFieldChange so both a single-leg edit (applyLegFieldChange below)
+// and a shared-control edit (applySharedLegFieldChange, #127) apply the
+// exact same two rules to whichever leg they're touching:
 //
-//  1. Own-leg consistency -- if the edited leg's open_time now lands at or
-//     after its own close_time, snap close_time to exactly open_time + 7
+//  1. Own-leg consistency -- if the edited open_time now lands at or after
+//     the leg's own close_time, snap close_time to exactly open_time + 7
 //     days (the site's own max open->close window, see MAX_LEG_SPAN_DAYS's
 //     comment) rather than leaving an inverted/zero-length window on screen.
 //     This only fires from an open_time edit -- a close_time edit that's
-//     simply earlier than open_time is caught by the pre-existing "clamp
-//     close_time back down if it exceeds open_time + N days" behavior
-//     RallyBuilder already had; this rule covers the other direction (open
-//     pushed past a close_time that didn't move).
+//     simply earlier than open_time is caught by rule 2 below.
 //
-//  2. Cascade -- legs are meant to run in order, one after another. If this
-//     edit leaves the edited leg's open_time at or after the *next* leg's
-//     open_time, every following leg's chronological position is no longer
-//     meaningful (they were scheduled assuming this leg still ended where it
-//     used to). Rather than trying to guess a new schedule for them, every
-//     leg after the edited one is set to exactly the edited leg's new
-//     open_time/close_time -- the same "start together" reset the issue
-//     text describes ("update all the legs that come after ... to be exact
-//     the same as the leg we changed, start and close").
-//
-// Pure function over the whole legSchedule array so RallyBuilder's handler
-// stays a thin "call this, setLegSchedule the result" wrapper.
-export function applyLegFieldChange(legSchedule, legIndex, field, value) {
-  const newLegs = [...legSchedule];
-  let updatedLeg = { ...newLegs[legIndex], [field]: value };
+//  2. Max-span clamp -- pulls close_time back down if it now exceeds
+//     open_time + MAX_LEG_SPAN_DAYS, regardless of which field was edited.
+function applyLegTimeConsistencyRules(leg, field, value) {
+  let updated = { ...leg, [field]: value };
 
-  if (field === 'open_time' && updatedLeg.open_time && updatedLeg.close_time) {
-    const openDate = new Date(updatedLeg.open_time);
-    const closeDate = new Date(updatedLeg.close_time);
+  if (field === 'open_time' && updated.open_time && updated.close_time) {
+    const openDate = new Date(updated.open_time);
+    const closeDate = new Date(updated.close_time);
     if (!Number.isNaN(openDate.getTime()) && !Number.isNaN(closeDate.getTime()) && openDate >= closeDate) {
       const newCloseDate = new Date(openDate);
       newCloseDate.setDate(newCloseDate.getDate() + 7);
-      updatedLeg = { ...updatedLeg, close_time: toDatetimeLocalValue(newCloseDate) };
+      updated = { ...updated, close_time: toDatetimeLocalValue(newCloseDate) };
     }
   }
 
-  if ((field === 'open_time' || field === 'close_time') && updatedLeg.open_time && updatedLeg.close_time) {
-    const openDate = new Date(updatedLeg.open_time);
-    const closeDate = new Date(updatedLeg.close_time);
+  if ((field === 'open_time' || field === 'close_time') && updated.open_time && updated.close_time) {
+    const openDate = new Date(updated.open_time);
+    const closeDate = new Date(updated.close_time);
     const maxCloseDate = new Date(openDate);
     maxCloseDate.setDate(maxCloseDate.getDate() + MAX_LEG_SPAN_DAYS);
 
     if (!Number.isNaN(closeDate.getTime()) && closeDate > maxCloseDate) {
-      updatedLeg = { ...updatedLeg, close_time: toDatetimeLocalValue(maxCloseDate) };
+      updated = { ...updated, close_time: toDatetimeLocalValue(maxCloseDate) };
     }
   }
 
-  newLegs[legIndex] = updatedLeg;
+  return updated;
+}
 
-  const nextLeg = newLegs[legIndex + 1];
-  const editedOpenDate = new Date(updatedLeg.open_time);
-  const nextOpenDate = nextLeg ? new Date(nextLeg.open_time) : null;
-  const cascadeNeeded =
-    nextLeg &&
-    updatedLeg.open_time &&
-    !Number.isNaN(editedOpenDate.getTime()) &&
-    nextOpenDate &&
-    !Number.isNaN(nextOpenDate.getTime()) &&
-    editedOpenDate >= nextOpenDate;
-
-  if (cascadeNeeded) {
-    for (let i = legIndex + 1; i < newLegs.length; i += 1) {
-      newLegs[i] = { ...newLegs[i], open_time: updatedLeg.open_time, close_time: updatedLeg.close_time };
-    }
-  }
-
+// rbr-rally-creator-web#89, revised by #127: applies a manual edit to ONE
+// leg's own open_time/close_time/super_rally field -- the own-leg
+// consistency + max-span rules above, nothing else. Reachable from the UI
+// only for a leg that has broken sync (see setLegSynced below) or for the
+// super_rally toggle (any leg); a still-synced leg's open/close is edited
+// through applySharedLegFieldChange instead.
+//
+// #89's original version of this function also cascaded the edit onto
+// every FOLLOWING leg once it collided with the next leg's open_time, to
+// keep an all-independent leg list in chronological order. #127 replaces
+// that need: keeping legs in step is now the shared control's job (rule 1
+// of the agreed behavior), and a leg that's deliberately been overridden
+// should never have its independent times silently overwritten by a sibling
+// edit (rule 3) -- so the cascade is gone, and this is back to a plain,
+// single-leg write.
+export function applyLegFieldChange(legSchedule, legIndex, field, value) {
+  const newLegs = [...legSchedule];
+  newLegs[legIndex] = applyLegTimeConsistencyRules(newLegs[legIndex], field, value);
   return newLegs;
+}
+
+// rbr-rally-creator-web#127: whether a leg follows the rally-wide shared
+// open/close control (the default -- rule 1 of the agreed behavior) or has
+// broken out with its own times via "set different times for this leg"
+// (rule 2). Saved drafts/history (rallyStorage) from before this field
+// existed have no `synced` key at all -- treated as synced, same as the
+// field's own default, so restoring one doesn't silently scatter every leg
+// into independent-override mode.
+export function isLegSynced(leg) {
+  return leg.synced !== false;
+}
+
+// The one open/close pair the shared control reads and edits. By
+// construction every synced leg holds identical open_time/close_time --
+// applySharedLegFieldChange below is the only writer for synced legs, and
+// it always applies the same edit to every one of them at once -- so
+// reading the first synced leg's values is enough. Falls back to the first
+// leg overall when nothing is synced (every leg has been overridden), so
+// the control still has a sane starting point rather than blank inputs.
+export function getSharedLegTimes(legSchedule) {
+  const source = legSchedule.find(isLegSynced) ?? legSchedule[0];
+  return { open_time: source?.open_time ?? '', close_time: source?.close_time ?? '' };
+}
+
+// rbr-rally-creator-web#127: the shared open/close control's onChange --
+// applies the same own-leg consistency/max-span rules as a single-leg edit
+// (applyLegTimeConsistencyRules) to every leg still following the default
+// (isLegSynced), and leaves overridden legs (rule 2) completely untouched.
+// Since every synced leg shares identical open_time/close_time going in,
+// applying the identical field/value edit to each individually keeps them
+// identical coming out -- rule 3, "legs left unchanged keep following the
+// default", holds for every render after this.
+export function applySharedLegFieldChange(legSchedule, field, value) {
+  return legSchedule.map((leg) => (isLegSynced(leg) ? applyLegTimeConsistencyRules(leg, field, value) : leg));
+}
+
+// rbr-rally-creator-web#127: the "set different times for this leg" /
+// "use shared times" toggle -- the one place a leg's `synced` flag changes.
+// Breaking sync (synced: false) leaves the leg's current open_time/
+// close_time exactly as they are (they already match the shared value the
+// moment sync breaks), so its now-independent inputs start from where the
+// shared control had it rather than some unrelated default. Re-syncing
+// (synced: true) snaps them back to the CURRENT shared value immediately,
+// rather than leaving its stale independent times on screen until the next
+// shared-control edit happens to overwrite them.
+export function setLegSynced(legSchedule, legIndex, synced) {
+  if (synced) {
+    const { open_time, close_time } = getSharedLegTimes(legSchedule);
+    return legSchedule.map((leg, i) => (i === legIndex ? { ...leg, synced: true, open_time, close_time } : leg));
+  }
+  return legSchedule.map((leg, i) => (i === legIndex ? { ...leg, synced: false } : leg));
 }
 
 // Seeds a brand-new "+ Add stage" slot from the most recently added/edited
@@ -402,6 +444,12 @@ export function createStageConfigFromPrevious(previousStageConfig) {
 // browser's own new Date() (rbr-rally-creator-web#63) for the same reason as
 // isLegOpenTimeTooSoon above -- "now" here means rallysimfans.hu's own
 // Stockholm clock, not the visiting browser's.
+//
+// rbr-rally-creator-web#127: synced: true is the default every leg starts
+// with -- rule 1 of the agreed behavior ("all legs share one open/close
+// time" by default). Used for a rally's very first leg (there's no existing
+// schedule to inherit shared times from yet); createLegConfigForAppend
+// below is what a leg ADDED to an already-existing schedule actually uses.
 export function createDefaultLegConfig(stageCount = 0) {
   const now = stockholmNow();
   const closeDate = new Date(now);
@@ -412,7 +460,25 @@ export function createDefaultLegConfig(stageCount = 0) {
     close_time: toDatetimeLocalValue(closeDate),
     super_rally: 'disabled',
     stage_count: stageCount,
+    synced: true,
   };
+}
+
+// rbr-rally-creator-web#127: seeds a leg appended to an ALREADY-EXISTING
+// legSchedule (RoadBook's "+ Add Leg" button, and the workspace's own "+
+// Add leg" shortcut, pickerWorkspace.js's applyAddLeg). Joins the shared
+// group and starts from the CURRENT shared open/close (getSharedLegTimes)
+// rather than a freshly-computed "now" default -- otherwise the new leg
+// would carry synced: true while visibly showing different times than
+// every other synced leg until the user happened to touch the shared
+// control again. Falls back to createDefaultLegConfig's own stockholmNow()
+// seed when there's no existing leg to inherit from (shouldn't normally
+// happen here -- a rally always has at least one leg -- but keeps this safe
+// to call on an empty schedule too).
+export function createLegConfigForAppend(legSchedule, stageCount = 0) {
+  if (legSchedule.length === 0) return createDefaultLegConfig(stageCount);
+  const { open_time, close_time } = getSharedLegTimes(legSchedule);
+  return { open_time, close_time, super_rally: 'disabled', stage_count: stageCount, synced: true };
 }
 
 // Turns each leg's stage_count into an absolute [startIndex, endIndex) slice

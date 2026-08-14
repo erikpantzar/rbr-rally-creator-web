@@ -220,6 +220,64 @@
   color: var(--ink-soft);
 }
 
+.legSyncBadge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* rbr-rally-creator-web#127: the single rally-wide open/close control,
+   rendered once above the leg list -- reuses legInputs/legFieldLabel's
+   input styling so it visually matches an overridden leg's own inputs. */
+.sharedSchedule {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1.25rem;
+  padding-bottom: 1rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 2px solid var(--ink);
+}
+
+.sharedScheduleLabel {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+
+.sharedScheduleHint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  flex-basis: 100%;
+}
+
+.legSyncedTimes {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  flex-shrink: 0;
+}
+
+.legSyncToggle {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-family: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0.2rem 0;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.legSyncToggle:hover {
+  color: var(--ink);
+}
+
 /* Vertical, full-width stage/service stack -- each row spans the leg's full
    width instead of RoadBook's old horizontal wrapping brick row. */
 .stagesList {

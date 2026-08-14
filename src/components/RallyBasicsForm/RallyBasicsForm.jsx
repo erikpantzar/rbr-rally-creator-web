@@ -1,5 +1,6 @@
 import { Input, Textarea } from '../Input/Input.jsx';
 import { PasswordInput } from '../PasswordInput/PasswordInput.jsx';
+import { SuperRallyToggle } from '../SuperRallyToggle/SuperRallyToggle.jsx';
 import styles from './RallyBasicsForm.module.css';
 
 // road_side_service comes back from the service as plain value strings
@@ -111,6 +112,19 @@ export function RallyBasicsForm({ value, onChange, options, rallyNameInputRef })
           />
           Hide stage names
         </label>
+      </div>
+
+      {/* rbr-rally-creator-web#123: rallysimfans.hu only lets you set this
+          once, for the whole rally -- unlike the fields above, there's no
+          per-leg override on the real site, so this lives here rather than
+          on each leg's header. */}
+      <div className={styles.formGroup}>
+        <label>Super Rally</label>
+        <SuperRallyToggle
+          value={value.super_rally}
+          options={options.superRally}
+          onChange={(next) => handleChange('super_rally', next)}
+        />
       </div>
 
       <div className={styles.passwordSection}>

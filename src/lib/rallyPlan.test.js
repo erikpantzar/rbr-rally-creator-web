@@ -4,6 +4,7 @@ import {
   clampLegTimes,
   isLegOpenTimeTooSoon,
   computeLegStageRanges,
+  createDefaultLegConfig,
   createDefaultStageConfig,
   createStageConfigForCatalogStage,
   normalizeLastStageService,
@@ -22,7 +23,7 @@ import {
 const fixedNow = () => new Date(2026, 4, 10, 12, 0, 0); // 2026-05-10T12:00
 
 function leg(open_time, close_time, stage_count = 0) {
-  return { open_time, close_time, super_rally: 'disabled', stage_count };
+  return { open_time, close_time, stage_count };
 }
 
 describe('applyLegFieldChange', () => {
@@ -108,6 +109,15 @@ describe('isLegOpenTimeTooSoon', () => {
   it('is false at exactly now + MIN_LEG_LEAD_MINUTES (boundary is allowed)', () => {
     expect(MIN_LEG_LEAD_MINUTES).toBe(5);
     expect(isLegOpenTimeTooSoon('2026-05-10T12:05', fixedNow())).toBe(false);
+  });
+});
+
+// rbr-rally-creator-web#123: super_rally moved from a per-leg field to a
+// single rally-wide one (RallyBuilder's DEFAULT_RALLY_BASICS) -- a fresh leg
+// no longer carries it at all.
+describe('createDefaultLegConfig', () => {
+  it('does not include a super_rally field', () => {
+    expect(createDefaultLegConfig(3)).not.toHaveProperty('super_rally');
   });
 });
 

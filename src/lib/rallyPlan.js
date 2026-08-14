@@ -410,7 +410,6 @@ export function createDefaultLegConfig(stageCount = 0) {
   return {
     open_time: toDatetimeLocalValue(now),
     close_time: toDatetimeLocalValue(closeDate),
-    super_rally: 'disabled',
     stage_count: stageCount,
   };
 }

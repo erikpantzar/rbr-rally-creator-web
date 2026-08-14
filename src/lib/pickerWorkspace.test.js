@@ -17,7 +17,7 @@ function stage(uid, serviceTime = 'No Service') {
 }
 
 function leg(stageCount) {
-  return { open_time: '', close_time: '', super_rally: 'disabled', stage_count: stageCount };
+  return { open_time: '', close_time: '', stage_count: stageCount };
 }
 
 describe('buildWorkspaceRows', () => {
@@ -176,7 +176,7 @@ describe('applyAddLeg', () => {
     expect(legSchedule).toHaveLength(3);
     expect(legSchedule[0]).toBe(legs[0]);
     expect(legSchedule[1]).toBe(legs[1]);
-    expect(legSchedule[2]).toMatchObject({ stage_count: 0, super_rally: 'disabled' });
+    expect(legSchedule[2]).toMatchObject({ stage_count: 0 });
   });
 
   it('returns the new leg\'s index so the caller can jump selection to it', () => {

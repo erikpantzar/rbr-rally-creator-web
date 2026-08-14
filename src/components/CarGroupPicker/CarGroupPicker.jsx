@@ -25,7 +25,11 @@ const MAX_VISIBLE_TAGS = 4;
 // The explicit ▲/▼ marker (.disclosureArrow) replaces the browser's own
 // default triangle (suppressed via list-style: none/::-webkit-details-marker
 // in the CSS) so the expanded/collapsed state reads the same way in every
-// browser rather than relying on each engine's own marker glyph.
+// browser rather than relying on each engine's own marker glyph. Styled as
+// a filled pill (see .summaryTitle) rather than plain underlined text --
+// rbr-rally-creator-web#130 found the old low-contrast text-only marker
+// easy to miss entirely; a colored, button-shaped bar reads as "click me"
+// at a glance instead of blending into the surrounding labels.
 function DisclosureSection({ title, open, onToggle, selectedItems, children }) {
   const visible = selectedItems.slice(0, MAX_VISIBLE_TAGS);
   const overflowCount = selectedItems.length - visible.length;
@@ -63,21 +67,24 @@ function DisclosureSection({ title, open, onToggle, selectedItems, children }) {
 // selectedIds array -- the site's own picker treats both id spaces the
 // same way (POST /rallies' carGroupIds field accepts either, mixed freely).
 //
-// Confirmed catalog size: 22 car groups + 102 individual cars. The
-// individual-cars list is the real space hog (~400-600px of long names),
-// not the groups, so it defaults collapsed while car groups default open
-// (see issue #60 maintainer plan). Each section is a native <details> with
-// a live selected-count summary, so what's picked stays visible either way.
+// Confirmed catalog size: 22 car groups + 102 individual cars. Both lists
+// default collapsed (rbr-rally-creator-web#130: a beta tester found this
+// panel took up too much room and never noticed the existing collapse
+// control -- the old "car groups open by default" behavior alone was
+// already the bulk of that footprint). Each section is a native <details>
+// with a live selected-count summary (tag chips), so what's picked stays
+// visible either way; the checkbox lists themselves also scroll past a
+// height cap (see .checkboxList) so even an expanded section -- especially
+// the 102-entry individual-cars list -- can't blow out the page.
 export function CarGroupPicker({ carGroups, cars, selectedIds, onChange }) {
   const [carFilter, setCarFilter] = useState('');
 
-  // Default open state: car groups open, individual cars collapsed --
-  // cars are the space hog (102 long names, ~400-600px) and the rarer
-  // intent (picking specific cars rather than whole homologation classes).
-  // Both stay independently, manually expandable/collapsible via <summary>
+  // Both sections start collapsed -- neither is more "default" than the
+  // other now that space is the priority (see module comment above). Both
+  // stay independently, manually expandable/collapsible via <summary>
   // clicks (synced back through onToggle below); the "Open rally" checkbox
   // just drives them programmatically on top of that.
-  const [groupsOpen, setGroupsOpen] = useState(true);
+  const [groupsOpen, setGroupsOpen] = useState(false);
   const [carsOpen, setCarsOpen] = useState(false);
 
   const groupIds = useMemo(() => carGroups.map((g) => g.id), [carGroups]);

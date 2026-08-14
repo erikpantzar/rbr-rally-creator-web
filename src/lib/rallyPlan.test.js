@@ -11,6 +11,8 @@ import {
   formatKm,
   applyPickedStageToConfig,
   createDefaultServiceFields,
+  isSurfaceAgeChangeable,
+  FIXED_SURFACE_AGE_ID,
   MAX_LEG_SPAN_DAYS,
   MIN_LEG_LEAD_MINUTES,
   CLAMP_LEG_LEAD_MINUTES,
@@ -222,6 +224,44 @@ describe('applyPickedStageToConfig', () => {
   it('resolves to a null stage_id and empty wetness/weather for a null stage (defensive)', () => {
     const result = applyPickedStageToConfig(config, null);
     expect(result).toMatchObject({ stage_id: null, wetness_id: '', tracksettings_id: '' });
+  });
+
+  it('rbr-rally-creator-web#128: pins surface_age_id to "New" when the picked stage cannot vary it', () => {
+    const wornConfig = { ...config, surface_age_id: '3' };
+    const stage = {
+      id: 's-fixed',
+      surface: 'tarmac',
+      supportsVariableSurface: false,
+      wetnessOptions: ['dry'],
+      weatherOptions: ['Noon Clear'],
+    };
+    const result = applyPickedStageToConfig(wornConfig, stage);
+    expect(result.surface_age_id).toBe(FIXED_SURFACE_AGE_ID);
+  });
+
+  it('leaves surface_age_id untouched when the picked stage does support variable surface age', () => {
+    const wornConfig = { ...config, surface_age_id: '3' };
+    const stage = {
+      id: 's-variable',
+      surface: 'tarmac',
+      supportsVariableSurface: true,
+      wetnessOptions: ['dry'],
+      weatherOptions: ['Noon Clear'],
+    };
+    const result = applyPickedStageToConfig(wornConfig, stage);
+    expect(result.surface_age_id).toBe('3');
+  });
+});
+
+describe('isSurfaceAgeChangeable', () => {
+  it('is false only when the stage explicitly says so', () => {
+    expect(isSurfaceAgeChangeable({ supportsVariableSurface: false })).toBe(false);
+  });
+
+  it('defaults to true for stages that support it, are missing the field, or are null', () => {
+    expect(isSurfaceAgeChangeable({ supportsVariableSurface: true })).toBe(true);
+    expect(isSurfaceAgeChangeable({})).toBe(true);
+    expect(isSurfaceAgeChangeable(null)).toBe(true);
   });
 });
 

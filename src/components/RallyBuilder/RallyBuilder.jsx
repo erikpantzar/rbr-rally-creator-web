@@ -32,8 +32,10 @@ import { RallyBasicsForm } from '../RallyBasicsForm/RallyBasicsForm.jsx';
 import { CarGroupPicker } from '../CarGroupPicker/CarGroupPicker.jsx';
 import { RoadBook } from '../RoadBook/RoadBook.jsx';
 import { JobProgress } from '../JobProgress/JobProgress.jsx';
+import { PlanHistory } from '../PlanHistory/PlanHistory.jsx';
 import { ReadinessBanner } from '../ReadinessBanner/ReadinessBanner.jsx';
 import { Toast } from '../Toast/Toast.jsx';
+import { usePlanHistory } from './usePlanHistory.js';
 import styles from './RallyBuilder.module.css';
 
 // Matches index.html's <title> -- used as the "at rest" tab title that the
@@ -343,6 +345,51 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
     if (job?.status === 'succeeded') clearCurrentDraft();
   }, [job?.status]);
 
+  // rbr-rally-creator-web#122: undo/redo over the road book. It OBSERVES the
+  // committed plan instead of intercepting mutations (see usePlanHistory for
+  // why that split matters), so nothing about RoadBook's callback surface or
+  // updateStagePlan above changes to support it.
+  //
+  // `active` mirrors the autosave guard exactly, so the history and
+  // currentDraft cover the same window: nothing recorded before the draft is
+  // hydrated (or the pre-fetch defaults would become step 1), nothing
+  // recorded once the rally is created and the draft has been dropped.
+  // `hydrate` is off when App.jsx opened a specific saved rally, for the same
+  // reason currentDraft itself is ignored in that case -- the previous
+  // build's history must not attach itself to the rally the user just chose
+  // to open.
+  //
+  // Snapshots are restored with the raw setters rather than updateStagePlan:
+  // they were recorded downstream of normalizeLastStageService so re-running
+  // it is a no-op, and handing the snapshot's own array references straight
+  // back is what lets the observer recognise a restore instead of recording
+  // it as a fresh edit.
+  const {
+    history: planHistory,
+    undo: undoPlanChange,
+    redo: redoPlanChange,
+    jumpTo: jumpToPlanChange,
+    reset: resetPlanHistory,
+  } = usePlanHistory({
+    stagePlan,
+    legSchedule,
+    active: !loading && job?.status !== 'succeeded',
+    hydrate: !initialPayload,
+    onRestore: (snapshot) => {
+      setStagePlan(snapshot.stagePlan);
+      setLegSchedule(snapshot.legSchedule);
+    },
+  });
+
+  // The created rally's document is frozen and its draft is gone (the effect
+  // above), so its history has nothing left to act on. Dropping the
+  // in-memory stack too matters for "Duplicate as new draft": that unlocks
+  // the editor again, and the duplicate should start its own history at step
+  // 1 rather than inheriting the published rally's.
+  useEffect(() => {
+    if (job?.status === 'succeeded') resetPlanHistory();
+  }, [job?.status, resetPlanHistory]);
+
   // Transient "Saved!" confirmation next to the Save button (see
   // handleSaveRally) -- purely cosmetic feedback, not state anything else
   // depends on, so a plain timeout-cleared boolean is enough.
@@ -469,6 +516,11 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
     setStagePlan([]);
     setLegSchedule([createDefaultLegConfig(0)]);
     clearCurrentDraft();
+    // rbr-rally-creator-web#122: "If I make a new rally clear the history."
+    // clearCurrentDraft above already drops the persisted copy; this drops
+    // the in-memory stack too, so the fresh blank document becomes step 1
+    // rather than the last edit of the rally just abandoned.
+    resetPlanHistory();
 
     // rbr-rally-creator-web#78: the rally name input never unmounts here
     // (RallyBasicsForm stays mounted, only its value resets), so a ref +
@@ -793,6 +845,19 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
             Build the route leg by leg -- add stages, arrange service, and set each leg's
             start time.
           </p>
+
+          {/* rbr-rally-creator-web#122: undo/redo + the change timeline for
+              this draft, docked at the top of the road book because that's
+              what it describes. Hidden once locked, along with every other
+              way to change the document. */}
+          {!locked && (
+            <PlanHistory
+              history={planHistory}
+              onUndo={undoPlanChange}
+              onRedo={redoPlanChange}
+              onJumpTo={jumpToPlanChange}
+            />
+          )}
 
           <div className={styles.stagesSection} id={SECTION_IDS.roadBook} data-jump-target="">
             <RoadBook

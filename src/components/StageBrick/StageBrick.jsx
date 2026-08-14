@@ -74,14 +74,6 @@ export function StageBrick({
   onDelete,
   locked = false,
   hiddenStageNameEnabled = false,
-  // rbr-rally-creator-web#96 (drag-to-delete): true while this exact brick
-  // is the one currently being dragged over the road book's remove zone --
-  // set by RoadBook from its DndContext-level onDragOver, not derived here,
-  // since a brick can't know on its own whether *it* is the active drag.
-  // Only ever passed to the DragOverlay's copy of this brick (see
-  // RoadBook.jsx) -- the brick still sitting in its row is never the
-  // highlighted one.
-  dangerHighlight = false,
   fullWidth = false,
 }) {
   // Sortable hook is called unconditionally (Rules of Hooks) even though
@@ -101,13 +93,7 @@ export function StageBrick({
   // no controls, no click-to-edit.
   if (locked) {
     const lockedNames = getStageNames(stage, value._label, value.hidden_name, hiddenStageNameEnabled);
-    const lockedClassName = [
-      styles.brickLocked,
-      dangerHighlight ? styles.brickLockedDanger : '',
-      fullWidth ? styles.fullWidth : '',
-    ]
-      .filter(Boolean)
-      .join(' ');
+    const lockedClassName = [styles.brickLocked, fullWidth ? styles.fullWidth : ''].filter(Boolean).join(' ');
     return (
       <div className={lockedClassName}>
         <span className={styles.stageNumber}>{stageNumber}</span>
@@ -142,7 +128,6 @@ export function StageBrick({
     styles.brick,
     isDragging ? styles.dragging : '',
     isOver ? styles.dropTarget : '',
-    dangerHighlight ? styles.brickDanger : '',
     fullWidth ? styles.fullWidth : '',
   ]
     .filter(Boolean)
@@ -168,13 +153,16 @@ export function StageBrick({
     <div ref={setNodeRef} style={style} className={rootClassName} {...listeners} {...attributes}>
       {/* rbr-rally-creator-web#96: a plain cross glyph, not a <button> --
           the issue asked to remove the button-styled delete affordance in
-          favor of a red cross, while drag-to-delete (via the remove zone,
-          see RoadBook.jsx) becomes the primary removal gesture. Kept
-          clickable/keyboard-operable (role="button", tabIndex, Enter/Space)
-          for anyone who still wants a direct click-to-delete rather than a
-          drag. Same hover/:focus-within reveal trick .controls used to use,
-          except red from the moment it's revealed rather than needing a
-          second, more precise hover of the control itself. */}
+          favor of a red cross. Kept clickable/keyboard-operable
+          (role="button", tabIndex, Enter/Space). Same hover/:focus-within
+          reveal trick .controls used to use, except red from the moment
+          it's revealed rather than needing a second, more precise hover of
+          the control itself.
+          rbr-rally-creator-web#121: this is now the SOLE way to delete a
+          stage -- the old drag-to-remove zone (dropping a dragged brick on
+          a per-leg target) was removed because dragging a stage between
+          legs could land on it and delete the stage by accident. This
+          cross's undo toast (RoadBook.jsx's handleDeleteStage) is unchanged. */}
       <span
         role="button"
         tabIndex={0}

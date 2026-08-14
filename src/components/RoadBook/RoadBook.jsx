@@ -304,21 +304,6 @@ export function RoadBook({
     );
   }
 
-  // rbr-rally-creator-web#96: dropping a stage brick on a RemoveDropZone
-  // deletes it -- routed through the exact same handleDeleteStage the
-  // per-brick delete cross uses (undo toast, stage_count decrement, all of
-  // it), rather than duplicating that logic here.
-  function handleDeleteStageViaDrag(uid) {
-    const legIndex = legRanges.findIndex(({ startIndex, endIndex }) =>
-      stagePlan.slice(startIndex, endIndex).some((s) => s._uid === uid)
-    );
-    if (legIndex === -1) return;
-    const { startIndex } = legRanges[legIndex];
-    const indexInLeg = stagePlan.slice(startIndex, legRanges[legIndex].endIndex).findIndex((s) => s._uid === uid);
-    const stageConfig = stageByUid.get(uid);
-    if (stageConfig) handleDeleteStage(legIndex, indexInLeg, stageConfig);
-  }
-
   // rbr-rally-creator-web#107 (Phase 3): modalState is now just PickerWorkspace's
   // open/selection signal -- mode, legIndex, uid. It used to also carry
   // initialValue/willBeLastStage/stageNumber for StageConfigModal, which
@@ -479,7 +464,6 @@ export function RoadBook({
         onAddLeg={onAddLeg}
         onReorderStage={handleReorderStage}
         onReassignService={handleReassignService}
-        onDeleteStageViaDrag={handleDeleteStageViaDrag}
         removeConfirm={removeConfirm}
         onConfirmRemoveLeg={handleConfirmRemoveLeg}
         onCancelRemoveLeg={handleCancelRemoveLeg}
@@ -525,7 +509,6 @@ export function RoadBook({
           onAddLegFromWorkspace={handleAddLegFromWorkspace}
           onReorderStage={handleReorderStage}
           onReassignService={handleReassignService}
-          onDeleteStageViaDrag={handleDeleteStageViaDrag}
           onClose={closeModal}
         />
       )}

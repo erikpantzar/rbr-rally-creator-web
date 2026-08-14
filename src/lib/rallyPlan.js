@@ -204,10 +204,14 @@ export function stockholmNow() {
   );
 }
 
-// Max span the site's own "leg open -> leg close" window allows is 7 days --
-// this app caps legs at 6 to stay safely inside that limit rather than
-// riding the edge of the site's own validation.
-export const MAX_LEG_SPAN_DAYS = 6;
+// rbr-rally-creator-web#126: beta tester (oka22) reported the real site
+// allows up to 8-day rallies -- raised from the earlier conservative guess
+// of 6 (see issue history) to match, since capping stricter than the actual
+// site limit only frustrates users with no real safety benefit. This is
+// tester-reported, not independently confirmed -- reconcile with
+// rbr-rally-creator-service's discovery findings once the real open->close
+// max is server-confirmed there.
+export const MAX_LEG_SPAN_DAYS = 8;
 
 // rbr-rally-creator-web#37: the real site's wizard only ever offers 1-6 legs
 // (confirmed against rbr-rally-creator-service's discovery capture of the
@@ -297,14 +301,13 @@ export function clampLegTimes(openTime, closeTime, now = stockholmNow()) {
 // close_time field, then two validation rules the issue asks for:
 //
 //  1. Own-leg consistency -- if the edited leg's open_time now lands at or
-//     after its own close_time, snap close_time to exactly open_time + 7
-//     days (the site's own max open->close window, see MAX_LEG_SPAN_DAYS's
-//     comment) rather than leaving an inverted/zero-length window on screen.
-//     This only fires from an open_time edit -- a close_time edit that's
-//     simply earlier than open_time is caught by the pre-existing "clamp
-//     close_time back down if it exceeds open_time + N days" behavior
-//     RallyBuilder already had; this rule covers the other direction (open
-//     pushed past a close_time that didn't move).
+//     after its own close_time, snap close_time to exactly open_time +
+//     MAX_LEG_SPAN_DAYS rather than leaving an inverted/zero-length window
+//     on screen. This only fires from an open_time edit -- a close_time
+//     edit that's simply earlier than open_time is caught by the
+//     pre-existing "clamp close_time back down if it exceeds open_time + N
+//     days" behavior RallyBuilder already had; this rule covers the other
+//     direction (open pushed past a close_time that didn't move).
 //
 //  2. Cascade -- legs are meant to run in order, one after another. If this
 //     edit leaves the edited leg's open_time at or after the *next* leg's
@@ -327,7 +330,7 @@ export function applyLegFieldChange(legSchedule, legIndex, field, value) {
     const closeDate = new Date(updatedLeg.close_time);
     if (!Number.isNaN(openDate.getTime()) && !Number.isNaN(closeDate.getTime()) && openDate >= closeDate) {
       const newCloseDate = new Date(openDate);
-      newCloseDate.setDate(newCloseDate.getDate() + 7);
+      newCloseDate.setDate(newCloseDate.getDate() + MAX_LEG_SPAN_DAYS);
       updatedLeg = { ...updatedLeg, close_time: toDatetimeLocalValue(newCloseDate) };
     }
   }

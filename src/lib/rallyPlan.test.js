@@ -27,20 +27,16 @@ function leg(open_time, close_time, stage_count = 0) {
 
 describe('applyLegFieldChange', () => {
   it('pushing open_time past its own close_time re-opens the window (snap lands at open + MAX_LEG_SPAN_DAYS)', () => {
-    // Rule 1's comment says "snap close_time to exactly open_time + 7 days",
-    // but rule 2 (the max-span clamp, which also runs on open_time edits)
-    // immediately pulls that +7d snap back down to +MAX_LEG_SPAN_DAYS (6d).
-    // Documenting the actual net behavior: close = open + 6 days.
     const legs = [leg('2026-05-01T10:00', '2026-05-05T10:00')];
     const result = applyLegFieldChange(legs, 0, 'open_time', '2026-05-06T10:00');
     expect(result[0].open_time).toBe('2026-05-06T10:00');
-    expect(result[0].close_time).toBe('2026-05-12T10:00'); // +6d, not the commented +7d
+    expect(result[0].close_time).toBe('2026-05-14T10:00'); // +8d
   });
 
   it('a close_time edit beyond open + MAX_LEG_SPAN_DAYS is clamped back to the max span', () => {
     const legs = [leg('2026-05-01T10:00', '2026-05-05T10:00')];
-    const result = applyLegFieldChange(legs, 0, 'close_time', '2026-05-09T10:00'); // +8d
-    expect(result[0].close_time).toBe('2026-05-07T10:00'); // open + 6d
+    const result = applyLegFieldChange(legs, 0, 'close_time', '2026-05-11T10:00'); // +10d
+    expect(result[0].close_time).toBe('2026-05-09T10:00'); // open + 8d
   });
 
   it('editing a leg open_time to at/after the next leg resets every following leg to the edited leg times', () => {
@@ -76,10 +72,10 @@ describe('clampLegTimes', () => {
   });
 
   it('caps the shifted close_time at MAX_LEG_SPAN_DAYS after the new open_time', () => {
-    // 8-day leg: after the shift the close would land 8 days out, over the 6-day cap.
-    const result = clampLegTimes('2026-05-01T10:00', '2026-05-09T10:00', fixedNow());
+    // 10-day leg: after the shift the close would land 10 days out, over the 8-day cap.
+    const result = clampLegTimes('2026-05-01T10:00', '2026-05-11T10:00', fixedNow());
     expect(result.open_time).toBe('2026-05-10T12:10');
-    expect(result.close_time).toBe('2026-05-16T12:10'); // new open + 6d
+    expect(result.close_time).toBe('2026-05-18T12:10'); // new open + 8d
   });
 
   it('handles unparseable open and missing close: open still clamps forward, close passes through', () => {
@@ -226,8 +222,8 @@ describe('applyPickedStageToConfig', () => {
 });
 
 describe('constants', () => {
-  it('keeps the leg span cap safely under the site 7-day open-to-close limit', () => {
-    expect(MAX_LEG_SPAN_DAYS).toBe(6);
+  it('keeps the leg span cap matched to the tester-reported 8-day open-to-close limit', () => {
+    expect(MAX_LEG_SPAN_DAYS).toBe(8);
     expect(CLAMP_LEG_LEAD_MINUTES).toBeGreaterThan(MIN_LEG_LEAD_MINUTES);
   });
 });

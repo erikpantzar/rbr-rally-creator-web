@@ -394,16 +394,18 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
     // runtime/network failures below still use alert().
     const legRanges = computeLegStageRanges(legSchedule);
 
-    // Only open_time/close_time/start_stage_no are part of the shared
-    // per-leg payload contract -- stage_count is a frontend-only control for
-    // deriving start_stage_no, not sent to the service. super_rally used to
-    // ride along here too, but rbr-rally-creator-web#123 moved it to a
-    // single rally-wide value (rallyBasics.super_rally, spread into `config`
-    // below) since the real site only lets you set it once for the whole
-    // rally, not per leg.
+    // stage_count is a frontend-only control for deriving start_stage_no,
+    // not sent to the service. rbr-rally-creator-web#123 moved super_rally
+    // to a single rally-wide control (rallyBasics.super_rally) since the
+    // real site only lets you set it once for the whole rally -- but the
+    // service's payload contract still validates/reads it per leg
+    // (routes/rallies.js, rallyWizard.js), so it still has to ride along on
+    // every legSchedule entry here, just sourced from the one shared value
+    // instead of each leg's own.
     const legSchedulePayload = legSchedule.map((leg, i) => ({
       open_time: leg.open_time,
       close_time: leg.close_time,
+      super_rally: rallyBasics.super_rally,
       start_stage_no: legRanges[i].startStageNo,
     }));
 

@@ -100,12 +100,32 @@ const SURFACE_WET_TYRE = {
   gravel: 'Gravel Wet',
 };
 
+// rbr-rally-creator-web#128: some catalog stages don't let the rally
+// organizer change surface age/condition at all -- confirmed against a
+// beta tester's real submit, where an unsupported pick ("Worn") came back
+// silently reset to "New" rather than rejected. `stage.supportsVariableSurface`
+// (rbr-rally-creator-service's discovery/capabilities/stages.json, scraped
+// from stages.php's "surface" capability column) is the per-stage flag for
+// this. '1' is the surfaceAge option's "New" value (rallyOptions.js /
+// MOCK_RALLY_OPTIONS.surfaceAge) -- hardcoded here rather than derived from
+// `options`, same "deliberately hardcoded, a rename shows up as a mismatch
+// instead of silently drifting" reasoning as SURFACE_DEFAULT_TYRE above.
+export const FIXED_SURFACE_AGE_ID = '1';
+
 export function getDefaultTyreForSurface(surface) {
   return SURFACE_DEFAULT_TYRE[surface] ?? null;
 }
 
 export function getWetTyreForSurface(surface) {
   return SURFACE_WET_TYRE[surface] ?? null;
+}
+
+// Defensive default (`!== false`) so a stage record missing the field
+// entirely (older cached catalog data, a mock stage in a test) reads as
+// changeable rather than silently locking a control that used to work --
+// only an explicit `false` from the catalog locks it.
+export function isSurfaceAgeChangeable(stage) {
+  return stage?.supportsVariableSurface !== false;
 }
 
 // A stage entry born already assigned to a catalog stage -- the Explore
@@ -141,6 +161,12 @@ export function applyPickedStageToConfig(config, stage) {
     ...config,
     stage_id: stage?.id ?? null,
     ...(defaultTyre ? { def_tyre_id: defaultTyre } : {}),
+    // rbr-rally-creator-web#128: a stage that doesn't support changing
+    // surface age always runs as "New" on the real site -- pin the config
+    // to that outcome the moment such a stage is picked, rather than
+    // carrying forward a previous pick's age (or the generic default)
+    // that's about to be disabled and misleading in the editor.
+    ...(stage && !isSurfaceAgeChangeable(stage) ? { surface_age_id: FIXED_SURFACE_AGE_ID } : {}),
     wetness_id: stage?.wetnessOptions?.[0] ?? '',
     tracksettings_id: stage?.weatherOptions?.[0] ?? '',
   };
@@ -204,10 +230,18 @@ export function stockholmNow() {
   );
 }
 
-// Max span the site's own "leg open -> leg close" window allows is 7 days --
-// this app caps legs at 6 to stay safely inside that limit rather than
-// riding the edge of the site's own validation.
-export const MAX_LEG_SPAN_DAYS = 6;
+// rbr-rally-creator-web#126: beta tester (oka22) reported the real site
+// allows up to 8-day rallies, since confirmed by rbr-rally-creator-service's
+// discovery capture of the live wizard's own client-side JS
+// (discovery/create-rally-wizard/step3.html: `const max_open_day = 8;`,
+// the flatpickr bound on the close_time picker). Deliberately capped one
+// day under that confirmed 8-day site limit rather than riding the exact
+// edge of it -- same "stay safely inside the real limit" reasoning as the
+// original 6-day guess, just re-anchored to a confirmed number instead of
+// an uncited one. Must stay in sync with rbr-rally-creator-service's own
+// LEG_MAX_SPAN_DAYS (src/lib/legTimeRules.js) -- the two are the frontend
+// and backend halves of the same cap.
+export const MAX_LEG_SPAN_DAYS = 7;
 
 // rbr-rally-creator-web#37: the real site's wizard only ever offers 1-6 legs
 // (confirmed against rbr-rally-creator-service's discovery capture of the
@@ -297,14 +331,13 @@ export function clampLegTimes(openTime, closeTime, now = stockholmNow()) {
 // close_time field, then two validation rules the issue asks for:
 //
 //  1. Own-leg consistency -- if the edited leg's open_time now lands at or
-//     after its own close_time, snap close_time to exactly open_time + 7
-//     days (the site's own max open->close window, see MAX_LEG_SPAN_DAYS's
-//     comment) rather than leaving an inverted/zero-length window on screen.
-//     This only fires from an open_time edit -- a close_time edit that's
-//     simply earlier than open_time is caught by the pre-existing "clamp
-//     close_time back down if it exceeds open_time + N days" behavior
-//     RallyBuilder already had; this rule covers the other direction (open
-//     pushed past a close_time that didn't move).
+//     after its own close_time, snap close_time to exactly open_time +
+//     MAX_LEG_SPAN_DAYS rather than leaving an inverted/zero-length window
+//     on screen. This only fires from an open_time edit -- a close_time
+//     edit that's simply earlier than open_time is caught by the
+//     pre-existing "clamp close_time back down if it exceeds open_time + N
+//     days" behavior RallyBuilder already had; this rule covers the other
+//     direction (open pushed past a close_time that didn't move).
 //
 //  2. Cascade -- legs are meant to run in order, one after another. If this
 //     edit leaves the edited leg's open_time at or after the *next* leg's
@@ -327,7 +360,7 @@ export function applyLegFieldChange(legSchedule, legIndex, field, value) {
     const closeDate = new Date(updatedLeg.close_time);
     if (!Number.isNaN(openDate.getTime()) && !Number.isNaN(closeDate.getTime()) && openDate >= closeDate) {
       const newCloseDate = new Date(openDate);
-      newCloseDate.setDate(newCloseDate.getDate() + 7);
+      newCloseDate.setDate(newCloseDate.getDate() + MAX_LEG_SPAN_DAYS);
       updatedLeg = { ...updatedLeg, close_time: toDatetimeLocalValue(newCloseDate) };
     }
   }
@@ -410,7 +443,6 @@ export function createDefaultLegConfig(stageCount = 0) {
   return {
     open_time: toDatetimeLocalValue(now),
     close_time: toDatetimeLocalValue(closeDate),
-    super_rally: 'disabled',
     stage_count: stageCount,
   };
 }

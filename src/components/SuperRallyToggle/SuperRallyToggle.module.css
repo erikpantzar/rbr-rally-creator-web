@@ -1,0 +1,39 @@
+.toggle {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--info-fg);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.toggle:hover {
+  border-color: var(--accent);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    background: var(--bg);
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    background: var(--info-bg);
+    box-shadow: 0 0 6px 1px var(--info-border);
+  }
+}
+
+.active {
+  animation: none;
+  background: var(--info-fg);
+  border-color: var(--info-fg);
+  color: var(--info-ink);
+}
+
+.active:hover {
+  border-color: var(--info-fg);
+}

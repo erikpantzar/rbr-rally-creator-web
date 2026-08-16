@@ -4,6 +4,7 @@ import {
   clampLegTimes,
   isLegOpenTimeTooSoon,
   computeLegStageRanges,
+  createDefaultLegConfig,
   createDefaultStageConfig,
   createStageConfigForCatalogStage,
   normalizeLastStageService,
@@ -11,6 +12,8 @@ import {
   formatKm,
   applyPickedStageToConfig,
   createDefaultServiceFields,
+  isSurfaceAgeChangeable,
+  FIXED_SURFACE_AGE_ID,
   MAX_LEG_SPAN_DAYS,
   MIN_LEG_LEAD_MINUTES,
   CLAMP_LEG_LEAD_MINUTES,
@@ -22,25 +25,21 @@ import {
 const fixedNow = () => new Date(2026, 4, 10, 12, 0, 0); // 2026-05-10T12:00
 
 function leg(open_time, close_time, stage_count = 0) {
-  return { open_time, close_time, super_rally: 'disabled', stage_count };
+  return { open_time, close_time, stage_count };
 }
 
 describe('applyLegFieldChange', () => {
   it('pushing open_time past its own close_time re-opens the window (snap lands at open + MAX_LEG_SPAN_DAYS)', () => {
-    // Rule 1's comment says "snap close_time to exactly open_time + 7 days",
-    // but rule 2 (the max-span clamp, which also runs on open_time edits)
-    // immediately pulls that +7d snap back down to +MAX_LEG_SPAN_DAYS (6d).
-    // Documenting the actual net behavior: close = open + 6 days.
     const legs = [leg('2026-05-01T10:00', '2026-05-05T10:00')];
     const result = applyLegFieldChange(legs, 0, 'open_time', '2026-05-06T10:00');
     expect(result[0].open_time).toBe('2026-05-06T10:00');
-    expect(result[0].close_time).toBe('2026-05-12T10:00'); // +6d, not the commented +7d
+    expect(result[0].close_time).toBe('2026-05-13T10:00'); // +7d
   });
 
   it('a close_time edit beyond open + MAX_LEG_SPAN_DAYS is clamped back to the max span', () => {
     const legs = [leg('2026-05-01T10:00', '2026-05-05T10:00')];
-    const result = applyLegFieldChange(legs, 0, 'close_time', '2026-05-09T10:00'); // +8d
-    expect(result[0].close_time).toBe('2026-05-07T10:00'); // open + 6d
+    const result = applyLegFieldChange(legs, 0, 'close_time', '2026-05-11T10:00'); // +10d
+    expect(result[0].close_time).toBe('2026-05-08T10:00'); // open + 7d
   });
 
   it('editing a leg open_time to at/after the next leg resets every following leg to the edited leg times', () => {
@@ -76,10 +75,10 @@ describe('clampLegTimes', () => {
   });
 
   it('caps the shifted close_time at MAX_LEG_SPAN_DAYS after the new open_time', () => {
-    // 8-day leg: after the shift the close would land 8 days out, over the 6-day cap.
-    const result = clampLegTimes('2026-05-01T10:00', '2026-05-09T10:00', fixedNow());
+    // 10-day leg: after the shift the close would land 10 days out, over the 7-day cap.
+    const result = clampLegTimes('2026-05-01T10:00', '2026-05-11T10:00', fixedNow());
     expect(result.open_time).toBe('2026-05-10T12:10');
-    expect(result.close_time).toBe('2026-05-16T12:10'); // new open + 6d
+    expect(result.close_time).toBe('2026-05-17T12:10'); // new open + 7d
   });
 
   it('handles unparseable open and missing close: open still clamps forward, close passes through', () => {
@@ -108,6 +107,15 @@ describe('isLegOpenTimeTooSoon', () => {
   it('is false at exactly now + MIN_LEG_LEAD_MINUTES (boundary is allowed)', () => {
     expect(MIN_LEG_LEAD_MINUTES).toBe(5);
     expect(isLegOpenTimeTooSoon('2026-05-10T12:05', fixedNow())).toBe(false);
+  });
+});
+
+// rbr-rally-creator-web#123: super_rally moved from a per-leg field to a
+// single rally-wide one (RallyBuilder's DEFAULT_RALLY_BASICS) -- a fresh leg
+// no longer carries it at all.
+describe('createDefaultLegConfig', () => {
+  it('does not include a super_rally field', () => {
+    expect(createDefaultLegConfig(3)).not.toHaveProperty('super_rally');
   });
 });
 
@@ -223,11 +231,49 @@ describe('applyPickedStageToConfig', () => {
     const result = applyPickedStageToConfig(config, null);
     expect(result).toMatchObject({ stage_id: null, wetness_id: '', tracksettings_id: '' });
   });
+
+  it('rbr-rally-creator-web#128: pins surface_age_id to "New" when the picked stage cannot vary it', () => {
+    const wornConfig = { ...config, surface_age_id: '3' };
+    const stage = {
+      id: 's-fixed',
+      surface: 'tarmac',
+      supportsVariableSurface: false,
+      wetnessOptions: ['dry'],
+      weatherOptions: ['Noon Clear'],
+    };
+    const result = applyPickedStageToConfig(wornConfig, stage);
+    expect(result.surface_age_id).toBe(FIXED_SURFACE_AGE_ID);
+  });
+
+  it('leaves surface_age_id untouched when the picked stage does support variable surface age', () => {
+    const wornConfig = { ...config, surface_age_id: '3' };
+    const stage = {
+      id: 's-variable',
+      surface: 'tarmac',
+      supportsVariableSurface: true,
+      wetnessOptions: ['dry'],
+      weatherOptions: ['Noon Clear'],
+    };
+    const result = applyPickedStageToConfig(wornConfig, stage);
+    expect(result.surface_age_id).toBe('3');
+  });
+});
+
+describe('isSurfaceAgeChangeable', () => {
+  it('is false only when the stage explicitly says so', () => {
+    expect(isSurfaceAgeChangeable({ supportsVariableSurface: false })).toBe(false);
+  });
+
+  it('defaults to true for stages that support it, are missing the field, or are null', () => {
+    expect(isSurfaceAgeChangeable({ supportsVariableSurface: true })).toBe(true);
+    expect(isSurfaceAgeChangeable({})).toBe(true);
+    expect(isSurfaceAgeChangeable(null)).toBe(true);
+  });
 });
 
 describe('constants', () => {
-  it('keeps the leg span cap safely under the site 7-day open-to-close limit', () => {
-    expect(MAX_LEG_SPAN_DAYS).toBe(6);
+  it('keeps the leg span cap one day under the confirmed 8-day open-to-close site limit', () => {
+    expect(MAX_LEG_SPAN_DAYS).toBe(7);
     expect(CLAMP_LEG_LEAD_MINUTES).toBeGreaterThan(MIN_LEG_LEAD_MINUTES);
   });
 });

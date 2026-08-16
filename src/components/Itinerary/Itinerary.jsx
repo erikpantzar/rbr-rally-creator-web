@@ -75,22 +75,6 @@ function SortableCompactRow({ sortableId, sortableType, className, children, ...
   );
 }
 
-function RemoveDropZone({ legIndex }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: `remove-zone-${legIndex}`,
-    data: { type: 'remove-zone', legIndex },
-  });
-  return (
-    <div
-      ref={setNodeRef}
-      className={[styles.removeZone, isOver ? styles.removeZoneOver : ''].filter(Boolean).join(' ')}
-      aria-hidden="true"
-    >
-      Drop to remove
-    </div>
-  );
-}
-
 function LegRemoveConfirmBubble({ legIndex, stageCount, targetLegIndex, onConfirm, onCancel }) {
   return (
     <div className={styles.legRemoveBubble} role="dialog" aria-label={`Remove Leg ${legIndex + 1}?`}>
@@ -119,13 +103,16 @@ function LegRemoveConfirmBubble({ legIndex, stageCount, targetLegIndex, onConfir
 // actually contains.
 //
 //   detail="full"    -- the editable road book: leg header carries the
-//                        open/close/super-rally inputs and remove button,
+//                        open/close inputs and remove button,
 //                        stages render as StageBrick with edit/delete,
 //                        assigned services render as ServiceBlock with
 //                        click/clear. Drag reorders stages (within/across
-//                        legs), drags a service block to reassign it to a
-//                        different stage, and drag-to-delete zones appear
-//                        per leg while a stage is mid-drag.
+//                        legs) and drags a service block to reassign it to a
+//                        different stage; deleting a stage is a click on its
+//                        StageBrick's delete cross, never a drag gesture
+//                        (rbr-rally-creator-web#121 removed the old
+//                        drag-to-remove zone -- too easy to hit by accident
+//                        while reordering).
 //   detail="compact"  -- PickerWorkspace's sidebar: rows are plain nav
 //                        buttons (onSelect only), leg header is just a
 //                        name/count/km summary + "+ Add stage". Drag still
@@ -134,7 +121,6 @@ function LegRemoveConfirmBubble({ legIndex, stageCount, targetLegIndex, onConfir
 export function Itinerary({
   detail = 'full',
   stages,
-  options,
   stagePlan,
   legSchedule,
   hiddenStageNameEnabled = false,
@@ -153,7 +139,6 @@ export function Itinerary({
   onAddLeg,
   onReorderStage,
   onReassignService,
-  onDeleteStageViaDrag,
   removeConfirm,
   onConfirmRemoveLeg,
   onCancelRemoveLeg,
@@ -234,14 +219,6 @@ export function Itinerary({
     setActiveDrag(null);
   }
 
-  function handleDragOver(event) {
-    const overRemoveZone = event.over?.data.current?.type === 'remove-zone';
-    setActiveDrag((prev) => {
-      if (!prev || prev.overRemoveZone === overRemoveZone) return prev;
-      return { ...prev, overRemoveZone };
-    });
-  }
-
   function handleServiceDragEnd(sourceStageUid, draggedSequenceId, over) {
     let destLegIndex;
     let destSequence;
@@ -287,11 +264,6 @@ export function Itinerary({
     const sourceUid = active.id;
     const sourceLegIndex = findContainerOfUid(sourceUid);
     if (sourceLegIndex === -1) return;
-
-    if (over.data.current?.type === 'remove-zone') {
-      onDeleteStageViaDrag?.(sourceUid);
-      return;
-    }
 
     let destLegIndex;
     let destIndexInContainer;
@@ -380,7 +352,6 @@ export function Itinerary({
           <div className={styles.legInputsLocked}>
             <span>Open: {leg.open_time || '—'}</span>
             <span>Close: {leg.close_time || '—'}</span>
-            <span>Super Rally: {leg.super_rally}</span>
           </div>
         ) : (
           <>
@@ -425,19 +396,6 @@ export function Itinerary({
                   onChange={(e) => onLegFieldChange(legIndex, 'close_time', e.target.value)}
                 />
               </label>
-              <button
-                type="button"
-                className={[styles.superRallyToggle, leg.super_rally !== 'disabled' ? styles.superRallyActive : '']
-                  .filter(Boolean)
-                  .join(' ')}
-                onClick={() => {
-                  const currentIndex = options.superRally.indexOf(leg.super_rally);
-                  const nextIndex = (currentIndex + 1 + options.superRally.length) % options.superRally.length;
-                  onLegFieldChange(legIndex, 'super_rally', options.superRally[nextIndex]);
-                }}
-              >
-                Super Rally: {leg.super_rally}
-              </button>
             </div>
           </>
         )}
@@ -494,7 +452,6 @@ export function Itinerary({
       sensors={locked ? NO_SENSORS : sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
@@ -574,8 +531,6 @@ export function Itinerary({
                             Add your first stage &rarr;
                           </p>
                         )}
-
-                        {activeDrag?.type === 'stage' && <RemoveDropZone legIndex={legIndex} />}
                       </>
                     )}
                   </LegDropContainer>
@@ -630,7 +585,6 @@ export function Itinerary({
               stageNumber={activeDrag.stageNumber}
               locked
               hiddenStageNameEnabled={hiddenStageNameEnabled}
-              dangerHighlight={activeDrag.overRemoveZone}
             />
           )}
           {activeDrag?.type === 'service' && (

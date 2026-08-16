@@ -123,9 +123,6 @@ export function describePlanChange(prev, next) {
   const legDiffs = changedIndexes(prevLegs, nextLegs);
   if (legDiffs.length === 1) {
     const i = legDiffs[0];
-    if (prevLegs[i].super_rally !== nextLegs[i].super_rally) {
-      return { label: `Leg ${i + 1} super rally ${nextLegs[i].super_rally === 'enabled' ? 'on' : 'off'}`, coalesceKey: null };
-    }
     return { label: `Leg ${i + 1} times changed`, coalesceKey: `leg:${i}` };
   }
   // applyLegFieldChange cascades a leg's new times onto every later leg, and

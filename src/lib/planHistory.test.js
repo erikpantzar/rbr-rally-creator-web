@@ -30,7 +30,6 @@ function leg(stageCount, overrides = {}) {
   return {
     open_time: '2026-08-14T10:00',
     close_time: '2026-08-20T10:00',
-    super_rally: 'disabled',
     stage_count: stageCount,
     ...overrides,
   };
@@ -106,11 +105,6 @@ describe('describePlanChange', () => {
     expect(describePlanChange(before, snapshot(plan, [leg(1, { open_time: '2026-08-15T10:00' })]))).toEqual({
       label: 'Leg 1 times changed',
       coalesceKey: 'leg:0',
-    });
-
-    expect(describePlanChange(before, snapshot(plan, [leg(1, { super_rally: 'enabled' })]))).toEqual({
-      label: 'Leg 1 super rally on',
-      coalesceKey: null,
     });
   });
 

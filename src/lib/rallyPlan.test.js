@@ -30,13 +30,13 @@ describe('applyLegFieldChange', () => {
     const legs = [leg('2026-05-01T10:00', '2026-05-05T10:00')];
     const result = applyLegFieldChange(legs, 0, 'open_time', '2026-05-06T10:00');
     expect(result[0].open_time).toBe('2026-05-06T10:00');
-    expect(result[0].close_time).toBe('2026-05-14T10:00'); // +8d
+    expect(result[0].close_time).toBe('2026-05-13T10:00'); // +7d
   });
 
   it('a close_time edit beyond open + MAX_LEG_SPAN_DAYS is clamped back to the max span', () => {
     const legs = [leg('2026-05-01T10:00', '2026-05-05T10:00')];
     const result = applyLegFieldChange(legs, 0, 'close_time', '2026-05-11T10:00'); // +10d
-    expect(result[0].close_time).toBe('2026-05-09T10:00'); // open + 8d
+    expect(result[0].close_time).toBe('2026-05-08T10:00'); // open + 7d
   });
 
   it('editing a leg open_time to at/after the next leg resets every following leg to the edited leg times', () => {
@@ -72,10 +72,10 @@ describe('clampLegTimes', () => {
   });
 
   it('caps the shifted close_time at MAX_LEG_SPAN_DAYS after the new open_time', () => {
-    // 10-day leg: after the shift the close would land 10 days out, over the 8-day cap.
+    // 10-day leg: after the shift the close would land 10 days out, over the 7-day cap.
     const result = clampLegTimes('2026-05-01T10:00', '2026-05-11T10:00', fixedNow());
     expect(result.open_time).toBe('2026-05-10T12:10');
-    expect(result.close_time).toBe('2026-05-18T12:10'); // new open + 8d
+    expect(result.close_time).toBe('2026-05-17T12:10'); // new open + 7d
   });
 
   it('handles unparseable open and missing close: open still clamps forward, close passes through', () => {
@@ -222,8 +222,8 @@ describe('applyPickedStageToConfig', () => {
 });
 
 describe('constants', () => {
-  it('keeps the leg span cap matched to the tester-reported 8-day open-to-close limit', () => {
-    expect(MAX_LEG_SPAN_DAYS).toBe(8);
+  it('keeps the leg span cap one day under the confirmed 8-day open-to-close site limit', () => {
+    expect(MAX_LEG_SPAN_DAYS).toBe(7);
     expect(CLAMP_LEG_LEAD_MINUTES).toBeGreaterThan(MIN_LEG_LEAD_MINUTES);
   });
 });

@@ -205,13 +205,17 @@ export function stockholmNow() {
 }
 
 // rbr-rally-creator-web#126: beta tester (oka22) reported the real site
-// allows up to 8-day rallies -- raised from the earlier conservative guess
-// of 6 (see issue history) to match, since capping stricter than the actual
-// site limit only frustrates users with no real safety benefit. This is
-// tester-reported, not independently confirmed -- reconcile with
-// rbr-rally-creator-service's discovery findings once the real open->close
-// max is server-confirmed there.
-export const MAX_LEG_SPAN_DAYS = 8;
+// allows up to 8-day rallies, since confirmed by rbr-rally-creator-service's
+// discovery capture of the live wizard's own client-side JS
+// (discovery/create-rally-wizard/step3.html: `const max_open_day = 8;`,
+// the flatpickr bound on the close_time picker). Deliberately capped one
+// day under that confirmed 8-day site limit rather than riding the exact
+// edge of it -- same "stay safely inside the real limit" reasoning as the
+// original 6-day guess, just re-anchored to a confirmed number instead of
+// an uncited one. Must stay in sync with rbr-rally-creator-service's own
+// LEG_MAX_SPAN_DAYS (src/lib/legTimeRules.js) -- the two are the frontend
+// and backend halves of the same cap.
+export const MAX_LEG_SPAN_DAYS = 7;
 
 // rbr-rally-creator-web#37: the real site's wizard only ever offers 1-6 legs
 // (confirmed against rbr-rally-creator-service's discovery capture of the

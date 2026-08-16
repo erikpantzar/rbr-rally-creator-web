@@ -4,7 +4,7 @@ import { FormGroup } from '../FormGroup/FormGroup.jsx';
 import { Input } from '../Input/Input.jsx';
 import { ServiceBlock } from '../ServiceBlock/ServiceBlock.jsx';
 import { StagePicker } from '../StagePicker/StagePicker.jsx';
-import { applyPickedStageToConfig, getWetTyreForSurface } from '../../lib/rallyPlan.js';
+import { applyPickedStageToConfig, getWetTyreForSurface, isSurfaceAgeChangeable } from '../../lib/rallyPlan.js';
 import styles from './StageEntryEditor.module.css';
 
 // The stage-config form body, extracted from StageConfigModal for
@@ -105,6 +105,16 @@ export function StageEntryEditor({
     () => stages.find((s) => s.id === value.stage_id) ?? null,
     [stages, value.stage_id]
   );
+
+  // rbr-rally-creator-web#128: a beta tester found some stages don't let the
+  // real site's wizard change surface age at all -- an unsupported pick
+  // ("Worn") came back silently reset to "New" rather than rejected.
+  // `stage.supportsVariableSurface` is the per-stage capability flag
+  // (rbr-rally-creator-service's stages.json, scraped from stages.php).
+  // No stage picked yet -> nothing to lock against, so the control stays
+  // enabled (applyPickedStageToConfig pins the value the moment a
+  // non-changeable stage IS picked, see its own comment).
+  const surfaceAgeChangeable = !selectedStage || isSurfaceAgeChangeable(selectedStage);
 
   // The "already added" ribbon (#107 follow-up) is meant to flag OTHER
   // stages you've already used, not this entry's own current pick --
@@ -233,23 +243,33 @@ export function StageEntryEditor({
       <FormGroup label="Surface condition">
         <div className={styles.radioGroup}>
           {options.surfaceAge.map((age) => (
-            <label key={age.value} className={styles.radioLabel}>
+            <label
+              key={age.value}
+              className={[styles.radioLabel, !surfaceAgeChangeable ? styles.radioLabelDisabled : ''].join(' ')}
+            >
               <input
                 type="radio"
                 name="surface-age"
                 value={age.value}
                 checked={value.surface_age_id === age.value}
+                disabled={!surfaceAgeChangeable}
                 onChange={(e) => patch({ surface_age_id: e.target.value })}
               />
               {age.label}
             </label>
           ))}
         </div>
-        <p className={styles.fieldNote}>
-          Gravel: "New" means no ruts but lots of loose gravel, as if you're the first car on the
-          road; "Worn" means ruts have formed but less gravel is loose. Tarmac: "New" means no
-          gravel, dirt, or mud has been dragged onto the road yet.
-        </p>
+        {!surfaceAgeChangeable ? (
+          <p className={styles.fieldNote}>
+            This stage doesn’t support changing surface age on rallysimfans.hu — it always runs as “New”.
+          </p>
+        ) : (
+          <p className={styles.fieldNote}>
+            Gravel: "New" means no ruts but lots of loose gravel, as if you're the first car on the
+            road; "Worn" means ruts have formed but less gravel is loose. Tarmac: "New" means no
+            gravel, dirt, or mud has been dragged onto the road yet.
+          </p>
+        )}
       </FormGroup>
 
       {/* rbr-rally-creator-web#79: wetness/weather options are per-stage

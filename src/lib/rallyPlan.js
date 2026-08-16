@@ -100,12 +100,32 @@ const SURFACE_WET_TYRE = {
   gravel: 'Gravel Wet',
 };
 
+// rbr-rally-creator-web#128: some catalog stages don't let the rally
+// organizer change surface age/condition at all -- confirmed against a
+// beta tester's real submit, where an unsupported pick ("Worn") came back
+// silently reset to "New" rather than rejected. `stage.supportsVariableSurface`
+// (rbr-rally-creator-service's discovery/capabilities/stages.json, scraped
+// from stages.php's "surface" capability column) is the per-stage flag for
+// this. '1' is the surfaceAge option's "New" value (rallyOptions.js /
+// MOCK_RALLY_OPTIONS.surfaceAge) -- hardcoded here rather than derived from
+// `options`, same "deliberately hardcoded, a rename shows up as a mismatch
+// instead of silently drifting" reasoning as SURFACE_DEFAULT_TYRE above.
+export const FIXED_SURFACE_AGE_ID = '1';
+
 export function getDefaultTyreForSurface(surface) {
   return SURFACE_DEFAULT_TYRE[surface] ?? null;
 }
 
 export function getWetTyreForSurface(surface) {
   return SURFACE_WET_TYRE[surface] ?? null;
+}
+
+// Defensive default (`!== false`) so a stage record missing the field
+// entirely (older cached catalog data, a mock stage in a test) reads as
+// changeable rather than silently locking a control that used to work --
+// only an explicit `false` from the catalog locks it.
+export function isSurfaceAgeChangeable(stage) {
+  return stage?.supportsVariableSurface !== false;
 }
 
 // A stage entry born already assigned to a catalog stage -- the Explore
@@ -141,6 +161,12 @@ export function applyPickedStageToConfig(config, stage) {
     ...config,
     stage_id: stage?.id ?? null,
     ...(defaultTyre ? { def_tyre_id: defaultTyre } : {}),
+    // rbr-rally-creator-web#128: a stage that doesn't support changing
+    // surface age always runs as "New" on the real site -- pin the config
+    // to that outcome the moment such a stage is picked, rather than
+    // carrying forward a previous pick's age (or the generic default)
+    // that's about to be disabled and misleading in the editor.
+    ...(stage && !isSurfaceAgeChangeable(stage) ? { surface_age_id: FIXED_SURFACE_AGE_ID } : {}),
     wetness_id: stage?.wetnessOptions?.[0] ?? '',
     tracksettings_id: stage?.weatherOptions?.[0] ?? '',
   };

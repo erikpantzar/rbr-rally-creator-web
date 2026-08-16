@@ -10,12 +10,15 @@ import {
 } from '../../lib/rallyApi.js';
 import {
   createDefaultLegConfig,
+  createLegConfigForAppend,
   computeLegStageRanges,
   normalizeLastStageService,
   cloneStageConfigWithNewUid,
   isLegOpenTimeTooSoon,
   clampLegTimes,
   applyLegFieldChange,
+  applySharedLegFieldChange,
+  setLegSynced,
   MAX_LEGS,
   MIN_LEG_LEAD_MINUTES,
   CLAMP_LEG_LEAD_MINUTES,
@@ -691,12 +694,28 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
     });
   }
 
-  // rbr-rally-creator-web#89: the actual validation/cascade rules live in
-  // applyLegFieldChange (rallyPlan.js) so they're plain, testable data
-  // transforms over legSchedule -- this handler is just "apply the edit,
-  // commit the result".
+  // rbr-rally-creator-web#89, revised by #127: the actual validation rules
+  // live in applyLegFieldChange (rallyPlan.js) so they're plain, testable
+  // data transforms over legSchedule -- this handler is just "apply the
+  // edit, commit the result". Only ever reached for a leg that has already
+  // broken sync editing its own open_time/close_time -- a still-synced
+  // leg's open/close goes through handleSharedLegFieldChange below instead.
   function handleLegFieldChange(legIndex, field, value) {
     setLegSchedule(applyLegFieldChange(legSchedule, legIndex, field, value));
+  }
+
+  // rbr-rally-creator-web#127: the single shared open/close control's
+  // onChange -- fans the edit out to every leg still following the default
+  // (applySharedLegFieldChange), leaving overridden legs untouched.
+  function handleSharedLegFieldChange(field, value) {
+    setLegSchedule(applySharedLegFieldChange(legSchedule, field, value));
+  }
+
+  // rbr-rally-creator-web#127: "set different times for this leg" / "use
+  // shared times" -- the one toggle that flips a leg's synced flag, in
+  // either direction.
+  function handleSetLegSynced(legIndex, synced) {
+    setLegSchedule(setLegSynced(legSchedule, legIndex, synced));
   }
 
   // rbr-rally-creator-web#63: one-click remedy for the "leg opens too soon"
@@ -725,10 +744,13 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
   // one at a time from RoadBook's "+ Add Leg" button, same additive model as
   // stages, rather than pre-sized by the old rallyBasics.legs number input.
   // The new leg starts with stage_count: 0 (empty), same as
-  // createDefaultLegConfig's default -- the readinessProblems check above
-  // flags it until at least one stage gets added to it.
+  // createLegConfigForAppend's default -- the readinessProblems check above
+  // flags it until at least one stage gets added to it. rbr-rally-creator-web#127:
+  // createLegConfigForAppend (rather than createDefaultLegConfig directly)
+  // joins the new leg to the shared open/close group, inheriting the
+  // CURRENT shared value instead of a freshly-computed "now".
   function handleAddLeg() {
-    setLegSchedule([...legSchedule, createDefaultLegConfig(0)]);
+    setLegSchedule([...legSchedule, createLegConfigForAppend(legSchedule, 0)]);
   }
 
   // "Duplicate as new draft" per DESIGN_SPEC.md's UX review note: once
@@ -878,6 +900,8 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
               onStagePlanChange={updateStagePlan}
               onLegScheduleChange={setLegSchedule}
               onLegFieldChange={handleLegFieldChange}
+              onSharedLegFieldChange={handleSharedLegFieldChange}
+              onSetLegSynced={handleSetLegSynced}
               onAddLeg={handleAddLeg}
               hiddenStageNameEnabled={rallyBasics.hidden_stage_name}
               locked={locked}

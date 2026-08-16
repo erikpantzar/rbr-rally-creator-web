@@ -9,6 +9,8 @@ import {
   parseStageKm,
   sumStagePlanKm,
   getServiceTier,
+  isLegSynced,
+  getSharedLegTimes,
   MAX_LEG_SPAN_DAYS,
 } from '../../lib/rallyPlan.js';
 import { StageBrick } from '../StageBrick/StageBrick.jsx';
@@ -102,15 +104,21 @@ function LegRemoveConfirmBubble({ legIndex, stageCount, targetLegIndex, onConfir
 // model, so the two views can never visually disagree about what the rally
 // actually contains.
 //
-//   detail="full"    -- the editable road book: leg header carries the
-//                        open/close inputs and remove button,
-//                        stages render as StageBrick with edit/delete,
-//                        assigned services render as ServiceBlock with
-//                        click/clear. Drag reorders stages (within/across
-//                        legs) and drags a service block to reassign it to a
-//                        different stage; deleting a stage is a click on its
-//                        StageBrick's delete cross, never a drag gesture
-//                        (rbr-rally-creator-web#121 removed the old
+//   detail="full"    -- the editable road book: one shared open/close
+//                        control above the leg list drives every leg still
+//                        following the default (rbr-rally-creator-web#127);
+//                        each leg header carries a remove button and --
+//                        only once it's broken sync -- its own independent
+//                        open/close inputs. Super Rally is a single
+//                        rally-wide control in RallyBasicsForm
+//                        (rbr-rally-creator-web#123), not per leg. Stages
+//                        render as StageBrick with edit/delete, assigned
+//                        services render as ServiceBlock with click/clear.
+//                        Drag reorders stages (within/across legs) and
+//                        drags a service block to reassign it to a
+//                        different stage; deleting a stage is a click on
+//                        its StageBrick's delete cross, never a drag
+//                        gesture (rbr-rally-creator-web#121 removed the old
 //                        drag-to-remove zone -- too easy to hit by accident
 //                        while reordering).
 //   detail="compact"  -- PickerWorkspace's sidebar: rows are plain nav
@@ -130,6 +138,8 @@ export function Itinerary({
   onSelectService,
   onSelectLeg,
   onLegFieldChange,
+  onSharedLegFieldChange,
+  onSetLegSynced,
   onRemoveLeg,
   onAddStage,
   onEditStage,
@@ -155,6 +165,14 @@ export function Itinerary({
 
   const stageByCatalogId = useMemo(() => new Map(stages.map((s) => [s.id, s])), [stages]);
   const stageByUid = useMemo(() => new Map(stagePlan.map((s) => [s._uid, s])), [stagePlan]);
+
+  // rbr-rally-creator-web#127: rule 1 of the agreed behavior -- a single
+  // shared open/close control above the leg list, not one per leg.
+  // hasSyncedLeg guards against every leg having broken sync (an unusual
+  // but valid state): with nothing left to fan an edit out to, the control
+  // is disabled rather than accepting typing that would silently go nowhere.
+  const sharedLegTimes = getSharedLegTimes(legSchedule);
+  const hasSyncedLeg = legSchedule.some(isLegSynced);
 
   const legRanges = computeLegStageRanges(legSchedule);
   const containers = legRanges.map(({ startIndex, endIndex }) => stagePlan.slice(startIndex, endIndex).map((s) => s._uid));
@@ -339,6 +357,7 @@ export function Itinerary({
   }
 
   function renderFullLegHeader(legIndex, legStages, legTotalKm, leg) {
+    const synced = isLegSynced(leg);
     return (
       <div className={styles.legHeader}>
         <h4>
@@ -352,6 +371,7 @@ export function Itinerary({
           <div className={styles.legInputsLocked}>
             <span>Open: {leg.open_time || '—'}</span>
             <span>Close: {leg.close_time || '—'}</span>
+            {!synced && <span className={styles.legSyncBadge}>Custom times</span>}
           </div>
         ) : (
           <>
@@ -377,25 +397,49 @@ export function Itinerary({
               )}
             </div>
             <div className={styles.legInputs}>
-              <label className={styles.legFieldLabel}>
-                <span>Open</span>
-                <input
-                  type="datetime-local"
-                  placeholder="Open time"
-                  value={leg.open_time}
-                  onChange={(e) => onLegFieldChange(legIndex, 'open_time', e.target.value)}
-                />
-              </label>
-              <label className={styles.legFieldLabel}>
-                <span>Close</span>
-                <input
-                  type="datetime-local"
-                  placeholder="Close time"
-                  value={leg.close_time}
-                  max={maxCloseTimeFor(leg.open_time)}
-                  onChange={(e) => onLegFieldChange(legIndex, 'close_time', e.target.value)}
-                />
-              </label>
+              {synced ? (
+                <>
+                  <span className={styles.legSyncedTimes}>
+                    Open {leg.open_time || '—'} &middot; Close {leg.close_time || '—'}
+                  </span>
+                  <button
+                    type="button"
+                    className={styles.legSyncToggle}
+                    onClick={() => onSetLegSynced(legIndex, false)}
+                  >
+                    Set different times for this leg
+                  </button>
+                </>
+              ) : (
+                <>
+                  <label className={styles.legFieldLabel}>
+                    <span>Open</span>
+                    <input
+                      type="datetime-local"
+                      placeholder="Open time"
+                      value={leg.open_time}
+                      onChange={(e) => onLegFieldChange(legIndex, 'open_time', e.target.value)}
+                    />
+                  </label>
+                  <label className={styles.legFieldLabel}>
+                    <span>Close</span>
+                    <input
+                      type="datetime-local"
+                      placeholder="Close time"
+                      value={leg.close_time}
+                      max={maxCloseTimeFor(leg.open_time)}
+                      onChange={(e) => onLegFieldChange(legIndex, 'close_time', e.target.value)}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className={styles.legSyncToggle}
+                    onClick={() => onSetLegSynced(legIndex, true)}
+                  >
+                    Use shared times
+                  </button>
+                </>
+              )}
             </div>
           </>
         )}
@@ -456,6 +500,40 @@ export function Itinerary({
       onDragCancel={handleDragCancel}
     >
       <div className={isFull ? styles.book : styles.compactBook}>
+        {isFull && !locked && (
+          <div className={styles.sharedSchedule}>
+            <span className={styles.sharedScheduleLabel}>All legs open/close</span>
+            <div className={styles.legInputs}>
+              <label className={styles.legFieldLabel}>
+                <span>Open</span>
+                <input
+                  type="datetime-local"
+                  placeholder="Open time"
+                  value={sharedLegTimes.open_time}
+                  disabled={!hasSyncedLeg}
+                  onChange={(e) => onSharedLegFieldChange('open_time', e.target.value)}
+                />
+              </label>
+              <label className={styles.legFieldLabel}>
+                <span>Close</span>
+                <input
+                  type="datetime-local"
+                  placeholder="Close time"
+                  value={sharedLegTimes.close_time}
+                  max={maxCloseTimeFor(sharedLegTimes.open_time)}
+                  disabled={!hasSyncedLeg}
+                  onChange={(e) => onSharedLegFieldChange('close_time', e.target.value)}
+                />
+              </label>
+            </div>
+            {!hasSyncedLeg && (
+              <p className={styles.sharedScheduleHint}>
+                Every leg has its own times -- nothing is following this right now.
+              </p>
+            )}
+          </div>
+        )}
+
         {legRanges.map(({ startIndex, endIndex }, legIndex) => {
           const legStages = stagePlan.slice(startIndex, endIndex);
           const leg = legSchedule[legIndex];

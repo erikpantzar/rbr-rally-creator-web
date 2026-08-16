@@ -226,7 +226,11 @@ export function StageEntryEditor({
         </FormGroup>
       )}
 
-      <FormGroup label="Surface age">
+      {/* rbr-rally-creator-web#124: "Age" read as a stage-metadata label
+          rather than what it actually drives -- how worn-in the road
+          surface is for this run. Renamed to "Surface condition"; the field
+          itself (surface_age_id) is untouched, this is copy only. */}
+      <FormGroup label="Surface condition">
         <div className={styles.radioGroup}>
           {options.surfaceAge.map((age) => (
             <label key={age.value} className={styles.radioLabel}>
@@ -241,6 +245,11 @@ export function StageEntryEditor({
             </label>
           ))}
         </div>
+        <p className={styles.fieldNote}>
+          Gravel: "New" means no ruts but lots of loose gravel, as if you're the first car on the
+          road; "Worn" means ruts have formed but less gravel is loose. Tarmac: "New" means no
+          gravel, dirt, or mud has been dragged onto the road yet.
+        </p>
       </FormGroup>
 
       {/* rbr-rally-creator-web#79: wetness/weather options are per-stage

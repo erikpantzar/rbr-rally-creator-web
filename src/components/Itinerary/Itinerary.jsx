@@ -75,22 +75,6 @@ function SortableCompactRow({ sortableId, sortableType, className, children, ...
   );
 }
 
-function RemoveDropZone({ legIndex }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: `remove-zone-${legIndex}`,
-    data: { type: 'remove-zone', legIndex },
-  });
-  return (
-    <div
-      ref={setNodeRef}
-      className={[styles.removeZone, isOver ? styles.removeZoneOver : ''].filter(Boolean).join(' ')}
-      aria-hidden="true"
-    >
-      Drop to remove
-    </div>
-  );
-}
-
 function LegRemoveConfirmBubble({ legIndex, stageCount, targetLegIndex, onConfirm, onCancel }) {
   return (
     <div className={styles.legRemoveBubble} role="dialog" aria-label={`Remove Leg ${legIndex + 1}?`}>
@@ -123,9 +107,12 @@ function LegRemoveConfirmBubble({ legIndex, stageCount, targetLegIndex, onConfir
 //                        stages render as StageBrick with edit/delete,
 //                        assigned services render as ServiceBlock with
 //                        click/clear. Drag reorders stages (within/across
-//                        legs), drags a service block to reassign it to a
-//                        different stage, and drag-to-delete zones appear
-//                        per leg while a stage is mid-drag.
+//                        legs) and drags a service block to reassign it to a
+//                        different stage; deleting a stage is a click on its
+//                        StageBrick's delete cross, never a drag gesture
+//                        (rbr-rally-creator-web#121 removed the old
+//                        drag-to-remove zone -- too easy to hit by accident
+//                        while reordering).
 //   detail="compact"  -- PickerWorkspace's sidebar: rows are plain nav
 //                        buttons (onSelect only), leg header is just a
 //                        name/count/km summary + "+ Add stage". Drag still
@@ -152,7 +139,6 @@ export function Itinerary({
   onAddLeg,
   onReorderStage,
   onReassignService,
-  onDeleteStageViaDrag,
   removeConfirm,
   onConfirmRemoveLeg,
   onCancelRemoveLeg,
@@ -233,14 +219,6 @@ export function Itinerary({
     setActiveDrag(null);
   }
 
-  function handleDragOver(event) {
-    const overRemoveZone = event.over?.data.current?.type === 'remove-zone';
-    setActiveDrag((prev) => {
-      if (!prev || prev.overRemoveZone === overRemoveZone) return prev;
-      return { ...prev, overRemoveZone };
-    });
-  }
-
   function handleServiceDragEnd(sourceStageUid, draggedSequenceId, over) {
     let destLegIndex;
     let destSequence;
@@ -286,11 +264,6 @@ export function Itinerary({
     const sourceUid = active.id;
     const sourceLegIndex = findContainerOfUid(sourceUid);
     if (sourceLegIndex === -1) return;
-
-    if (over.data.current?.type === 'remove-zone') {
-      onDeleteStageViaDrag?.(sourceUid);
-      return;
-    }
 
     let destLegIndex;
     let destIndexInContainer;
@@ -479,7 +452,6 @@ export function Itinerary({
       sensors={locked ? NO_SENSORS : sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
@@ -559,8 +531,6 @@ export function Itinerary({
                             Add your first stage &rarr;
                           </p>
                         )}
-
-                        {activeDrag?.type === 'stage' && <RemoveDropZone legIndex={legIndex} />}
                       </>
                     )}
                   </LegDropContainer>
@@ -615,7 +585,6 @@ export function Itinerary({
               stageNumber={activeDrag.stageNumber}
               locked
               hiddenStageNameEnabled={hiddenStageNameEnabled}
-              dangerHighlight={activeDrag.overRemoveZone}
             />
           )}
           {activeDrag?.type === 'service' && (

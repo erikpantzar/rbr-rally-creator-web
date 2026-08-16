@@ -77,8 +77,8 @@ export function RoadBook({
   //     of moving one.
   //   { type: 'leg', legIndex, legConfig, targetLegIndex,
   //     targetStageCountBefore } -- legConfig is the removed leg's full
-  //     legSchedule entry (open_time/close_time/super_rally/stage_count) as
-  //     it was right before removal, legIndex is where it lived so undo can
+  //     legSchedule entry (open_time/close_time/stage_count) as it was
+  //     right before removal, legIndex is where it lived so undo can
   //     reinsert it there, and targetStageCountBefore is the merge target's
   //     stage_count *before* the removed leg's stages were folded in, so
   //     undo can restore it exactly rather than subtracting stageCount back

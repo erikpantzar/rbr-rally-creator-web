@@ -119,7 +119,7 @@ function LegRemoveConfirmBubble({ legIndex, stageCount, targetLegIndex, onConfir
 // actually contains.
 //
 //   detail="full"    -- the editable road book: leg header carries the
-//                        open/close/super-rally inputs and remove button,
+//                        open/close inputs and remove button,
 //                        stages render as StageBrick with edit/delete,
 //                        assigned services render as ServiceBlock with
 //                        click/clear. Drag reorders stages (within/across
@@ -134,7 +134,6 @@ function LegRemoveConfirmBubble({ legIndex, stageCount, targetLegIndex, onConfir
 export function Itinerary({
   detail = 'full',
   stages,
-  options,
   stagePlan,
   legSchedule,
   hiddenStageNameEnabled = false,
@@ -380,7 +379,6 @@ export function Itinerary({
           <div className={styles.legInputsLocked}>
             <span>Open: {leg.open_time || '—'}</span>
             <span>Close: {leg.close_time || '—'}</span>
-            <span>Super Rally: {leg.super_rally}</span>
           </div>
         ) : (
           <>
@@ -425,19 +423,6 @@ export function Itinerary({
                   onChange={(e) => onLegFieldChange(legIndex, 'close_time', e.target.value)}
                 />
               </label>
-              <button
-                type="button"
-                className={[styles.superRallyToggle, leg.super_rally !== 'disabled' ? styles.superRallyActive : '']
-                  .filter(Boolean)
-                  .join(' ')}
-                onClick={() => {
-                  const currentIndex = options.superRally.indexOf(leg.super_rally);
-                  const nextIndex = (currentIndex + 1 + options.superRally.length) % options.superRally.length;
-                  onLegFieldChange(legIndex, 'super_rally', options.superRally[nextIndex]);
-                }}
-              >
-                Super Rally: {leg.super_rally}
-              </button>
             </div>
           </>
         )}

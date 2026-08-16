@@ -63,6 +63,11 @@ const DEFAULT_RALLY_BASICS = {
   pacenotes_options: 'Normal Pacenotes',
   hidden_stage_name: false,
   road_side_service: 'no',
+  // rbr-rally-creator-web#123: rallysimfans.hu only lets you set Super Rally
+  // once, when creating leg 1 -- it applies to the whole rally, there's no
+  // real per-leg override. Beta-test feedback on the issue: default off,
+  // matching what RSF itself defaults to.
+  super_rally: 'disabled',
   password1: '',
   password2: '',
 };
@@ -389,13 +394,18 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
     // runtime/network failures below still use alert().
     const legRanges = computeLegStageRanges(legSchedule);
 
-    // Only open_time/close_time/super_rally/start_stage_no are part of the
-    // shared payload contract -- stage_count is a frontend-only control for
-    // deriving start_stage_no, not sent to the service.
+    // stage_count is a frontend-only control for deriving start_stage_no,
+    // not sent to the service. rbr-rally-creator-web#123 moved super_rally
+    // to a single rally-wide control (rallyBasics.super_rally) since the
+    // real site only lets you set it once for the whole rally -- but the
+    // service's payload contract still validates/reads it per leg
+    // (routes/rallies.js, rallyWizard.js), so it still has to ride along on
+    // every legSchedule entry here, just sourced from the one shared value
+    // instead of each leg's own.
     const legSchedulePayload = legSchedule.map((leg, i) => ({
       open_time: leg.open_time,
       close_time: leg.close_time,
-      super_rally: leg.super_rally,
+      super_rally: rallyBasics.super_rally,
       start_stage_no: legRanges[i].startStageNo,
     }));
 

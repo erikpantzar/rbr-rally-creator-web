@@ -69,6 +69,19 @@
   cursor: pointer;
 }
 
+/* rbr-rally-creator-web#128: surface age locked to "New" on stages that
+   don't support changing it -- same dimmed/not-allowed language as
+   .shortcutButton:disabled, applied to the label text+radio pair together
+   since native `disabled` alone doesn't dim the label text next to it. */
+.radioLabelDisabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.radioLabelDisabled input {
+  cursor: not-allowed;
+}
+
 .checkboxes {
   display: flex;
   flex-direction: column;

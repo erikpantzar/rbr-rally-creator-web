@@ -35,8 +35,10 @@ import { RallyBasicsForm } from '../RallyBasicsForm/RallyBasicsForm.jsx';
 import { CarGroupPicker } from '../CarGroupPicker/CarGroupPicker.jsx';
 import { RoadBook } from '../RoadBook/RoadBook.jsx';
 import { JobProgress } from '../JobProgress/JobProgress.jsx';
+import { PlanHistory } from '../PlanHistory/PlanHistory.jsx';
 import { ReadinessBanner } from '../ReadinessBanner/ReadinessBanner.jsx';
 import { Toast } from '../Toast/Toast.jsx';
+import { usePlanHistory } from './usePlanHistory.js';
 import styles from './RallyBuilder.module.css';
 
 // Matches index.html's <title> -- used as the "at rest" tab title that the
@@ -66,6 +68,11 @@ const DEFAULT_RALLY_BASICS = {
   pacenotes_options: 'Normal Pacenotes',
   hidden_stage_name: false,
   road_side_service: 'no',
+  // rbr-rally-creator-web#123: rallysimfans.hu only lets you set Super Rally
+  // once, when creating leg 1 -- it applies to the whole rally, there's no
+  // real per-leg override. Beta-test feedback on the issue: default off,
+  // matching what RSF itself defaults to.
+  super_rally: 'disabled',
   password1: '',
   password2: '',
 };
@@ -346,6 +353,51 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
     if (job?.status === 'succeeded') clearCurrentDraft();
   }, [job?.status]);
 
+  // rbr-rally-creator-web#122: undo/redo over the road book. It OBSERVES the
+  // committed plan instead of intercepting mutations (see usePlanHistory for
+  // why that split matters), so nothing about RoadBook's callback surface or
+  // updateStagePlan above changes to support it.
+  //
+  // `active` mirrors the autosave guard exactly, so the history and
+  // currentDraft cover the same window: nothing recorded before the draft is
+  // hydrated (or the pre-fetch defaults would become step 1), nothing
+  // recorded once the rally is created and the draft has been dropped.
+  // `hydrate` is off when App.jsx opened a specific saved rally, for the same
+  // reason currentDraft itself is ignored in that case -- the previous
+  // build's history must not attach itself to the rally the user just chose
+  // to open.
+  //
+  // Snapshots are restored with the raw setters rather than updateStagePlan:
+  // they were recorded downstream of normalizeLastStageService so re-running
+  // it is a no-op, and handing the snapshot's own array references straight
+  // back is what lets the observer recognise a restore instead of recording
+  // it as a fresh edit.
+  const {
+    history: planHistory,
+    undo: undoPlanChange,
+    redo: redoPlanChange,
+    jumpTo: jumpToPlanChange,
+    reset: resetPlanHistory,
+  } = usePlanHistory({
+    stagePlan,
+    legSchedule,
+    active: !loading && job?.status !== 'succeeded',
+    hydrate: !initialPayload,
+    onRestore: (snapshot) => {
+      setStagePlan(snapshot.stagePlan);
+      setLegSchedule(snapshot.legSchedule);
+    },
+  });
+
+  // The created rally's document is frozen and its draft is gone (the effect
+  // above), so its history has nothing left to act on. Dropping the
+  // in-memory stack too matters for "Duplicate as new draft": that unlocks
+  // the editor again, and the duplicate should start its own history at step
+  // 1 rather than inheriting the published rally's.
+  useEffect(() => {
+    if (job?.status === 'succeeded') resetPlanHistory();
+  }, [job?.status, resetPlanHistory]);
+
   // Transient "Saved!" confirmation next to the Save button (see
   // handleSaveRally) -- purely cosmetic feedback, not state anything else
   // depends on, so a plain timeout-cleared boolean is enough.
@@ -392,13 +444,18 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
     // runtime/network failures below still use alert().
     const legRanges = computeLegStageRanges(legSchedule);
 
-    // Only open_time/close_time/super_rally/start_stage_no are part of the
-    // shared payload contract -- stage_count is a frontend-only control for
-    // deriving start_stage_no, not sent to the service.
+    // stage_count is a frontend-only control for deriving start_stage_no,
+    // not sent to the service. rbr-rally-creator-web#123 moved super_rally
+    // to a single rally-wide control (rallyBasics.super_rally) since the
+    // real site only lets you set it once for the whole rally -- but the
+    // service's payload contract still validates/reads it per leg
+    // (routes/rallies.js, rallyWizard.js), so it still has to ride along on
+    // every legSchedule entry here, just sourced from the one shared value
+    // instead of each leg's own.
     const legSchedulePayload = legSchedule.map((leg, i) => ({
       open_time: leg.open_time,
       close_time: leg.close_time,
-      super_rally: leg.super_rally,
+      super_rally: rallyBasics.super_rally,
       start_stage_no: legRanges[i].startStageNo,
     }));
 
@@ -472,6 +529,11 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
     setStagePlan([]);
     setLegSchedule([createDefaultLegConfig(0)]);
     clearCurrentDraft();
+    // rbr-rally-creator-web#122: "If I make a new rally clear the history."
+    // clearCurrentDraft above already drops the persisted copy; this drops
+    // the in-memory stack too, so the fresh blank document becomes step 1
+    // rather than the last edit of the rally just abandoned.
+    resetPlanHistory();
 
     // rbr-rally-creator-web#78: the rally name input never unmounts here
     // (RallyBasicsForm stays mounted, only its value resets), so a ref +
@@ -635,10 +697,9 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
   // rbr-rally-creator-web#89, revised by #127: the actual validation rules
   // live in applyLegFieldChange (rallyPlan.js) so they're plain, testable
   // data transforms over legSchedule -- this handler is just "apply the
-  // edit, commit the result". Only ever reached for a leg's super_rally
-  // toggle (any leg) or a leg that has already broken sync editing its own
-  // open_time/close_time -- a still-synced leg's open/close goes through
-  // handleSharedLegFieldChange below instead.
+  // edit, commit the result". Only ever reached for a leg that has already
+  // broken sync editing its own open_time/close_time -- a still-synced
+  // leg's open/close goes through handleSharedLegFieldChange below instead.
   function handleLegFieldChange(legIndex, field, value) {
     setLegSchedule(applyLegFieldChange(legSchedule, legIndex, field, value));
   }
@@ -816,6 +877,19 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
             Build the route leg by leg -- add stages, arrange service, and set each leg's
             start time.
           </p>
+
+          {/* rbr-rally-creator-web#122: undo/redo + the change timeline for
+              this draft, docked at the top of the road book because that's
+              what it describes. Hidden once locked, along with every other
+              way to change the document. */}
+          {!locked && (
+            <PlanHistory
+              history={planHistory}
+              onUndo={undoPlanChange}
+              onRedo={redoPlanChange}
+              onJumpTo={jumpToPlanChange}
+            />
+          )}
 
           <div className={styles.stagesSection} id={SECTION_IDS.roadBook} data-jump-target="">
             <RoadBook

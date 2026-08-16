@@ -24,6 +24,14 @@ import { generateUid } from './rallyPlan.js';
 
 const CURRENT_DRAFT_KEY = 'rbr.currentDraft';
 const RALLIES_KEY = 'rbr.rallies';
+// rbr-rally-creator-web#122: the undo/redo stack for whatever is in
+// currentDraft. Its own key rather than a field inside the draft payload,
+// because `payload` is the shape RallyBuilder hydrates state from and the
+// shape saveRally stores in rbr.rallies -- history has no business in
+// either. Lifetime is still strictly tied to currentDraft: clearing the
+// draft clears the history (see clearCurrentDraft), which is what makes
+// "starting a new rally clears the history" fall out for free.
+const CURRENT_DRAFT_HISTORY_KEY = 'rbr.currentDraftHistory';
 
 export function getCurrentDraft() {
   const raw = localStorage.getItem(CURRENT_DRAFT_KEY);
@@ -92,6 +100,40 @@ export function countCurrentDraftStages() {
 // reload.
 export function clearCurrentDraft() {
   localStorage.removeItem(CURRENT_DRAFT_KEY);
+  // The history describes edits to THIS draft only (rbr-rally-creator-web#122:
+  // "If I make a new rally clear the history") -- leaving it behind would
+  // offer the next draft a stack of snapshots belonging to a rally that no
+  // longer exists. Dropped here rather than at each call site so every
+  // existing reset path (new rally, rally successfully created, opening a
+  // saved rally) clears both without having to remember to.
+  clearCurrentDraftHistory();
+}
+
+export function getCurrentDraftHistory() {
+  const raw = localStorage.getItem(CURRENT_DRAFT_HISTORY_KEY);
+  if (!raw) return null;
+  try {
+    const saved = JSON.parse(raw);
+    return saved && typeof saved === 'object' ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setCurrentDraftHistory(history) {
+  try {
+    localStorage.setItem(CURRENT_DRAFT_HISTORY_KEY, JSON.stringify(history));
+  } catch {
+    // Best-effort, same reasoning as setCurrentDraft above -- and doubly so
+    // here, since the history is the one thing in this file the editor can
+    // carry on perfectly well without. A full quota is a realistic outcome
+    // for a long session on a big rally; losing the stack beats breaking
+    // the autosave that shares the quota with it.
+  }
+}
+
+export function clearCurrentDraftHistory() {
+  localStorage.removeItem(CURRENT_DRAFT_HISTORY_KEY);
 }
 
 function readRallies() {

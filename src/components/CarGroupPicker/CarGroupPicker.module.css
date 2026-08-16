@@ -38,31 +38,52 @@
    reads identically everywhere and is easy to flip on `open`. */
 .summary {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
   font-size: 0.85rem;
   list-style: none;
+  border-radius: 999px;
 }
 
 .summary::-webkit-details-marker {
   display: none;
 }
 
-.disclosureArrow {
-  display: inline-block;
-  margin-right: 0.4rem;
-  font-size: 0.7rem;
-  color: var(--muted);
+/* rbr-rally-creator-web#130: focus-visible only (keyboard/assistive focus,
+   not every mouse click -- same convention as Input's .input:focus-visible),
+   reusing the shared --accent-glow token so this "look here" treatment
+   matches the one users already know from text fields. */
+.summary:focus-visible {
+  outline: none;
+  box-shadow: var(--accent-glow);
 }
 
+.disclosureArrow {
+  display: inline-block;
+  font-size: 0.75rem;
+}
+
+/* rbr-rally-creator-web#130: a beta tester never noticed the old
+   low-contrast, text-only collapse control. Filled pill + bold ink instead
+   of underlined plain text makes the whole title read as a clickable
+   button at a glance rather than blending into the checkbox labels below
+   it; the subtle hover dim gives pointer users the same "this responds to
+   me" feedback keyboard users get from the focus glow above. */
 .summaryTitle {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  gap: 0.4rem;
   font-weight: 600;
-  text-decoration: underline;
-  color: var(--ink);
+  color: var(--accent-soft-fg);
+  background: var(--accent-soft-bg);
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
   flex-shrink: 0;
+}
+
+.details:hover .summaryTitle {
+  opacity: 0.8;
 }
 
 .summaryMeta {
@@ -102,11 +123,19 @@
   cursor: auto;
 }
 
+/* rbr-rally-creator-web#130: a height cap + internal scroll, rather than
+   just a smaller default state, so the panel can't blow out the page even
+   when a section is opened -- most needed for the 102-entry individual-cars
+   list (~400-600px uncapped), but applied uniformly so both sections behave
+   the same way once expanded. */
 .checkboxList {
   display: flex;
   flex-wrap: wrap;
+  align-content: flex-start;
   gap: 0.5rem 1.25rem;
-  padding: 0.25rem 0 0;
+  padding: 0.25rem 0.5rem 0 0;
+  max-height: 14rem;
+  overflow-y: auto;
 }
 
 .checkboxLabel {

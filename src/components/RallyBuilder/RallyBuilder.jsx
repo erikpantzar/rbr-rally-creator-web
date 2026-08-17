@@ -470,7 +470,11 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
     // public name rallyWizard.js fills into rallysimfans.hu's own
     // #stage_name field when hidden_stage_name is checked -- it's part of
     // `...rest` below and flows straight through.
-    const stagePlanPayload = stagePlan.map(({ _uid, _label, ...rest }) => rest);
+    //
+    // _serviceEditedAt is another client-only field (pickerWorkspace.js's
+    // applyServiceFieldsUpdate, powering ServiceEntryForm's "Reuse a
+    // service" ordering) -- same reasoning as _uid/_label, stripped here.
+    const stagePlanPayload = stagePlan.map(({ _uid, _label, _serviceEditedAt, ...rest }) => rest);
 
     const config = {
       rallyBasics,

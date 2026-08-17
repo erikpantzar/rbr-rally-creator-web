@@ -4,6 +4,7 @@ import {
   createStageConfigFromPrevious,
   createDefaultServiceFields,
   applyPickedStageToConfig,
+  getRecentServiceConfigs,
   MAX_LEGS,
 } from '../../lib/rallyPlan.js';
 import {
@@ -528,6 +529,7 @@ export function RoadBook({
           options={options}
           stageNumber={serviceModalState.stageNumber}
           isLastStage={serviceModalState.isLastStage}
+          recentServiceConfigs={getRecentServiceConfigs(stagePlan, serviceModalState.uid)}
           onSave={handleServiceModalSave}
           onCancel={closeServiceModal}
         />

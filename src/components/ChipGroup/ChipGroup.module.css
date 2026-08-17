@@ -1,0 +1,27 @@
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.chip {
+  padding: 0.4rem 0.65rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--info-border);
+}
+
+.chipActive {
+  border-color: var(--info-border);
+  background: var(--info-bg);
+  color: var(--info-fg);
+  font-weight: 600;
+}

@@ -575,6 +575,52 @@ export function getServiceTier(serviceTime) {
   return SERVICE_TIERS.none;
 }
 
+// Powers ServiceEntryForm's "Reuse a service" row -- most rallies reuse one
+// or two service setups across many stages, so surfacing configs already
+// used elsewhere in THIS stagePlan saves re-picking tier/duration/
+// mechanics/skill from scratch each time. Deliberately scoped to the
+// current stagePlan only, no cross-rally persistence -- a fresh rally
+// starts with an empty list, same "derive from what's already in the plan,
+// no new storage" approach as the rest of this file.
+//
+// Ordered by most-recently-edited, not most-used: reuse is "the thing I
+// just set up", not "the thing that happens to appear most". Relies on
+// `_serviceEditedAt`, a client-only timestamp applyServiceFieldsUpdate
+// (pickerWorkspace.js) stamps on every service save -- never sent to the
+// service, stripped alongside _uid/_label in RallyBuilder's submit payload.
+// A stage that was never actually saved through the service form (still
+// carrying createDefaultStageConfig's seeded defaults, or forced to "No
+// Service" by normalizeLastStageService) has no timestamp and is excluded,
+// which is exactly the "only real, deliberately-configured services" set
+// reuse should offer.
+//
+// Deduped by the (service_time, nummechanics, mechanicsSkill) tuple, so
+// five stages sharing one config surface as ONE chip -- keyed to whichever
+// of them was edited most recently -- rather than five near-identical
+// entries.
+export function getRecentServiceConfigs(stagePlan, excludeUid, limit = 4) {
+  const byConfig = new Map();
+
+  for (const stage of stagePlan) {
+    if (stage._uid === excludeUid) continue;
+    if (stage.service_time === 'No Service') continue;
+    if (stage._serviceEditedAt == null) continue;
+
+    const key = `${stage.service_time}|${stage.nummechanics}|${stage.mechanicsSkill}`;
+    const existing = byConfig.get(key);
+    if (!existing || stage._serviceEditedAt > existing.editedAt) {
+      byConfig.set(key, {
+        service_time: stage.service_time,
+        nummechanics: stage.nummechanics,
+        mechanicsSkill: stage.mechanicsSkill,
+        editedAt: stage._serviceEditedAt,
+      });
+    }
+  }
+
+  return [...byConfig.values()].sort((a, b) => b.editedAt - a.editedAt).slice(0, limit);
+}
+
 // Parses the numeric km out of a catalog stage's `length` field (e.g.
 // "13.4 km" -> 13.4), for rbr-rally-creator-web#18's per-leg/rally km
 // totals. `stage` is the full catalog entry looked up via stageByCatalogId

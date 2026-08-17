@@ -13,6 +13,7 @@ import {
   createDefaultStageConfig,
   createStageConfigForCatalogStage,
   normalizeLastStageService,
+  getRecentServiceConfigs,
   parseStageKm,
   formatKm,
   applyPickedStageToConfig,
@@ -264,6 +265,57 @@ describe('normalizeLastStageService', () => {
     expect(normalizeLastStageService(plan)).toBe(plan);
     const empty = [];
     expect(normalizeLastStageService(empty)).toBe(empty);
+  });
+});
+
+describe('getRecentServiceConfigs', () => {
+  function serviced(uid, overrides = {}) {
+    return {
+      _uid: uid,
+      service_time: '60 minutes',
+      nummechanics: '6 mechanic',
+      mechanicsSkill: 'Expert',
+      _serviceEditedAt: 1000,
+      ...overrides,
+    };
+  }
+
+  it('excludes the stage being edited, No Service stages, and never-saved stages', () => {
+    const plan = [
+      serviced('a'),
+      { _uid: 'b', service_time: 'No Service', nummechanics: 'No Service', mechanicsSkill: 'No Service' },
+      { _uid: 'c', service_time: '30 minutes', nummechanics: '4 mechanic', mechanicsSkill: 'Skilled' }, // never saved, no timestamp
+    ];
+    expect(getRecentServiceConfigs(plan, 'a')).toEqual([]);
+  });
+
+  it('dedupes identical configs to one entry, keyed to the most recent edit', () => {
+    const plan = [
+      serviced('a', { _serviceEditedAt: 1000 }),
+      serviced('b', { _serviceEditedAt: 3000 }),
+      serviced('c', { _serviceEditedAt: 2000 }),
+    ];
+    const result = getRecentServiceConfigs(plan, 'x');
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ service_time: '60 minutes', nummechanics: '6 mechanic', mechanicsSkill: 'Expert', editedAt: 3000 });
+  });
+
+  it('orders distinct configs most-recently-edited first', () => {
+    const plan = [
+      serviced('a', { service_time: '30 minutes', _serviceEditedAt: 1000 }),
+      serviced('b', { service_time: '60 minutes', _serviceEditedAt: 3000 }),
+      serviced('c', { service_time: '15 minutes', _serviceEditedAt: 2000 }),
+    ];
+    const result = getRecentServiceConfigs(plan, 'x');
+    expect(result.map((c) => c.service_time)).toEqual(['60 minutes', '15 minutes', '30 minutes']);
+  });
+
+  it('caps the result at `limit` (default 4)', () => {
+    const plan = ['30 minutes', '60 minutes', '15 minutes', '20 minutes', '45 minutes'].map((service_time, i) =>
+      serviced(String(i), { service_time, _serviceEditedAt: i })
+    );
+    expect(getRecentServiceConfigs(plan, 'x')).toHaveLength(4);
+    expect(getRecentServiceConfigs(plan, 'x', 2)).toHaveLength(2);
   });
 });
 

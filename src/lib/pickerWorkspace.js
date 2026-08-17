@@ -112,9 +112,16 @@ export function applyStageConfigUpdate(stagePlan, uid, config) {
 // Service-fields merge: the same write shape handleServiceModalSave has
 // always used -- only service_time/nummechanics/mechanicsSkill move, the
 // rest of the entry stays as-is. The in-pane ServiceEntryForm (D5) emits
-// exactly these three fields.
+// exactly these three fields. Also stamps _serviceEditedAt (client-only,
+// stripped before submission same as _uid/_label) -- this is the single
+// write path both the standalone ServiceConfigModal's Save and the
+// in-pane form's live onChange funnel through (RoadBook.handleUpdateService),
+// so one stamp here covers both entry points. Powers
+// getRecentServiceConfigs' most-recently-edited ordering (rallyPlan.js).
 export function applyServiceFieldsUpdate(stagePlan, uid, serviceFields) {
-  return stagePlan.map((s) => (s._uid === uid ? { ...s, ...serviceFields } : s));
+  return stagePlan.map((s) =>
+    s._uid === uid ? { ...s, ...serviceFields, _serviceEditedAt: Date.now() } : s
+  );
 }
 
 // Phase 2 (#107 D2/D4): splice a brand-new, already-complete brick (built by

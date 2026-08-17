@@ -40,3 +40,28 @@
   font-size: 0.85rem;
   color: var(--muted);
 }
+
+/* Dashed border deliberately distinguishes a "reuse" chip from ChipGroup's
+   solid-border field chips -- these apply a whole previous config in one
+   click, they're not the field's own current-value control. */
+.reuseRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.reuseChip {
+  padding: 0.4rem 0.65rem;
+  border-radius: var(--radius);
+  border: 1px dashed var(--border);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.reuseChip:hover {
+  border-color: var(--info-border);
+  border-style: solid;
+}

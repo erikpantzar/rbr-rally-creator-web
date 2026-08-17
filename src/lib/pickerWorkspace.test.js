@@ -132,6 +132,17 @@ describe('applyServiceFieldsUpdate', () => {
     });
     expect(result[1]).toBe(plan[1]);
   });
+
+  it('stamps _serviceEditedAt on the updated entry, powering getRecentServiceConfigs\' ordering', () => {
+    const plan = [stage('a')];
+    const before = Date.now();
+    const result = applyServiceFieldsUpdate(plan, 'a', {
+      service_time: '15 minutes',
+      nummechanics: '4 mechanic',
+      mechanicsSkill: 'Expert',
+    });
+    expect(result[0]._serviceEditedAt).toBeGreaterThanOrEqual(before);
+  });
 });
 
 describe('applyAddStage', () => {

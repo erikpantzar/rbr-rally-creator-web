@@ -32,7 +32,17 @@ import styles from './ServiceConfigModal.module.css';
 // centered card rather than a full-page overlay, reusing the same
 // tokens/actions-row/Escape conventions so it still reads as "part of the
 // same app".
-export function ServiceConfigModal({ value, options, stageLabel, stageNumber, isLastStage, disabledReason, onSave, onCancel }) {
+export function ServiceConfigModal({
+  value,
+  options,
+  stageLabel,
+  stageNumber,
+  isLastStage,
+  disabledReason,
+  recentServiceConfigs,
+  onSave,
+  onCancel,
+}) {
   const [draft, setDraft] = useState({
     service_time: value.service_time,
     nummechanics: value.nummechanics,
@@ -60,6 +70,7 @@ export function ServiceConfigModal({ value, options, stageLabel, stageNumber, is
           options={options}
           isLastStage={isLastStage}
           disabledReason={disabledReason}
+          recentServiceConfigs={recentServiceConfigs}
         />
 
         <FormActions>

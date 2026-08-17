@@ -5,6 +5,7 @@ import { ServiceEntryForm } from '../ServiceEntryForm/ServiceEntryForm.jsx';
 import { StageEntryEditor } from '../StageEntryEditor/StageEntryEditor.jsx';
 import { StagePicker } from '../StagePicker/StagePicker.jsx';
 import { resolveWorkspaceSelection, workspaceSelectionKey } from '../../lib/pickerWorkspace.js';
+import { getRecentServiceConfigs } from '../../lib/rallyPlan.js';
 import styles from './PickerWorkspace.module.css';
 
 // rbr-rally-creator-web#107, docs/redesign/07-picker-workspace.md Phase 1/2:
@@ -225,6 +226,7 @@ export function PickerWorkspace({
               onChange={(serviceFields) => onUpdateService(resolved.uid, serviceFields)}
               options={options}
               isLastStage={selectedIsLastStage}
+              recentServiceConfigs={getRecentServiceConfigs(stagePlan, resolved.uid)}
             />
           </div>
         </>

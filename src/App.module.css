@@ -5,9 +5,13 @@
    rbr-rally-creator-web#62: RallySidebar is a `position: fixed` overlay
    panel, not a layout participant, so this column is completely unaffected
    by whether it's open or closed -- no flex/min-width partnering needed
-   here, same as before #62. */
+   here, same as before #62.
+   rbr-rally-creator-web#142: widened from 46rem -- the road book's bricks
+   grew a row of tyre/setup/weather/wetness badges, and StageBrick.module.css
+   already wraps gracefully on narrow viewports, but the extra breathing
+   room here means the common case fits on one line instead of wrapping. */
 .page {
-  max-width: 46rem;
+  max-width: 52rem;
   margin: 0 auto;
   padding: 2rem 1.5rem 4rem;
   display: flex;

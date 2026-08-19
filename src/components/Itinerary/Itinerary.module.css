@@ -64,6 +64,62 @@
   overflow-x: auto;
 }
 
+/* rbr-rally-creator-web#144: leg header's hover-revealed actions (add
+   stage, add service, remove leg). Opacity (not display/visibility) keeps
+   every button focusable and reachable by keyboard even while invisible --
+   same reveal trick StageBrick.module.css's .deleteCorner uses. Pinned
+   fully visible (legActionsRowPinned) when hiding it would strand the
+   user: the remove-confirm bubble is open, or the leg has no stages and
+   this row is its only way to gain one. The (hover: none) branch keeps it
+   visible on touch devices, which have no reliable hover state to reveal
+   it with. */
+.legActionsRow {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.legHeader:hover .legActionsRow,
+.legActionsRow:focus-within {
+  opacity: 1;
+}
+
+.legActionsRowPinned {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .legActionsRow {
+    opacity: 1;
+  }
+}
+
+.legActionButton {
+  border: 1px dashed var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+  font-family: inherit;
+  padding: 0.25rem 0.55rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.legActionButton:hover:not(:disabled) {
+  border-color: var(--highlight-border);
+  color: var(--highlight-fg);
+  background: var(--highlight-bg);
+}
+
+.legActionButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .legRemoveButton {
   border: none;
   background: transparent;

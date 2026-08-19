@@ -3,6 +3,7 @@ import {
   buildWorkspaceRows,
   workspaceSelectionKey,
   resolveWorkspaceSelection,
+  resolveSelectionAfterDelete,
   applyStageConfigUpdate,
   applyServiceFieldsUpdate,
   applyAddStage,
@@ -100,6 +101,43 @@ describe('resolveWorkspaceSelection', () => {
 
   it('falls back to the first leg context when there is no selection at all', () => {
     expect(resolveWorkspaceSelection(null, plan, legs)).toEqual({ type: 'leg', legIndex: 0 });
+  });
+});
+
+// rbr-rally-creator-web#141: what the workspace selects right after
+// deleting the stage the pane was showing.
+describe('resolveSelectionAfterDelete', () => {
+  it('selects the next stage in the same leg when one exists', () => {
+    const plan = [stage('a'), stage('b'), stage('c')];
+    const legs = [leg(3)];
+    expect(resolveSelectionAfterDelete(plan, legs, 'a')).toEqual({ type: 'stage', uid: 'b' });
+  });
+
+  it('falls back to the previous stage in the same leg when deleting the last stage of a multi-stage leg', () => {
+    const plan = [stage('a'), stage('b'), stage('c')];
+    const legs = [leg(3)];
+    expect(resolveSelectionAfterDelete(plan, legs, 'c')).toEqual({ type: 'stage', uid: 'b' });
+  });
+
+  it("lands on the leg's own context when deleting a leg's only stage", () => {
+    const plan = [stage('a'), stage('b')];
+    const legs = [leg(1), leg(1)];
+    expect(resolveSelectionAfterDelete(plan, legs, 'b')).toEqual({ type: 'leg', legIndex: 1 });
+  });
+
+  it('never crosses into a neighboring leg for the "next stage" preference', () => {
+    // 'b' is the last stage of leg 0 -- the next stage overall ('c') lives
+    // in leg 1, so this must fall through to the previous-in-leg case, not
+    // wrongly select a stage from a different leg.
+    const plan = [stage('a'), stage('b'), stage('c')];
+    const legs = [leg(2), leg(1)];
+    expect(resolveSelectionAfterDelete(plan, legs, 'b')).toEqual({ type: 'stage', uid: 'a' });
+  });
+
+  it('falls back to leg 0 when the uid is not in the plan at all', () => {
+    const plan = [stage('a')];
+    const legs = [leg(1)];
+    expect(resolveSelectionAfterDelete(plan, legs, 'zz')).toEqual({ type: 'leg', legIndex: 0 });
   });
 });
 

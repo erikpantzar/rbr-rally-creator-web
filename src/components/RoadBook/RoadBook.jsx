@@ -5,6 +5,8 @@ import {
   createDefaultServiceFields,
   applyPickedStageToConfig,
   getRecentServiceConfigs,
+  applyRemoveLegWithStages,
+  applyUndoRemoveLegWithStages,
   MAX_LEGS,
 } from '../../lib/rallyPlan.js';
 import {
@@ -78,7 +80,7 @@ export function RoadBook({
   //     bump that leg's stage_count back up -- the same cross-leg math
   //     handleDragEnd already does for drag moves, just adding one instead
   //     of moving one.
-  //   { type: 'leg', legIndex, legConfig, targetLegIndex,
+  //   { type: 'legMerge', legIndex, legConfig, targetLegIndex,
   //     targetStageCountBefore } -- legConfig is the removed leg's full
   //     legSchedule entry (open_time/close_time/stage_count) as it was
   //     right before removal, legIndex is where it lived so undo can
@@ -86,7 +88,15 @@ export function RoadBook({
   //     stage_count *before* the removed leg's stages were folded in, so
   //     undo can restore it exactly rather than subtracting stageCount back
   //     out of whatever the target's count happens to be by the time Undo
-  //     is clicked.
+  //     is clicked. This is the confirmation bubble's safe/default choice
+  //     (rbr-rally-creator-web#34).
+  //   { type: 'legDelete', removed } -- the confirmation bubble's
+  //     destructive choice (rbr-rally-creator-web#143): the leg AND its
+  //     stages are gone, not merged, so `removed` is whatever
+  //     applyRemoveLegWithStages (rallyPlan.js) captured -- the leg's
+  //     config, its stagePlan slice, and (when it held the rally's tail) the
+  //     neighboring stage's pre-normalizeLastStageService config. See that
+  //     function's own comment for why the last part is needed.
   const [pendingUndo, setPendingUndo] = useState(null);
   const undoTimerRef = useRef(null);
 
@@ -217,7 +227,36 @@ export function RoadBook({
     onLegScheduleChange(nextLegSchedule);
     setRemoveConfirm(null);
 
-    setPendingUndo({ type: 'leg', legIndex, legConfig, targetLegIndex, targetStageCountBefore });
+    setPendingUndo({ type: 'legMerge', legIndex, legConfig, targetLegIndex, targetStageCountBefore });
+    undoTimerRef.current = setTimeout(() => {
+      undoTimerRef.current = null;
+      setPendingUndo(null);
+    }, UNDO_TIMEOUT_MS);
+  }
+
+  // rbr-rally-creator-web#143: the confirmation bubble's destructive
+  // choice -- the leg and every stage it contains are actually removed,
+  // rather than folded onto a neighbor. All the array surgery (plus the
+  // normalizeLastStageService boundary-stage capture undo needs) lives in
+  // applyRemoveLegWithStages so this handler stays the same "capture, write,
+  // arm the undo timer" shape as handleConfirmRemoveLeg above.
+  function handleConfirmRemoveLegWithStages() {
+    if (!removeConfirm) return;
+    const { legIndex } = removeConfirm;
+
+    const { stagePlan: nextStagePlan, legSchedule: nextLegSchedule, removed } = applyRemoveLegWithStages(
+      stagePlan,
+      legSchedule,
+      legIndex
+    );
+
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+
+    onStagePlanChange(nextStagePlan);
+    onLegScheduleChange(nextLegSchedule);
+    setRemoveConfirm(null);
+
+    setPendingUndo({ type: 'legDelete', removed });
     undoTimerRef.current = setTimeout(() => {
       undoTimerRef.current = null;
       setPendingUndo(null);
@@ -264,13 +303,30 @@ export function RoadBook({
     );
   }
 
+  // rbr-rally-creator-web#143: reverses handleConfirmRemoveLegWithStages via
+  // applyUndoRemoveLegWithStages -- see that function's comment for how it
+  // restores both the deleted leg's own stages and, when it held the
+  // rally's tail, its former neighbor's service fields that
+  // normalizeLastStageService stripped as a side effect of the delete.
+  function handleUndoRemoveLegWithStages(pending) {
+    const { stagePlan: nextStagePlan, legSchedule: nextLegSchedule } = applyUndoRemoveLegWithStages(
+      stagePlan,
+      legSchedule,
+      pending.removed
+    );
+    onStagePlanChange(nextStagePlan);
+    onLegScheduleChange(nextLegSchedule);
+  }
+
   // Dispatches to the right undo based on what's pending -- see the
-  // pendingUndo declaration above for why stage-delete and leg-remove share
-  // this one slot/Toast instead of separate state.
+  // pendingUndo declaration above for why stage-delete and both leg-remove
+  // variants share this one slot/Toast instead of separate state.
   function handleUndo() {
     if (!pendingUndo) return;
-    if (pendingUndo.type === 'leg') {
+    if (pendingUndo.type === 'legMerge') {
       handleUndoRemoveLeg(pendingUndo);
+    } else if (pendingUndo.type === 'legDelete') {
+      handleUndoRemoveLegWithStages(pendingUndo);
     } else {
       handleUndoStageDelete(pendingUndo);
     }
@@ -471,6 +527,7 @@ export function RoadBook({
         onReassignService={handleReassignService}
         removeConfirm={removeConfirm}
         onConfirmRemoveLeg={handleConfirmRemoveLeg}
+        onConfirmRemoveLegWithStages={handleConfirmRemoveLegWithStages}
         onCancelRemoveLeg={handleCancelRemoveLeg}
         rallyTotal
         addLegDisabled={legSchedule.length >= MAX_LEGS}
@@ -537,7 +594,7 @@ export function RoadBook({
 
       {!locked && pendingUndo && (
         <Toast
-          message={pendingUndo.type === 'leg' ? 'Leg removed' : 'Stage removed'}
+          message={pendingUndo.type === 'stage' ? 'Stage removed' : 'Leg removed'}
           actionLabel="Undo"
           onAction={handleUndo}
           onDismiss={clearPendingUndo}

@@ -550,6 +550,67 @@ export function normalizeLastStageService(stagePlan) {
   return next;
 }
 
+// rbr-rally-creator-web#143: the destructive option in the leg-remove
+// confirmation bubble -- unlike RoadBook's existing merge-into-neighbor path
+// (no stagePlan surgery needed, since a leg's stages already sit
+// contiguously in the flat array per computeLegStageRanges), this one
+// actually removes the leg's [startIndex, endIndex) slice out of stagePlan
+// AND drops its legSchedule entry. Both arrays come back so the caller can
+// hand them straight to onStagePlanChange/onLegScheduleChange atomically.
+//
+// `removed` is everything applyUndoRemoveLegWithStages below needs to
+// restore the leg exactly, byte-identical stage configs included:
+//   - legIndex/legConfig/startIndex/stages -- the obvious "put it back
+//     where it was" facts, same shape of capture as RoadBook's existing
+//     leg-merge undo.
+//   - boundaryStageBefore -- ONLY set when this leg holds the rally's tail
+//     (endIndex === stagePlan.length). Deleting it hands "last stage"
+//     status to whichever stage now sits at startIndex - 1, and the
+//     caller's very next onStagePlanChange (RallyBuilder's updateStagePlan)
+//     runs normalizeLastStageService on that result -- which immediately
+//     strips THAT stage's service fields too, not just the removed leg's
+//     own stages. Capturing its pre-strip config here is what lets undo
+//     restore it, since by the time Undo is clicked that stripping has
+//     already happened to the live plan.
+export function applyRemoveLegWithStages(stagePlan, legSchedule, legIndex) {
+  const { startIndex, endIndex } = computeLegStageRanges(legSchedule)[legIndex];
+  const stages = stagePlan.slice(startIndex, endIndex);
+  const isTailLeg = endIndex === stagePlan.length;
+  const boundaryStageBefore = isTailLeg && startIndex > 0 ? stagePlan[startIndex - 1] : null;
+
+  const nextStagePlan = [...stagePlan.slice(0, startIndex), ...stagePlan.slice(endIndex)];
+  const nextLegSchedule = legSchedule.filter((_, i) => i !== legIndex);
+
+  return {
+    stagePlan: nextStagePlan,
+    legSchedule: nextLegSchedule,
+    removed: { legIndex, legConfig: legSchedule[legIndex], startIndex, stages, boundaryStageBefore },
+  };
+}
+
+// Reverses applyRemoveLegWithStages given the `removed` capture it returned.
+// Splices the leg's stages back into stagePlan at their original startIndex
+// and its legSchedule entry back at its original legIndex -- safe to do
+// directly against the CURRENT live arrays (not the ones captured at delete
+// time) because removal only ever drops entries, nothing else shifts, so
+// the captured indices still point at the right spot. Also restores
+// boundaryStageBefore's pre-strip config when present, undoing the
+// normalizeLastStageService side effect described above -- without this,
+// undo would put the deleted leg's own stages back perfectly while leaving
+// its former neighbor's service silently stripped.
+export function applyUndoRemoveLegWithStages(stagePlan, legSchedule, removed) {
+  const { legIndex, legConfig, startIndex, stages, boundaryStageBefore } = removed;
+
+  let nextStagePlan = [...stagePlan.slice(0, startIndex), ...stages, ...stagePlan.slice(startIndex)];
+  if (boundaryStageBefore) {
+    nextStagePlan = nextStagePlan.map((s) => (s._uid === boundaryStageBefore._uid ? boundaryStageBefore : s));
+  }
+
+  const nextLegSchedule = [...legSchedule.slice(0, legIndex), legConfig, ...legSchedule.slice(legIndex)];
+
+  return { stagePlan: nextStagePlan, legSchedule: nextLegSchedule };
+}
+
 // Service-chip tiers -- a UI-only grouping of the real service_time values
 // (see rally-wizard-schema.json's step4_stageConfig.service_time.optgroups:
 // "No Service" / "Road side service (2-5 min)" / "Service Park (10-60

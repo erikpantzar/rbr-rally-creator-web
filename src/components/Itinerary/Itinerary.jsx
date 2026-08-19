@@ -77,19 +77,34 @@ function SortableCompactRow({ sortableId, sortableType, className, children, ...
   );
 }
 
-function LegRemoveConfirmBubble({ legIndex, stageCount, targetLegIndex, onConfirm, onCancel }) {
+// rbr-rally-creator-web#143: two choices now that a leg has stages to lose --
+// the pre-existing safe merge (onConfirmMove, kept as the visually primary
+// action per the issue's UX call) and a new destructive delete
+// (onConfirmDelete). The delete action sits below a divider in its own row
+// rather than beside Move/Cancel, deliberately separated in both spatial
+// position and color language (legRemoveBubbleDelete's danger styling vs.
+// legRemoveBubbleConfirm's primary/accent one below) so a reflexive click
+// can't land on "permanently delete" by muscle memory from the old
+// single-button layout.
+function LegRemoveConfirmBubble({ legIndex, stageCount, targetLegIndex, onConfirmMove, onConfirmDelete, onCancel }) {
   return (
     <div className={styles.legRemoveBubble} role="dialog" aria-label={`Remove Leg ${legIndex + 1}?`}>
       <p className={styles.legRemoveBubbleText}>
         Leg {legIndex + 1} has {stageCount} stage{stageCount === 1 ? '' : 's'}. Move{' '}
-        {stageCount === 1 ? 'it' : 'them'} into Leg {targetLegIndex + 1} and remove Leg {legIndex + 1}?
+        {stageCount === 1 ? 'it' : 'them'} into Leg {targetLegIndex + 1}, or delete{' '}
+        {stageCount === 1 ? 'it' : 'them'} along with the leg.
       </p>
       <div className={styles.legRemoveBubbleActions}>
         <button type="button" className={styles.legRemoveBubbleCancel} onClick={onCancel}>
           Cancel
         </button>
-        <button type="button" className={styles.legRemoveBubbleConfirm} onClick={onConfirm}>
+        <button type="button" className={styles.legRemoveBubbleConfirm} onClick={onConfirmMove}>
           Move stages &amp; remove
+        </button>
+      </div>
+      <div className={styles.legRemoveBubbleDangerZone}>
+        <button type="button" className={styles.legRemoveBubbleDelete} onClick={onConfirmDelete}>
+          Delete leg &amp; {stageCount} stage{stageCount === 1 ? '' : 's'} permanently
         </button>
       </div>
     </div>
@@ -158,6 +173,7 @@ export function Itinerary({
   onReassignService,
   removeConfirm,
   onConfirmRemoveLeg,
+  onConfirmRemoveLegWithStages,
   onCancelRemoveLeg,
   rallyTotal = false,
   addLegDisabled = false,
@@ -433,7 +449,8 @@ export function Itinerary({
                     legIndex={removeConfirm.legIndex}
                     stageCount={removeConfirm.stageCount}
                     targetLegIndex={removeConfirm.targetLegIndex}
-                    onConfirm={onConfirmRemoveLeg}
+                    onConfirmMove={onConfirmRemoveLeg}
+                    onConfirmDelete={onConfirmRemoveLegWithStages}
                     onCancel={onCancelRemoveLeg}
                   />
                 )}

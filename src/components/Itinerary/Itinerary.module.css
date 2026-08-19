@@ -154,7 +154,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-  width: 17rem;
+  width: 18.5rem;
   padding: 0.75rem;
   background: var(--card);
   border: 1px solid var(--accent);
@@ -193,14 +193,48 @@
   border-color: var(--accent);
 }
 
+/* rbr-rally-creator-web#143: this is now the confirmation bubble's SAFE,
+   default choice (merging stages into a neighbor rather than destroying
+   them) -- styled as a primary/accent button so it's the one the eye lands
+   on, matching this app's general "solid accent = interactive/primary"
+   language rather than the danger colors it used to borrow when it was the
+   bubble's only action. */
 .legRemoveBubbleConfirm {
-  border: 1px solid var(--danger-fg);
-  background: var(--danger-bg);
-  color: var(--danger-fg);
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
   font-weight: 600;
 }
 
 .legRemoveBubbleConfirm:hover {
+  filter: brightness(1.05);
+}
+
+/* Deliberately its own row below a divider, not a third button beside
+   Cancel/Move above -- spatial separation plus the danger color pairing is
+   what keeps this from reading as "just another option" next to the safe
+   default (see LegRemoveConfirmBubble's own comment in Itinerary.jsx). */
+.legRemoveBubbleDangerZone {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--border);
+}
+
+.legRemoveBubbleDelete {
+  border: 1px solid var(--danger-fg);
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  border-radius: 0;
+  font-size: 0.76rem;
+  font-family: inherit;
+  font-weight: 600;
+  padding: 0.35rem 0.6rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.legRemoveBubbleDelete:hover {
   filter: brightness(1.05);
 }
 

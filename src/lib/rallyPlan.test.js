@@ -19,6 +19,8 @@ import {
   applyPickedStageToConfig,
   createDefaultServiceFields,
   isSurfaceAgeChangeable,
+  applyRemoveLegWithStages,
+  applyUndoRemoveLegWithStages,
   FIXED_SURFACE_AGE_ID,
   MAX_LEG_SPAN_DAYS,
   MIN_LEG_LEAD_MINUTES,
@@ -449,5 +451,127 @@ describe('createDefaultServiceFields', () => {
       nummechanics: fresh.nummechanics,
       mechanicsSkill: fresh.mechanicsSkill,
     }).toEqual(shortcut);
+  });
+});
+
+// rbr-rally-creator-web#143: the leg-remove confirmation bubble's
+// destructive option -- delete a leg AND its stages, rather than fold them
+// onto a neighbor. `stage` builds a minimal-but-real stage config (a
+// serviced one by default) so tests can tell real fields apart from
+// normalizeLastStageService's "No Service" overwrite.
+function stage(uid, service_time = '30 minutes') {
+  return { _uid: uid, stage_id: `cat-${uid}`, service_time, nummechanics: '4 mechanic', mechanicsSkill: 'Expert' };
+}
+
+describe('applyRemoveLegWithStages', () => {
+  it('removes a middle leg\'s own stagePlan slice and legSchedule entry, leaving everything else untouched', () => {
+    const stagePlan = [stage('a'), stage('b'), stage('c'), stage('d'), stage('e')];
+    const legSchedule = [leg('', '', 2), leg('', '', 2), leg('', '', 1)];
+
+    const result = applyRemoveLegWithStages(stagePlan, legSchedule, 1);
+
+    expect(result.stagePlan.map((s) => s._uid)).toEqual(['a', 'b', 'e']);
+    expect(result.legSchedule).toEqual([leg('', '', 2), leg('', '', 1)]);
+    expect(result.removed.legIndex).toBe(1);
+    expect(result.removed.legConfig).toEqual(leg('', '', 2));
+    expect(result.removed.startIndex).toBe(2);
+    expect(result.removed.stages.map((s) => s._uid)).toEqual(['c', 'd']);
+    // Not the rally's tail leg (leg 2's stage still follows it) -- nothing
+    // for normalizeLastStageService to have silently stripped.
+    expect(result.removed.boundaryStageBefore).toBeNull();
+  });
+
+  it('captures the neighboring stage\'s pre-strip config when the removed leg holds the rally\'s tail', () => {
+    const stagePlan = [stage('a'), stage('b'), stage('c')];
+    const legSchedule = [leg('', '', 1), leg('', '', 2)];
+
+    const result = applyRemoveLegWithStages(stagePlan, legSchedule, 1);
+
+    expect(result.stagePlan.map((s) => s._uid)).toEqual(['a']);
+    expect(result.legSchedule).toEqual([leg('', '', 1)]);
+    expect(result.removed.stages.map((s) => s._uid)).toEqual(['b', 'c']);
+    // Stage 'a' is about to become the rally's new last stage -- captured
+    // as it stood BEFORE the caller's next normalizeLastStageService call
+    // strips its service.
+    expect(result.removed.boundaryStageBefore).toEqual(stage('a'));
+  });
+
+  it('leaves boundaryStageBefore null when the removed leg is the very first stage in the plan', () => {
+    const stagePlan = [stage('a'), stage('b')];
+    const legSchedule = [leg('', '', 2)];
+
+    const result = applyRemoveLegWithStages(stagePlan, legSchedule, 0);
+
+    expect(result.stagePlan).toEqual([]);
+    expect(result.legSchedule).toEqual([]);
+    expect(result.removed.boundaryStageBefore).toBeNull();
+  });
+
+  it('treats a leg that ends the plan only because later legs are empty as the tail leg too', () => {
+    const stagePlan = [stage('a'), stage('b'), stage('c')];
+    const legSchedule = [leg('', '', 1), leg('', '', 2), leg('', '', 0)];
+
+    const result = applyRemoveLegWithStages(stagePlan, legSchedule, 1);
+
+    expect(result.removed.boundaryStageBefore).toEqual(stage('a'));
+    expect(result.legSchedule).toEqual([leg('', '', 1), leg('', '', 0)]);
+  });
+});
+
+describe('applyRemoveLegWithStages / applyUndoRemoveLegWithStages round-trip', () => {
+  it('restores a middle leg and its stages byte-identically, with no normalizeLastStageService interaction', () => {
+    const originalStagePlan = normalizeLastStageService([stage('a'), stage('b'), stage('c'), stage('d')]);
+    const originalLegSchedule = [leg('', '', 2), leg('', '', 2)];
+
+    const removal = applyRemoveLegWithStages(originalStagePlan, originalLegSchedule, 0);
+    // Mirrors RallyBuilder's updateStagePlan, which runs on every
+    // onStagePlanChange -- including the delete itself.
+    const afterDelete = normalizeLastStageService(removal.stagePlan);
+
+    const undone = applyUndoRemoveLegWithStages(afterDelete, removal.legSchedule, removal.removed);
+    const afterUndo = normalizeLastStageService(undone.stagePlan);
+
+    expect(afterUndo).toEqual(originalStagePlan);
+    expect(undone.legSchedule).toEqual(originalLegSchedule);
+  });
+
+  it('restores the tail leg AND its former neighbor\'s stripped service, byte-identically', () => {
+    // 'b' starts serviced; normalizeLastStageService below (mirroring the
+    // real "born-complete" plan) is what forces the true last stage ('c')
+    // to No Service up front -- exactly the state the live app would hand
+    // RoadBook.
+    const originalStagePlan = normalizeLastStageService([stage('a'), stage('b'), stage('c')]);
+    const originalLegSchedule = [leg('', '', 1), leg('', '', 2)];
+    expect(originalStagePlan[2].service_time).toBe('No Service'); // sanity: real last stage
+
+    const removal = applyRemoveLegWithStages(originalStagePlan, originalLegSchedule, 1);
+    const afterDelete = normalizeLastStageService(removal.stagePlan);
+    // 'a' is now the rally's last stage -- its real service just got
+    // silently stripped, which is exactly the bug undo has to reverse.
+    expect(afterDelete[0].service_time).toBe('No Service');
+    expect(afterDelete[0]._uid).toBe('a');
+
+    const undone = applyUndoRemoveLegWithStages(afterDelete, removal.legSchedule, removal.removed);
+    const afterUndo = normalizeLastStageService(undone.stagePlan);
+
+    expect(afterUndo).toEqual(originalStagePlan);
+    expect(afterUndo[0].service_time).toBe('30 minutes'); // 'a' has its real service back
+    expect(afterUndo[2].service_time).toBe('No Service'); // 'c' is still the true last stage
+    expect(undone.legSchedule).toEqual(originalLegSchedule);
+  });
+
+  it('round-trips even when the removed leg is the whole plan (startIndex 0, tail leg)', () => {
+    const originalStagePlan = normalizeLastStageService([stage('a'), stage('b')]);
+    const originalLegSchedule = [leg('', '', 2)];
+
+    const removal = applyRemoveLegWithStages(originalStagePlan, originalLegSchedule, 0);
+    const afterDelete = normalizeLastStageService(removal.stagePlan);
+    expect(afterDelete).toEqual([]);
+
+    const undone = applyUndoRemoveLegWithStages(afterDelete, removal.legSchedule, removal.removed);
+    const afterUndo = normalizeLastStageService(undone.stagePlan);
+
+    expect(afterUndo).toEqual(originalStagePlan);
+    expect(undone.legSchedule).toEqual(originalLegSchedule);
   });
 });

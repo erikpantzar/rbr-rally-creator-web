@@ -12,12 +12,10 @@
   flex-direction: column;
   gap: 0.75rem;
   padding-top: 1.5rem;
-  border-top: 2px solid var(--ink);
 }
 
 .legGroup:first-child {
   padding-top: 0;
-  border-top: none;
 }
 
 .legHeader {

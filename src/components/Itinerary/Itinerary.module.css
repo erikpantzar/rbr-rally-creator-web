@@ -64,6 +64,62 @@
   overflow-x: auto;
 }
 
+/* rbr-rally-creator-web#144: leg header's hover-revealed actions (add
+   stage, add service, remove leg). Opacity (not display/visibility) keeps
+   every button focusable and reachable by keyboard even while invisible --
+   same reveal trick StageBrick.module.css's .deleteCorner uses. Pinned
+   fully visible (legActionsRowPinned) when hiding it would strand the
+   user: the remove-confirm bubble is open, or the leg has no stages and
+   this row is its only way to gain one. The (hover: none) branch keeps it
+   visible on touch devices, which have no reliable hover state to reveal
+   it with. */
+.legActionsRow {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.legHeader:hover .legActionsRow,
+.legActionsRow:focus-within {
+  opacity: 1;
+}
+
+.legActionsRowPinned {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .legActionsRow {
+    opacity: 1;
+  }
+}
+
+.legActionButton {
+  border: 1px dashed var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+  font-family: inherit;
+  padding: 0.25rem 0.55rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.legActionButton:hover:not(:disabled) {
+  border-color: var(--highlight-border);
+  color: var(--highlight-fg);
+  background: var(--highlight-bg);
+}
+
+.legActionButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .legRemoveButton {
   border: none;
   background: transparent;
@@ -98,7 +154,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-  width: 17rem;
+  width: 18.5rem;
   padding: 0.75rem;
   background: var(--card);
   border: 1px solid var(--accent);
@@ -137,14 +193,48 @@
   border-color: var(--accent);
 }
 
+/* rbr-rally-creator-web#143: this is now the confirmation bubble's SAFE,
+   default choice (merging stages into a neighbor rather than destroying
+   them) -- styled as a primary/accent button so it's the one the eye lands
+   on, matching this app's general "solid accent = interactive/primary"
+   language rather than the danger colors it used to borrow when it was the
+   bubble's only action. */
 .legRemoveBubbleConfirm {
-  border: 1px solid var(--danger-fg);
-  background: var(--danger-bg);
-  color: var(--danger-fg);
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
   font-weight: 600;
 }
 
 .legRemoveBubbleConfirm:hover {
+  filter: brightness(1.05);
+}
+
+/* Deliberately its own row below a divider, not a third button beside
+   Cancel/Move above -- spatial separation plus the danger color pairing is
+   what keeps this from reading as "just another option" next to the safe
+   default (see LegRemoveConfirmBubble's own comment in Itinerary.jsx). */
+.legRemoveBubbleDangerZone {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--border);
+}
+
+.legRemoveBubbleDelete {
+  border: 1px solid var(--danger-fg);
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  border-radius: 0;
+  font-size: 0.76rem;
+  font-family: inherit;
+  font-weight: 600;
+  padding: 0.35rem 0.6rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.legRemoveBubbleDelete:hover {
   filter: brightness(1.05);
 }
 

@@ -4,7 +4,11 @@ import { Itinerary } from '../Itinerary/Itinerary.jsx';
 import { ServiceEntryForm } from '../ServiceEntryForm/ServiceEntryForm.jsx';
 import { StageEntryEditor } from '../StageEntryEditor/StageEntryEditor.jsx';
 import { StagePicker } from '../StagePicker/StagePicker.jsx';
-import { resolveWorkspaceSelection, workspaceSelectionKey } from '../../lib/pickerWorkspace.js';
+import {
+  resolveWorkspaceSelection,
+  resolveSelectionAfterDelete,
+  workspaceSelectionKey,
+} from '../../lib/pickerWorkspace.js';
 import { getRecentServiceConfigs } from '../../lib/rallyPlan.js';
 import styles from './PickerWorkspace.module.css';
 
@@ -86,6 +90,7 @@ export function PickerWorkspace({
   initialSelection,
   onUpdateStage,
   onUpdateService,
+  onDeleteStage,
   onAddStage,
   onAddServiceToStage,
   onAddLegFromWorkspace,
@@ -147,6 +152,21 @@ export function PickerWorkspace({
     return entry._label || catalogStage?.name || 'Unassigned stage';
   }
 
+  // rbr-rally-creator-web#141: the stage editor pane's delete affordance.
+  // The next selection is computed from the CURRENT (pre-delete) stagePlan/
+  // legSchedule props via resolveSelectionAfterDelete -- it has to happen
+  // in this same tick, since onDeleteStage's actual mutation round-trips
+  // async through RoadBook/RallyBuilder, and resolveWorkspaceSelection's
+  // generic stale-uid fallback (always leg 0) would otherwise yank the user
+  // to a leg they weren't even looking at. No confirm step: this reuses
+  // RoadBook's existing handleDeleteStage undo-toast path unchanged (same
+  // as the road book's own StageBrick cross, which also has none).
+  function handleDeleteStage(uid) {
+    const nextSelection = resolveSelectionAfterDelete(stagePlan, legSchedule, uid);
+    onDeleteStage(uid);
+    setSelection(nextSelection);
+  }
+
   // rbr-rally-creator-web#107: the stage editor pane's "+ Add service after
   // this stage" shortcut. Unlike handleAddCardSelect above, this DOES jump
   // selection -- onAddServiceToStage assigns the service in one call (no
@@ -199,6 +219,7 @@ export function PickerWorkspace({
               stagePlanCounts={stagePlanCounts}
               onAddService={handleAddServiceShortcut}
               onAddLeg={handleAddLegShortcut}
+              onDelete={() => handleDeleteStage(resolved.uid)}
             />
           </div>
         </>

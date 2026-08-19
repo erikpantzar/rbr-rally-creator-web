@@ -2,7 +2,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  min-width: 11rem;
+  min-width: 13rem;
   padding: 0.35rem 0.7rem;
   background: var(--accent-soft-bg);
   border-radius: 0;
@@ -190,7 +190,7 @@
   flex-wrap: wrap;
   align-items: baseline;
   gap: 0.3rem 0.6rem;
-  min-width: 11rem;
+  min-width: 13rem;
   padding: 0.4rem 0.7rem;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -200,4 +200,82 @@
 
 .brickLocked .surfaceGlyph {
   background: var(--muted);
+}
+
+/* rbr-rally-creator-web#142: option-availability badges (tyre/setup change)
+   -- "on" stays neutral ink (nothing to flag), "off" gets the issue's own
+   "make it red" treatment via --danger-bg/--danger-fg, PLUS a diagonal bar
+   drawn over the icon itself so "not allowed" is a distinct glyph shape,
+   not just a color swap a colorblind reader could miss. One shared rule
+   handles the slash for every icon passed in rather than baking it into
+   each SVG separately. */
+.optionBadge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  flex-shrink: 0;
+}
+
+.optionBadgeOn {
+  color: var(--ink-soft);
+}
+
+.optionBadgeOff {
+  color: var(--danger-fg);
+  background: var(--danger-bg);
+}
+
+.optionBadgeOff::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 44%, currentColor 44%, currentColor 56%, transparent 56%);
+  pointer-events: none;
+}
+
+/* Weather/wetness fact badges -- icon + short label, sharing one layout
+   rule. Tone classes only ever shift ink weight (muted -> ink-soft -> ink
+   as conditions get more "notable"), never hue: the icon SHAPE (sun vs.
+   rain-cloud vs. snow-cloud, and the wetness gauge's bar count) is what
+   actually carries rain/snow and dry/damp/wet apart, so the badges stay
+   readable without relying on color at all. */
+.factBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  white-space: nowrap;
+}
+
+.factBadge svg {
+  flex-shrink: 0;
+}
+
+.weatherDry,
+.wetness1,
+.weatherUnknown {
+  color: var(--muted);
+}
+
+.weatherRain,
+.weatherSnow,
+.wetness2 {
+  color: var(--ink-soft);
+}
+
+.wetness3 {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* rbr-rally-creator-web#142: "put the distance furthest to the right" --
+   margin-left: auto pins it to the end of whichever line it lands on
+   inside the wrapping meta group, the same trick Itinerary's compact leg
+   row already uses for its own trailing km figure. */
+.distanceMeta {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--ink);
 }

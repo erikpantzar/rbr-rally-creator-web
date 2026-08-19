@@ -20,6 +20,188 @@ function surfaceGlyph(surface) {
   return SURFACE_GLYPHS[surface.toLowerCase()] ?? surface[0].toUpperCase();
 }
 
+// rbr-rally-creator-web#142: tracksettings_id is a free-text "<TimeOfDay>
+// <CloudCover> <Condition>" string straight from the catalog (e.g. "Morning
+// HeavyCloud HeavyRain", "Noon LightCloud NoRain") -- there's no separate
+// structured precipitation field to read instead. "NoRain"/"NoSnow" are
+// real catalog values (a stage's weather options include the *absence* of
+// rain/snow as its own entry), so a bare `.includes('Rain')` would
+// misclassify them -- both branches rule those out explicitly.
+function classifyWeather(tracksettingsId) {
+  if (!tracksettingsId) return 'unknown';
+  if (tracksettingsId.includes('Rain') && !tracksettingsId.includes('NoRain')) return 'rain';
+  if (tracksettingsId.includes('Snow') && !tracksettingsId.includes('NoSnow')) return 'snow';
+  return 'dry';
+}
+
+const WEATHER_LABELS = { rain: 'Rain', snow: 'Snow', dry: 'Dry', unknown: 'Weather' };
+
+// wetness_id is already one of these three catalog values verbatim -- this
+// map only turns it into the wetness gauge's fill count (see WetnessGlyph),
+// not a reinterpretation of the value itself.
+const WETNESS_LEVELS = { dry: 1, damp: 2, wet: 3 };
+
+function wetnessLabel(wetnessId) {
+  if (!wetnessId) return 'Unknown';
+  return wetnessId[0].toUpperCase() + wetnessId.slice(1);
+}
+
+// Small line-icon set, hand-drawn as plain SVG primitives (circles/lines/
+// rects) rather than fragile bezier paths -- forgiving geometry that stays
+// legible at the brick's compact badge size without pulling in an external
+// icon library for four glyphs.
+function TyreGlyph() {
+  return (
+    <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true" focusable="false">
+      <circle cx="8" cy="8" r="5.4" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+      <line x1="8" y1="2" x2="8" y2="4.3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <line x1="8" y1="11.7" x2="8" y2="14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <line x1="2" y1="8" x2="4.3" y2="8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <line x1="11.7" y1="8" x2="14" y2="8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SetupGlyph() {
+  return (
+    <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true" focusable="false">
+      <line x1="2" y1="4" x2="14" y2="4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      <circle cx="6.2" cy="4" r="1.6" fill="currentColor" />
+      <line x1="2" y1="8.4" x2="14" y2="8.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      <circle cx="10.4" cy="8.4" r="1.6" fill="currentColor" />
+      <line x1="2" y1="12.8" x2="14" y2="12.8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      <circle cx="5" cy="12.8" r="1.6" fill="currentColor" />
+    </svg>
+  );
+}
+
+// One glyph body covers all four weather states: a filled cloud blob (or a
+// sun for 'dry') plus a row of marks underneath that differ by SHAPE, not
+// just color, so rain/snow stay distinguishable without relying on hue
+// (rbr-rally-creator-web#142's colorblind-safety requirement).
+function WeatherGlyph({ variant }) {
+  if (variant === 'dry') {
+    return (
+      <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true" focusable="false">
+        <circle cx="8" cy="8" r="2.6" fill="currentColor" />
+        <line x1="8" y1="1.6" x2="8" y2="3.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+        <line x1="8" y1="12.6" x2="8" y2="14.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+        <line x1="1.6" y1="8" x2="3.4" y2="8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+        <line x1="12.6" y1="8" x2="14.4" y2="8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true" focusable="false">
+      <circle cx="5.6" cy="7.6" r="2.3" fill="currentColor" />
+      <circle cx="8.6" cy="6.4" r="2.9" fill="currentColor" />
+      <circle cx="11.1" cy="8" r="2" fill="currentColor" />
+      <rect x="4" y="7.6" width="8.5" height="2.6" rx="1.3" fill="currentColor" />
+      {variant === 'rain' ? (
+        <>
+          <line x1="6" y1="12" x2="5" y2="14.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          <line x1="9" y1="12" x2="8" y2="14.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          <line x1="12" y1="12" x2="11" y2="14.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+        </>
+      ) : (
+        <>
+          <circle cx="5.6" cy="13.3" r="0.9" fill="currentColor" />
+          <circle cx="8.6" cy="13.3" r="0.9" fill="currentColor" />
+          <circle cx="11.6" cy="13.3" r="0.9" fill="currentColor" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+// Signal-strength-style gauge: `level` bars filled solid, the rest outlined
+// only -- the bar COUNT is the signal (colorblind-safe by construction),
+// color is just a secondary weight cue layered on top.
+function WetnessGlyph({ level }) {
+  const bars = [1, 2, 3];
+  return (
+    <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true" focusable="false">
+      {bars.map((bar, i) => {
+        const height = 4 + i * 3.5;
+        return (
+          <rect
+            key={bar}
+            x={2.5 + i * 4}
+            y={14 - height}
+            width="2.6"
+            height={height}
+            fill={bar <= level ? 'currentColor' : 'none'}
+            stroke="currentColor"
+            strokeWidth="1"
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
+// rbr-rally-creator-web#142: the issue's own ask ("make it red if not
+// available") -- but color is never the only signal. `.optionBadgeOff`'s
+// diagonal bar (StageBrick.module.css) draws over whichever glyph is
+// passed in, so "not allowed" reads as a distinct SHAPE (icon-with-slash)
+// layered on the red tint, not just a hue swap a colorblind user could miss.
+function OptionBadge({ allowed, label, children }) {
+  const className = [styles.optionBadge, allowed ? styles.optionBadgeOn : styles.optionBadgeOff].join(' ');
+  const text = `${label}: ${allowed ? 'allowed' : 'not allowed'}`;
+  return (
+    <span className={className} title={text} aria-label={text}>
+      {children}
+    </span>
+  );
+}
+
+function FactBadge({ tone, title, icon, children }) {
+  return (
+    <span className={[styles.factBadge, styles[tone]].join(' ')} title={title}>
+      {icon}
+      <span>{children}</span>
+    </span>
+  );
+}
+
+// Shared by the editable brick and its locked/DragOverlay twin so the two
+// never drift -- everything the issue (#142) asked to see lives here once:
+// tyre/setup availability, weather, surface wetness, tyre compound, and
+// finally distance pinned to the row's right edge (.distanceMeta's
+// margin-left: auto in StageBrick.module.css) regardless of how the rest
+// wraps.
+function StageMetaGroup({ stage, value }) {
+  const weather = classifyWeather(value.tracksettings_id);
+  const wetnessLevel = WETNESS_LEVELS[value.wetness_id] ?? 0;
+  const weatherTone = `weather${weather[0].toUpperCase()}${weather.slice(1)}`;
+  const wetnessTone = `wetness${wetnessLevel || 1}`;
+  return (
+    <span className={styles.stageMetaGroup}>
+      <OptionBadge allowed={value.choose_tyre} label="Tyre change">
+        <TyreGlyph />
+      </OptionBadge>
+      <OptionBadge allowed={value.choose_setup} label="Setup change">
+        <SetupGlyph />
+      </OptionBadge>
+      <FactBadge tone={weatherTone} title={value.tracksettings_id || 'Unknown weather'} icon={<WeatherGlyph variant={weather} />}>
+        {WEATHER_LABELS[weather]}
+      </FactBadge>
+      <FactBadge
+        tone={wetnessTone}
+        title={`Surface: ${wetnessLabel(value.wetness_id)}`}
+        icon={<WetnessGlyph level={wetnessLevel} />}
+      >
+        {wetnessLabel(value.wetness_id)}
+      </FactBadge>
+      {value.def_tyre_id && <span className={styles.stageMeta}>{value.def_tyre_id}</span>}
+      {stage && (
+        <span className={[styles.stageMeta, styles.distanceMeta].join(' ')}>{formatKm(parseStageKm(stage))}</span>
+      )}
+    </span>
+  );
+}
+
 // rbr-rally-creator-web#64: per the maintainer's own comment on the issue,
 // an optional per-stage nickname (`_label`, set via StageConfigModal's
 // "Nickname (optional)" field) is a purely local planning label -- never
@@ -110,11 +292,7 @@ export function StageBrick({
             Hidden: {lockedNames.hidden}
           </span>
         )}
-        <span className={styles.stageMetaGroup}>
-          {stage && <span className={styles.stageMeta}>{formatKm(parseStageKm(stage))}</span>}
-          <span className={styles.stageMeta}>{value.tracksettings_id}</span>
-          <span className={styles.stageMeta}>{value.def_tyre_id}</span>
-        </span>
+        <StageMetaGroup stage={stage} value={value} />
       </div>
     );
   }
@@ -190,11 +368,7 @@ export function StageBrick({
             Hidden: {brickNames.hidden}
           </span>
         )}
-        <span className={styles.stageMetaGroup}>
-          {stage && <span className={styles.stageMeta}>{formatKm(parseStageKm(stage))}</span>}
-          <span className={styles.stageMeta}>{value.tracksettings_id}</span>
-          <span className={styles.stageMeta}>{value.def_tyre_id}</span>
-        </span>
+        <StageMetaGroup stage={stage} value={value} />
       </button>
     </div>
   );

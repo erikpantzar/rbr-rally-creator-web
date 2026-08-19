@@ -273,7 +273,12 @@ through RoadBook callbacks).
   overlay inside the workspace.
 - **D6 — v1 sidebar is NAVIGATION-ONLY (resolves Q8, Q13, Q14).** Drag-to-reorder and add
   buttons (per-leg "+ stage", "+ leg") are confirmed wanted, but as later, additive phases
-  (see Phase 4). Delete-from-sidebar is explicitly OUT — not selected.
+  (see Phase 4). Delete-from-sidebar is explicitly OUT — not selected. **Superseded in part
+  by rbr-rally-creator-web#141**: the sidebar itself still has no delete row (that half of D6
+  stands), but the stage editor pane now has a "Delete this stage" affordance — issue #141
+  found that with no delete path inside the workspace at all, the only way to remove a stage
+  was to back all the way out to the road book's own StageBrick cross. Reuses
+  RoadBook.handleDeleteStage unchanged (same undo toast), so it isn't a second delete path.
 - **D7 — Next/prev deferred (resolves Q9; closes sibling idea #2).** The original idea turned
   out to be next/previous LEG, not stage, and the user expects the sidebar to cover it.
   Revisit after v1 — likely already satisfied by sidebar navigation.

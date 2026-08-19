@@ -53,6 +53,16 @@ import styles from './StageEntryEditor.module.css';
 // prop) and its own selection jump -- this component doesn't know or care
 // what "jump" means, it just triggers the callback the same as any other
 // button here.
+//
+// `onDelete` (rbr-rally-creator-web#141): same optional/omit-when-absent
+// contract as the two shortcuts above -- PickerWorkspace's stage pane is
+// the only caller that passes it, so a bare "delete cross"-style click just
+// calls it straight through (no local confirm state), matching the road
+// book's own StageBrick delete cross (no confirm there either, just its
+// undo toast). Rendered as its own row, visually separated from the
+// add-oriented shortcuts above it (danger styling vs. the constructive
+// dashed-outline language .shortcutButton uses) so it doesn't read as one
+// more "add" option in that row.
 export function StageEntryEditor({
   value,
   onChange,
@@ -66,6 +76,7 @@ export function StageEntryEditor({
   stagePlanCounts,
   onAddService,
   onAddLeg,
+  onDelete,
 }) {
   // Only meaningful in 'affordance' mode -- whether the one-shot replace
   // picker is currently open. Per-mount state is correct here the same way
@@ -414,6 +425,21 @@ export function StageEntryEditor({
               + Add leg
             </button>
           )}
+        </div>
+      )}
+
+      {/* rbr-rally-creator-web#141: lets the workspace's stage pane delete
+          the stage it's showing, without backing all the way out to the
+          road book to find its StageBrick cross (the only other way to
+          delete a stage before this). No confirm dialog -- the road book's
+          own cross doesn't have one either, relying entirely on
+          RoadBook.handleDeleteStage's 5s undo toast, which this reuses
+          unchanged (RoadBook.jsx's handleDeleteStageFromWorkspace). */}
+      {onDelete && (
+        <div className={styles.deleteRow}>
+          <button type="button" className={styles.deleteButton} onClick={onDelete}>
+            Delete this stage
+          </button>
         </div>
       )}
     </>

@@ -77,19 +77,34 @@ function SortableCompactRow({ sortableId, sortableType, className, children, ...
   );
 }
 
-function LegRemoveConfirmBubble({ legIndex, stageCount, targetLegIndex, onConfirm, onCancel }) {
+// rbr-rally-creator-web#143: two choices now that a leg has stages to lose --
+// the pre-existing safe merge (onConfirmMove, kept as the visually primary
+// action per the issue's UX call) and a new destructive delete
+// (onConfirmDelete). The delete action sits below a divider in its own row
+// rather than beside Move/Cancel, deliberately separated in both spatial
+// position and color language (legRemoveBubbleDelete's danger styling vs.
+// legRemoveBubbleConfirm's primary/accent one below) so a reflexive click
+// can't land on "permanently delete" by muscle memory from the old
+// single-button layout.
+function LegRemoveConfirmBubble({ legIndex, stageCount, targetLegIndex, onConfirmMove, onConfirmDelete, onCancel }) {
   return (
     <div className={styles.legRemoveBubble} role="dialog" aria-label={`Remove Leg ${legIndex + 1}?`}>
       <p className={styles.legRemoveBubbleText}>
         Leg {legIndex + 1} has {stageCount} stage{stageCount === 1 ? '' : 's'}. Move{' '}
-        {stageCount === 1 ? 'it' : 'them'} into Leg {targetLegIndex + 1} and remove Leg {legIndex + 1}?
+        {stageCount === 1 ? 'it' : 'them'} into Leg {targetLegIndex + 1}, or delete{' '}
+        {stageCount === 1 ? 'it' : 'them'} along with the leg.
       </p>
       <div className={styles.legRemoveBubbleActions}>
         <button type="button" className={styles.legRemoveBubbleCancel} onClick={onCancel}>
           Cancel
         </button>
-        <button type="button" className={styles.legRemoveBubbleConfirm} onClick={onConfirm}>
+        <button type="button" className={styles.legRemoveBubbleConfirm} onClick={onConfirmMove}>
           Move stages &amp; remove
+        </button>
+      </div>
+      <div className={styles.legRemoveBubbleDangerZone}>
+        <button type="button" className={styles.legRemoveBubbleDelete} onClick={onConfirmDelete}>
+          Delete leg &amp; {stageCount} stage{stageCount === 1 ? '' : 's'} permanently
         </button>
       </div>
     </div>
@@ -107,18 +122,25 @@ function LegRemoveConfirmBubble({ legIndex, stageCount, targetLegIndex, onConfir
 //   detail="full"    -- the editable road book: one shared open/close
 //                        control above the leg list drives every leg still
 //                        following the default (rbr-rally-creator-web#127);
-//                        each leg header carries a remove button and --
-//                        only once it's broken sync -- its own independent
-//                        open/close inputs. Super Rally is a single
-//                        rally-wide control in RallyBasicsForm
-//                        (rbr-rally-creator-web#123), not per leg. Stages
-//                        render as StageBrick with edit/delete, assigned
-//                        services render as ServiceBlock with click/clear.
-//                        Drag reorders stages (within/across legs) and
-//                        drags a service block to reassign it to a
-//                        different stage; deleting a stage is a click on
-//                        its StageBrick's delete cross, never a drag
-//                        gesture (rbr-rally-creator-web#121 removed the old
+//                        each leg header carries a hover/focus-revealed
+//                        actions row -- add stage, add service, remove leg
+//                        (rbr-rally-creator-web#144) -- and, only once it's
+//                        broken sync, its own independent open/close
+//                        inputs. Super Rally is a single rally-wide control
+//                        in RallyBasicsForm (rbr-rally-creator-web#123),
+//                        not per leg. Stages render as StageBrick with
+//                        edit/delete, assigned services render as
+//                        ServiceBlock with click/clear. The standalone "+
+//                        Add stage" brick and unassigned-service
+//                        placeholder only ever appear in the last leg now
+//                        (#144) -- every other leg's header actions row is
+//                        the sole path to either, so it must stay reachable
+//                        by hover, focus, and touch alike. Drag reorders
+//                        stages (within/across legs) and drags a service
+//                        block to reassign it to a different stage;
+//                        deleting a stage is a click on its StageBrick's
+//                        delete cross, never a drag gesture
+//                        (rbr-rally-creator-web#121 removed the old
 //                        drag-to-remove zone -- too easy to hit by accident
 //                        while reordering).
 //   detail="compact"  -- PickerWorkspace's sidebar: rows are plain nav
@@ -151,6 +173,7 @@ export function Itinerary({
   onReassignService,
   removeConfirm,
   onConfirmRemoveLeg,
+  onConfirmRemoveLegWithStages,
   onCancelRemoveLeg,
   rallyTotal = false,
   addLegDisabled = false,
@@ -356,8 +379,23 @@ export function Itinerary({
     );
   }
 
+  // rbr-rally-creator-web#144: the leg's per-row actions (add stage/add
+  // service/remove leg) -- revealed on hover/focus of the header rather
+  // than sitting permanently in the stage list (that's now reserved for
+  // the rally-end affordances in the main map below). Pinned open
+  // (legActionsRowPinned) whenever hiding it would strand the user: the
+  // remove-confirm bubble is mid-conversation, or the leg is empty and this
+  // row is its only way to gain a stage.
   function renderFullLegHeader(legIndex, legStages, legTotalKm, leg) {
     const synced = isLegSynced(leg);
+    const removeConfirmOpenForThisLeg = removeConfirm?.legIndex === legIndex;
+    // rbr-rally-creator-web#144: same target resolution as the rally-end
+    // "No Service" placeholder below (lastUnassignedServiceStageUid) --
+    // null means every stage in this leg already has a service, or is the
+    // rally's true final stage (which normalizeLastStageService forbids a
+    // service on), so the button disables rather than opening a modal that
+    // has nothing valid to attach to.
+    const addServiceTargetUid = lastUnassignedServiceStageUid(legIndex);
     return (
       <div className={styles.legHeader}>
         <h4>
@@ -375,26 +413,48 @@ export function Itinerary({
           </div>
         ) : (
           <>
-            <div className={styles.legRemoveWrap}>
+            <div
+              className={[
+                styles.legActionsRow,
+                removeConfirmOpenForThisLeg || legStages.length === 0 ? styles.legActionsRowPinned : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              <button type="button" className={styles.legActionButton} onClick={() => onAddStage(legIndex)}>
+                + Stage
+              </button>
               <button
                 type="button"
-                className={styles.legRemoveButton}
-                disabled={legSchedule.length <= 1}
-                aria-label={legSchedule.length <= 1 ? `Can't remove Leg ${legIndex + 1} -- it's the only leg` : `Remove Leg ${legIndex + 1}`}
-                title={legSchedule.length <= 1 ? "Can't remove the only leg" : `Remove Leg ${legIndex + 1}`}
-                onClick={() => onRemoveLeg(legIndex)}
+                className={styles.legActionButton}
+                disabled={!addServiceTargetUid}
+                title={addServiceTargetUid ? `Add service to Leg ${legIndex + 1}` : 'No stage in this leg can take a service'}
+                onClick={() => onOpenService(addServiceTargetUid)}
               >
-                ×
+                + Service
               </button>
-              {removeConfirm?.legIndex === legIndex && (
-                <LegRemoveConfirmBubble
-                  legIndex={removeConfirm.legIndex}
-                  stageCount={removeConfirm.stageCount}
-                  targetLegIndex={removeConfirm.targetLegIndex}
-                  onConfirm={onConfirmRemoveLeg}
-                  onCancel={onCancelRemoveLeg}
-                />
-              )}
+              <div className={styles.legRemoveWrap}>
+                <button
+                  type="button"
+                  className={styles.legRemoveButton}
+                  disabled={legSchedule.length <= 1}
+                  aria-label={legSchedule.length <= 1 ? `Can't remove Leg ${legIndex + 1} -- it's the only leg` : `Remove Leg ${legIndex + 1}`}
+                  title={legSchedule.length <= 1 ? "Can't remove the only leg" : `Remove Leg ${legIndex + 1}`}
+                  onClick={() => onRemoveLeg(legIndex)}
+                >
+                  ×
+                </button>
+                {removeConfirmOpenForThisLeg && (
+                  <LegRemoveConfirmBubble
+                    legIndex={removeConfirm.legIndex}
+                    stageCount={removeConfirm.stageCount}
+                    targetLegIndex={removeConfirm.targetLegIndex}
+                    onConfirmMove={onConfirmRemoveLeg}
+                    onConfirmDelete={onConfirmRemoveLegWithStages}
+                    onCancel={onCancelRemoveLeg}
+                  />
+                )}
+              </div>
             </div>
             <div className={styles.legInputs}>
               {synced ? (
@@ -538,6 +598,11 @@ export function Itinerary({
           const legStages = stagePlan.slice(startIndex, endIndex);
           const leg = legSchedule[legIndex];
           const legTotalKm = sumStagePlanKm(legStages, stageByCatalogId);
+          // rbr-rally-creator-web#144: the standalone "+ Add stage" brick and
+          // "No Service" placeholder now live only at the natural end of the
+          // rally (the last leg) -- every other leg's only path to either is
+          // the header's hover actions row (renderFullLegHeader above).
+          const isLastLeg = legIndex === legRanges.length - 1;
 
           return (
             <div key={legIndex} className={isFull ? styles.legGroup : styles.compactLegGroup}>
@@ -584,31 +649,39 @@ export function Itinerary({
 
                     {!locked && (
                       <>
-                        {(() => {
-                          const targetUid = lastUnassignedServiceStageUid(legIndex);
-                          if (!targetUid) return null;
-                          return (
-                            <div className={styles.serviceBlockWrap}>
-                              <ServiceBlock serviceTime="No Service" onClick={() => onOpenService(targetUid)} fullWidth />
-                            </div>
-                          );
-                        })()}
+                        {isLastLeg &&
+                          (() => {
+                            const targetUid = lastUnassignedServiceStageUid(legIndex);
+                            if (!targetUid) return null;
+                            return (
+                              <div className={styles.serviceBlockWrap}>
+                                <ServiceBlock serviceTime="No Service" onClick={() => onOpenService(targetUid)} fullWidth />
+                              </div>
+                            );
+                          })()}
 
-                        <button
-                          type="button"
-                          className={[styles.addStageBrick, legStages.length === 0 ? styles.addStageBrickEmpty : '']
-                            .filter(Boolean)
-                            .join(' ')}
-                          onClick={() => onAddStage(legIndex)}
-                        >
-                          + Add stage
-                        </button>
-
-                        {legStages.length === 0 && (
-                          <p className={styles.emptyLegHint} aria-hidden="true">
-                            Add your first stage &rarr;
-                          </p>
+                        {isLastLeg && (
+                          <button
+                            type="button"
+                            className={[styles.addStageBrick, legStages.length === 0 ? styles.addStageBrickEmpty : '']
+                              .filter(Boolean)
+                              .join(' ')}
+                            onClick={() => onAddStage(legIndex)}
+                          >
+                            + Add stage
+                          </button>
                         )}
+
+                        {legStages.length === 0 &&
+                          (isLastLeg ? (
+                            <p className={styles.emptyLegHint} aria-hidden="true">
+                              Add your first stage &rarr;
+                            </p>
+                          ) : (
+                            <p className={styles.emptyLegHint} aria-hidden="true">
+                              Hover Leg {legIndex + 1}&apos;s header above to add a stage &uarr;
+                            </p>
+                          ))}
                       </>
                     )}
                   </LegDropContainer>

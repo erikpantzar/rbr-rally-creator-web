@@ -162,6 +162,36 @@ export function applyAddLeg(legSchedule) {
   return { legSchedule: nextLegSchedule, legIndex };
 }
 
+// rbr-rally-creator-web#141: what the workspace should select right after
+// deleting the stage at `uid` -- computed from the plan as it stood BEFORE
+// the delete (the caller's still-current props/closure), since the actual
+// mutation round-trips async through RoadBook/RallyBuilder and the pane
+// needs a same-tick answer to hand setSelection, not a guess derived after
+// the fact from resolveWorkspaceSelection's generic stale-uid fallback
+// (which always lands on leg 0 -- jarring if the deleted stage was in leg
+// 3). Preference order, all within the SAME leg the deleted stage lived in
+// (jumping to a different leg on delete would be its own surprise):
+//   1. the next stage in the leg (it slides into the deleted one's slot)
+//   2. the previous stage in the leg (nothing left after it)
+//   3. that leg's own context (it was the leg's only stage)
+// Falls back to leg 0 only if `uid` isn't in the plan at all -- shouldn't
+// happen from the UI (the delete affordance only ever targets the entry
+// it's rendered for), kept purely defensive.
+export function resolveSelectionAfterDelete(stagePlan, legSchedule, uid) {
+  const fallback = { type: 'leg', legIndex: 0 };
+  const index = stagePlan.findIndex((s) => s._uid === uid);
+  if (index === -1) return fallback;
+
+  const ranges = computeLegStageRanges(legSchedule);
+  const legIndex = ranges.findIndex(({ startIndex, endIndex }) => index >= startIndex && index < endIndex);
+  if (legIndex === -1) return fallback;
+
+  const { startIndex, endIndex } = ranges[legIndex];
+  if (index + 1 < endIndex) return { type: 'stage', uid: stagePlan[index + 1]._uid };
+  if (index - 1 >= startIndex) return { type: 'stage', uid: stagePlan[index - 1]._uid };
+  return { type: 'leg', legIndex };
+}
+
 export function applyReorderStage(stagePlan, legSchedule, uid, destLegIndex, destIndex) {
   const ranges = computeLegStageRanges(legSchedule);
   const containers = ranges.map(({ startIndex, endIndex }) =>

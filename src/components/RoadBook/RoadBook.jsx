@@ -341,6 +341,21 @@ export function RoadBook({
     onStagePlanChange(applyServiceFieldsUpdate(stagePlan, uid, serviceFields));
   }
 
+  // rbr-rally-creator-web#141: lets PickerWorkspace's stage editor pane
+  // delete the stage it's showing, without a parallel delete path.
+  // PickerWorkspace only ever knows the stage's uid (it has no reason to
+  // track legIndex/indexInLeg the way the road book's own StageBrick does),
+  // so this derives both from the live plan via the same legRanges the road
+  // book renders from and delegates straight to handleDeleteStage -- same
+  // atomic stagePlan-filter + stage_count-decrement, same undo toast.
+  function handleDeleteStageFromWorkspace(uid) {
+    const index = stagePlan.findIndex((s) => s._uid === uid);
+    if (index === -1) return;
+    const legIndex = legRanges.findIndex(({ startIndex, endIndex }) => index >= startIndex && index < endIndex);
+    if (legIndex === -1) return;
+    handleDeleteStage(legIndex, index - legRanges[legIndex].startIndex, stagePlan[index]);
+  }
+
   // Phase 2 (#107, D2/D3/D4): PickerWorkspace's click-to-add. `legIndex` is
   // the caller's cursor -- the selected entry's leg per D3 -- and `stageId`
   // is whichever catalog card was clicked; this builds the same
@@ -489,6 +504,11 @@ export function RoadBook({
           clears modalState -- nothing pending to save or discard. Position
           facts (stageNumber, isLastStage) are derived live inside the
           workspace from the plan, not frozen at open time (plan doc R5).
+          onDeleteStage (rbr-rally-creator-web#141) reuses this same
+          handleDeleteStage/undo-toast path the road book's own StageBrick
+          cross uses -- see handleDeleteStageFromWorkspace above for why
+          the doc's D6 "no delete from sidebar" call doesn't apply here
+          (that decision was about the sidebar, this is the editor pane).
           onAddServiceToStage/onAddLegFromWorkspace: the stage editor pane's
           two contextual shortcuts ("+ Add service after this stage", "+ Add
           leg") -- unlike the picker-add flow above, these two DO jump the
@@ -509,6 +529,7 @@ export function RoadBook({
           }
           onUpdateStage={handleUpdateStage}
           onUpdateService={handleUpdateService}
+          onDeleteStage={handleDeleteStageFromWorkspace}
           onAddStage={handleAddStageFromWorkspace}
           onAddServiceToStage={handleAddServiceToStage}
           onAddLegFromWorkspace={handleAddLegFromWorkspace}

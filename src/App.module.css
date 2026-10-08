@@ -146,3 +146,21 @@
 .muted {
   color: var(--muted);
 }
+
+.loginOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.loginOption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.loginHeading {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--ink);
+}

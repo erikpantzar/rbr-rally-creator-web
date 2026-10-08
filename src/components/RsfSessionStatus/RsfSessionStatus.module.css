@@ -1,0 +1,37 @@
+.status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.badge {
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--success-fg);
+  background: var(--success-bg);
+  color: var(--success-fg);
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.badge[data-status='expired'] {
+  border-color: var(--danger-fg);
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+}
+
+.status button {
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.status button:hover {
+  border-color: var(--ink-soft);
+}

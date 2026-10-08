@@ -649,3 +649,5 @@ export const MOCK_RALLY_OPTIONS = {
     "Expert"
   ]
 };
+
+export const MOCK_RSF_SESSION = { saved: true, status: 'valid', username: 'mock-driver' };

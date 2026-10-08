@@ -13,3 +13,10 @@ export const getCredentialsStatus = (baseUrl) => request(baseUrl, '/auth/credent
 
 export const clearCredentials = (baseUrl) =>
   request(baseUrl, '/auth/credentials', { method: 'DELETE' });
+
+export const saveRsfSession = (baseUrl, rememberMe, deviceId) =>
+  request(baseUrl, '/auth/rsf-session', { method: 'POST', body: { rememberMe, deviceId } });
+
+export const getRsfSessionStatus = (baseUrl) => request(baseUrl, '/auth/rsf-session');
+
+export const clearRsfSession = (baseUrl) => request(baseUrl, '/auth/rsf-session', { method: 'DELETE' });

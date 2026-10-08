@@ -1,9 +1,19 @@
 import { useEffect, useState } from 'react';
 import { Routes, Route, Link, NavLink, useLocation, useNavigate } from 'react-router';
 import { getBaseUrl } from './lib/settings.js';
-import { saveCredentials, getCredentialsStatus, clearCredentials } from './lib/authApi.js';
+import {
+  saveCredentials,
+  getCredentialsStatus,
+  clearCredentials,
+  saveRsfSession,
+  getRsfSessionStatus,
+  clearRsfSession,
+} from './lib/authApi.js';
+import { toRsfSessionState, canLogInToRsf } from './lib/rsfSession.js';
 import { CredentialForm } from './components/CredentialForm/CredentialForm.jsx';
 import { CredentialStatus } from './components/CredentialStatus/CredentialStatus.jsx';
+import { RsfSessionForm } from './components/RsfSessionForm/RsfSessionForm.jsx';
+import { RsfSessionStatus } from './components/RsfSessionStatus/RsfSessionStatus.jsx';
 import { RallyBuilder } from './components/RallyBuilder/RallyBuilder.jsx';
 import { ExploreView } from './components/ExploreView/ExploreView.jsx';
 import { OkaTwentyTwo } from './components/OkaTwentyTwo/OkaTwentyTwo.jsx';
@@ -31,6 +41,9 @@ function App() {
   const [credState, setCredState] = useState({ status: 'checking' }); // checking | saved | unsaved
   const [saveError, setSaveError] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [rsfState, setRsfState] = useState({ status: 'checking' });
+  const [rsfError, setRsfError] = useState(null);
+  const [rsfSaving, setRsfSaving] = useState(false);
 
   // rbr-rally-creator-web#46: which saved rally (if any) RallyBuilder should
   // open with. activeRally lives here rather than inside RallyBuilder
@@ -102,6 +115,32 @@ function App() {
       setCredState(res.ok ? { status: 'saved', username: res.username } : { status: 'unsaved' });
     });
   }, [baseUrl]);
+
+  useEffect(() => {
+    if (!baseUrl) {
+      setRsfState({ status: 'missing' });
+      return;
+    }
+    getRsfSessionStatus(baseUrl).then((res) => setRsfState(toRsfSessionState(res)));
+  }, [baseUrl]);
+
+  async function handleSaveRsfSession(rememberMe, deviceId) {
+    setRsfError(null);
+    setRsfSaving(true);
+    const res = await saveRsfSession(baseUrl, rememberMe, deviceId);
+    setRsfSaving(false);
+    if (res.ok) {
+      setRsfState(toRsfSessionState(res));
+    } else {
+      setRsfError(res.reason ?? 'save_failed');
+    }
+  }
+
+  async function handleClearRsfSession() {
+    await clearRsfSession(baseUrl);
+    setRsfError(null);
+    setRsfState({ status: 'missing' });
+  }
 
   async function handleSaveCredentials(username, password) {
     setSaveError(null);
@@ -236,14 +275,32 @@ function App() {
               <RallyBuilder
                 key={activeRally?.id ?? 'new'}
                 baseUrl={baseUrl}
-                credentialsSaved={credState.status === 'saved'}
+                credentialsSaved={canLogInToRsf(credState, rsfState)}
                 initialPayload={activeRally?.payload}
                 credentialsSlot={
-                  credState.status === 'unsaved' ? (
-                    <CredentialForm onSubmit={handleSaveCredentials} submitting={saving} error={saveError} />
-                  ) : (
-                    <CredentialStatus username={credState.username} onClear={handleClearCredentials} />
-                  )
+                  <div className={styles.loginOptions}>
+                    <div className={styles.loginOption}>
+                      <h3 className={styles.loginHeading}>RSF session</h3>
+                      {(rsfState.status === 'valid' || rsfState.status === 'expired') && (
+                        <RsfSessionStatus
+                          status={rsfState.status}
+                          username={rsfState.username}
+                          onClear={handleClearRsfSession}
+                        />
+                      )}
+                      {(rsfState.status === 'missing' || rsfState.status === 'expired') && (
+                        <RsfSessionForm onSubmit={handleSaveRsfSession} submitting={rsfSaving} error={rsfError} />
+                      )}
+                    </div>
+                    <div className={styles.loginOption}>
+                      <h3 className={styles.loginHeading}>Username and password</h3>
+                      {credState.status === 'unsaved' ? (
+                        <CredentialForm onSubmit={handleSaveCredentials} submitting={saving} error={saveError} />
+                      ) : (
+                        <CredentialStatus username={credState.username} onClear={handleClearCredentials} />
+                      )}
+                    </div>
+                  </div>
                 }
               />
             }

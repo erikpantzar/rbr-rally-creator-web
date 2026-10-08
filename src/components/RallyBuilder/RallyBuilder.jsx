@@ -497,7 +497,7 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
         dryRunRequested: dryRun,
       });
     } else if (res.status === 401) {
-      alert('Not authenticated. Please save your credentials first.');
+      alert('Not authenticated. Please save an RSF session or your credentials first.');
       setSubmitting(false);
     } else if (res.status === 400) {
       const details = res.details || ['Unknown error'];
@@ -637,7 +637,7 @@ export function RallyBuilder({ baseUrl, credentialsSaved, initialPayload, creden
   const readinessProblems = [];
   if (!credentialsSaved) {
     readinessProblems.push({
-      message: 'Save your rallysimfans.hu credentials above before creating a rally.',
+      message: 'Save an RSF session or your rallysimfans.hu credentials above before creating a rally.',
       target: SECTION_IDS.credentials,
     });
   }

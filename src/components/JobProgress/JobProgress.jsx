@@ -105,6 +105,9 @@ export function JobProgress({ job, onCancel, cancelRequested }) {
         <div className={styles.error}>
           <h4>Rally creation failed</h4>
           <p>{job.error.message}</p>
+          {job.error.code === 'session_expired' && (
+            <p>Your RSF session expired or was rejected. Paste fresh cookies under General settings → RSF session.</p>
+          )}
           {job.error.mayHaveCreatedPartialRally && (
             <p className={styles.warning_text}>
               This may have partially created a rally on rallysimfans.hu — check the site directly.

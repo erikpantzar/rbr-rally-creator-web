@@ -10,7 +10,7 @@
 // (sets VITE_REAL_API=true). Production builds are never mocked:
 // import.meta.env.DEV is statically false there, so this whole module is
 // dead code in dist.
-import { MOCK_STAGES, MOCK_CAR_GROUPS, MOCK_CARS, MOCK_RALLY_OPTIONS } from './mockData.js';
+import { MOCK_STAGES, MOCK_CAR_GROUPS, MOCK_CARS, MOCK_RALLY_OPTIONS, MOCK_RSF_SESSION } from './mockData.js';
 
 export const USE_MOCK_API = import.meta.env.DEV && import.meta.env.VITE_REAL_API !== 'true';
 
@@ -23,6 +23,7 @@ const delay = (ms = 250) => new Promise((resolve) => setTimeout(resolve, ms));
 // here a module-level variable plays that role. Page refresh forgets them,
 // which is fine -- it just means the credential form shows again.
 let savedUsername = null;
+let savedRsfSession = null;
 
 // --- /rallies + /jobs ----------------------------------------------------
 // One fake Playwright job per POST /rallies. Progress advances one step per
@@ -96,12 +97,30 @@ export async function mockRequest(path, { method = 'GET', body } = {}) {
     return savedUsername ? { ok: true, username: savedUsername } : { ok: false, status: 404 };
   }
 
+  if (path === '/auth/rsf-session') {
+    if (method === 'POST') {
+      if (!body?.rememberMe?.trim() || !body?.deviceId?.trim()) {
+        return { ok: false, status: 400, saved: false, reason: 'missing_cookies' };
+      }
+      if (body.rememberMe.trim() === 'expired') {
+        return { ok: false, status: 401, saved: false, reason: 'session_expired' };
+      }
+      savedRsfSession = { ...MOCK_RSF_SESSION, checkedAt: Date.now() };
+      return { ok: true, ...savedRsfSession };
+    }
+    if (method === 'DELETE') {
+      savedRsfSession = null;
+      return { ok: true, saved: false };
+    }
+    return savedRsfSession ? { ok: true, ...savedRsfSession } : { ok: false, status: 401, saved: false };
+  }
+
   if (path === '/catalog/rally-options') {
     return { ok: true, ...MOCK_RALLY_OPTIONS };
   }
 
   if (path === '/rallies' && method === 'POST') {
-    if (!savedUsername) {
+    if (!savedUsername && !savedRsfSession) {
       return { ok: false, status: 401 };
     }
     const jobId = `mock-job-${nextJobId++}`;

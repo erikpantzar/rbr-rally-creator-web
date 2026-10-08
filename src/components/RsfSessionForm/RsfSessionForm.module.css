@@ -1,0 +1,32 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 24rem;
+}
+
+.form label {
+  font-weight: 600;
+  color: var(--ink);
+  margin-top: 0.5rem;
+}
+
+.help {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.error {
+  margin: 0.25rem 0 0;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--danger-fg);
+  color: var(--danger-fg);
+  font-size: 0.85rem;
+}
+
+.submit {
+  margin-top: 0.75rem;
+  padding: 0.6rem 1.1rem;
+}
